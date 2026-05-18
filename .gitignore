@@ -1,0 +1,7 @@
+vendor/
+sessions/
+.env
+*.log
+test_api.php
+test_all_tools.php
+generated_test/
