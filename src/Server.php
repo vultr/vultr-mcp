@@ -236,7 +236,6 @@ if ($isStdio) {
         middleware: [
             $healthMiddleware,
             $authMiddleware,
-            ...StreamableHttpTransport::defaultMiddleware(),
         ],
     );
 
