@@ -7,7 +7,6 @@ namespace Vultr\Mcp;
 use Dotenv\Dotenv;
 use Laminas\HttpHandlerRunner\Emitter\SapiEmitter;
 use Mcp\Server as McpServer;
-use Mcp\Server\Session\FileSessionStore;
 use Mcp\Server\Transport\StreamableHttpTransport;
 use Nyholm\Psr7Server\ServerRequestCreator;
 use Nyholm\Psr7\Factory\Psr17Factory;
@@ -15,8 +14,7 @@ use Psr\Container\ContainerInterface;
 use Vultr\Mcp\Auth\VultrAuth;
 use Vultr\Mcp\Tools\BareMetalTools;
 use Vultr\Mcp\Tools\InstanceTools;
-use Vultr\Mcp\Utils\RateLimiter;
-use Vultr\Mcp\Utils\VultrClient;
+use Vultr\Mcp\Utils\VultrClientFactory;
 
 // ---------------------------------------------------------------------------
 // Bootstrap
@@ -32,21 +30,21 @@ if (file_exists($root . '/.env')) {
 }
 
 // ---------------------------------------------------------------------------
-// Configuration validation
+// Mode detection
 // ---------------------------------------------------------------------------
 
-$apiKey = $_ENV['VULTR_API_KEY'] ?? getenv('VULTR_API_KEY');
+$perUserMode = filter_var(
+    $_ENV['VULTR_PER_USER_MODE'] ?? getenv('VULTR_PER_USER_MODE') ?: 'false',
+    FILTER_VALIDATE_BOOLEAN,
+);
 
-if (empty($apiKey)) {
-    http_response_code(500);
-    echo json_encode(['error' => 'Server misconfiguration: VULTR_API_KEY is not set.']);
-    exit(1);
-}
+$defaultApiKey = $_ENV['VULTR_API_KEY'] ?? getenv('VULTR_API_KEY') ?: null;
 
-$sessionsDir = $root . '/sessions';
-if (!is_dir($sessionsDir) && !mkdir($sessionsDir, 0750, true) && !is_dir($sessionsDir)) {
+// In legacy mode, VULTR_API_KEY must be set.
+// In per-user mode, a global key is optional (users provide their own).
+if (!$perUserMode && empty($defaultApiKey)) {
     http_response_code(500);
-    echo json_encode(['error' => "Unable to create sessions directory: {$sessionsDir}"]);
+    echo json_encode(['error' => 'Server misconfiguration: VULTR_API_KEY is not set. Set VULTR_PER_USER_MODE=true for per-user API key mode.']);
     exit(1);
 }
 
@@ -65,14 +63,23 @@ $creator      = new ServerRequestCreator(
 $request = $creator->fromGlobals();
 
 // ---------------------------------------------------------------------------
-// Tool classes — inject VultrClient
+// VultrClientFactory — creates per-request VultrClient instances
 // ---------------------------------------------------------------------------
 
-$sslVerify  = filter_var($_ENV['SSL_VERIFY'] ?? getenv('SSL_VERIFY') ?? 'true', FILTER_VALIDATE_BOOLEAN);
-$baseUri    = $_ENV['VULTR_API_BASE_URL'] ?? getenv('VULTR_API_BASE_URL') ?: 'https://api.vultr.com/v2/';
-$vultrClient = new VultrClient(apiKey: $apiKey, rateLimiter: new RateLimiter(), sslVerify: $sslVerify, baseUri: $baseUri);
-$instanceTools = new InstanceTools(client: $vultrClient);
-$bareMetalTools = new BareMetalTools(client: $vultrClient);
+// In per-user mode, the factory reads the API key from RequestContext
+// (populated by VultrAuth middleware). In legacy mode, it uses the
+// default key from the environment.
+$clientFactory = new VultrClientFactory(
+    perUserMode: $perUserMode,
+    defaultApiKey: $defaultApiKey,
+);
+
+// ---------------------------------------------------------------------------
+// Tool classes
+// ---------------------------------------------------------------------------
+
+$instanceTools  = new InstanceTools($clientFactory);
+$bareMetalTools = new BareMetalTools($clientFactory);
 
 // ---------------------------------------------------------------------------
 // PSR-11 container — supplies pre-wired instances to the SDK's ReferenceHandler
@@ -103,8 +110,7 @@ $container = new class([
 // ---------------------------------------------------------------------------
 
 $serverBuilder = McpServer::builder()
-    ->setServerInfo('Vultr MCP Server', '1.0.0')
-    ->setSession(new FileSessionStore($sessionsDir))
+    ->setServerInfo('Vultr MCP Server', '1.1.0')
     ->setContainer($container)
 
     // --- Instance tools ---
@@ -142,6 +148,10 @@ $serverBuilder = McpServer::builder()
     ->addTool([BareMetalTools::class, 'getBareMetalUserData'],  'get_bare_metal_user_data')
     ->addTool([BareMetalTools::class, 'getBareMetalUpgrades'],  'get_bare_metal_upgrades');
 
+// Stateless mode: no ->setSession() call. The server operates without
+// server-side session persistence, making it safe for Kubernetes
+// deployments with multiple replicas and rolling restarts.
+
 $server = $serverBuilder->build();
 
 // ---------------------------------------------------------------------------
@@ -151,14 +161,14 @@ $server = $serverBuilder->build();
 $authMiddleware = VultrAuth::fromEnv($psr17Factory);
 
 // ---------------------------------------------------------------------------
-// HTTP transport — Streamable HTTP / SSE
+// HTTP transport — Streamable HTTP / SSE (stateless)
 // ---------------------------------------------------------------------------
 
 $transport = new StreamableHttpTransport(
     request: $request,
     responseFactory: $psr17Factory,
     streamFactory: $psr17Factory,
-    corsHeaders: [],          // Inherit secure defaults from the transport
+    corsHeaders: [],
     middleware: [$authMiddleware],
 );
 
@@ -169,3 +179,9 @@ $response = $server->run($transport);
 // ---------------------------------------------------------------------------
 
 (new SapiEmitter())->emit($response);
+
+// ---------------------------------------------------------------------------
+// Clean up request-scoped context
+// ---------------------------------------------------------------------------
+
+\Vultr\Mcp\Utils\RequestContext::clear();

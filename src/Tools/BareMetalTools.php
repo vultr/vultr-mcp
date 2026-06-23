@@ -7,6 +7,7 @@ namespace Vultr\Mcp\Tools;
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Exception\ToolCallException;
 use Vultr\Mcp\Utils\VultrClient;
+use Vultr\Mcp\Utils\VultrClientFactory;
 
 /**
  * MCP tools for Vultr Bare Metal instances (/v2/bare-metals).
@@ -19,9 +20,23 @@ use Vultr\Mcp\Utils\VultrClient;
  */
 final class BareMetalTools
 {
+    /**
+     * @param VultrClientFactory $clientFactory Factory for per-request VultrClient instances.
+     */
     public function __construct(
-        private readonly VultrClient $client,
+        private readonly VultrClientFactory $clientFactory,
     ) {}
+
+    /**
+     * Resolve the VultrClient for the current request.
+     *
+     * In per-user mode the factory creates a client with the user's API key.
+     * In legacy mode the factory uses the configured default key.
+     */
+    private function getClient(): VultrClient
+    {
+        return $this->clientFactory->create();
+    }
 
     // -------------------------------------------------------------------------
     // Collection operations
@@ -39,7 +54,7 @@ final class BareMetalTools
     #[McpTool(name: 'list_bare_metals')]
     public function listBareMetals(?int $perPage = null, ?string $cursor = null): array
     {
-        return $this->client->get('/bare-metals', [
+        return $this->getClient()->get('/bare-metals', [
             'per_page' => $perPage,
             'cursor'   => $cursor,
         ]);
@@ -108,7 +123,7 @@ final class BareMetalTools
             throw new ToolCallException("Invalid mdiskMode '{$mdiskMode}'. Must be 'raid1', 'jbod', or 'none'.");
         }
 
-        return $this->client->post('/bare-metals', [
+        return $this->getClient()->post('/bare-metals', [
             'region'           => $region,
             'plan'             => $plan,
             'os_id'            => $osId,
@@ -147,7 +162,7 @@ final class BareMetalTools
     #[McpTool(name: 'get_bare_metal')]
     public function getBareMetal(string $baremetalId): array
     {
-        return $this->client->get("/bare-metals/{$baremetalId}");
+        return $this->getClient()->get("/bare-metals/{$baremetalId}");
     }
 
     /**
@@ -191,7 +206,7 @@ final class BareMetalTools
             throw new ToolCallException("Invalid mdiskMode '{$mdiskMode}'. Must be 'raid1', 'jbod', or 'none'.");
         }
 
-        return $this->client->patch("/bare-metals/{$baremetalId}", [
+        return $this->getClient()->patch("/bare-metals/{$baremetalId}", [
             'label'          => $label,
             'enable_ipv6'    => $enableIpv6,
             'os_id'          => $osId,
@@ -216,7 +231,7 @@ final class BareMetalTools
     #[McpTool(name: 'delete_bare_metal')]
     public function deleteBareMetal(string $baremetalId): array
     {
-        $this->client->delete("/bare-metals/{$baremetalId}");
+        $this->getClient()->delete("/bare-metals/{$baremetalId}");
 
         return ['success' => true, 'message' => "Bare Metal instance {$baremetalId} has been deleted."];
     }
@@ -230,7 +245,7 @@ final class BareMetalTools
     #[McpTool(name: 'start_bare_metal')]
     public function startBareMetal(string $baremetalId): array
     {
-        $result = $this->client->post("/bare-metals/{$baremetalId}/start");
+        $result = $this->getClient()->post("/bare-metals/{$baremetalId}/start");
 
         return array_merge($result, ['message' => "Bare Metal instance {$baremetalId} start initiated."]);
     }
@@ -244,7 +259,7 @@ final class BareMetalTools
     #[McpTool(name: 'reboot_bare_metal')]
     public function rebootBareMetal(string $baremetalId): array
     {
-        $result = $this->client->post("/bare-metals/{$baremetalId}/reboot");
+        $result = $this->getClient()->post("/bare-metals/{$baremetalId}/reboot");
 
         return array_merge($result, ['message' => "Bare Metal instance {$baremetalId} reboot initiated."]);
     }
@@ -261,7 +276,7 @@ final class BareMetalTools
     #[McpTool(name: 'reinstall_bare_metal')]
     public function reinstallBareMetal(string $baremetalId, ?string $hostname = null): array
     {
-        return $this->client->post("/bare-metals/{$baremetalId}/reinstall", [
+        return $this->getClient()->post("/bare-metals/{$baremetalId}/reinstall", [
             'hostname' => $hostname,
         ]);
     }
@@ -275,7 +290,7 @@ final class BareMetalTools
     #[McpTool(name: 'halt_bare_metal')]
     public function haltBareMetal(string $baremetalId): array
     {
-        $result = $this->client->post("/bare-metals/{$baremetalId}/halt");
+        $result = $this->getClient()->post("/bare-metals/{$baremetalId}/halt");
 
         return array_merge($result, ['message' => "Bare Metal instance {$baremetalId} halt initiated."]);
     }
@@ -293,7 +308,7 @@ final class BareMetalTools
     #[McpTool(name: 'get_bare_metal_ipv4')]
     public function getBareMetalIpv4(string $baremetalId): array
     {
-        return $this->client->get("/bare-metals/{$baremetalId}/ipv4");
+        return $this->getClient()->get("/bare-metals/{$baremetalId}/ipv4");
     }
 
     /**
@@ -305,7 +320,7 @@ final class BareMetalTools
     #[McpTool(name: 'get_bare_metal_ipv6')]
     public function getBareMetalIpv6(string $baremetalId): array
     {
-        return $this->client->get("/bare-metals/{$baremetalId}/ipv6");
+        return $this->getClient()->get("/bare-metals/{$baremetalId}/ipv6");
     }
 
     /**
@@ -317,7 +332,7 @@ final class BareMetalTools
     #[McpTool(name: 'get_bare_metal_bandwidth')]
     public function getBareMetalBandwidth(string $baremetalId): array
     {
-        return $this->client->get("/bare-metals/{$baremetalId}/bandwidth");
+        return $this->getClient()->get("/bare-metals/{$baremetalId}/bandwidth");
     }
 
     /**
@@ -331,7 +346,7 @@ final class BareMetalTools
     #[McpTool(name: 'get_bare_metal_user_data')]
     public function getBareMetalUserData(string $baremetalId): array
     {
-        return $this->client->get("/bare-metals/{$baremetalId}/user-data");
+        return $this->getClient()->get("/bare-metals/{$baremetalId}/user-data");
     }
 
     /**
@@ -344,7 +359,7 @@ final class BareMetalTools
     #[McpTool(name: 'get_bare_metal_upgrades')]
     public function getBareMetalUpgrades(string $baremetalId, ?string $type = null): array
     {
-        return $this->client->get("/bare-metals/{$baremetalId}/upgrades", [
+        return $this->getClient()->get("/bare-metals/{$baremetalId}/upgrades", [
             'type' => $type,
         ]);
     }

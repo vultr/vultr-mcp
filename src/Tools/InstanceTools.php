@@ -7,6 +7,7 @@ namespace Vultr\Mcp\Tools;
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Exception\ToolCallException;
 use Vultr\Mcp\Utils\VultrClient;
+use Vultr\Mcp\Utils\VultrClientFactory;
 
 /**
  * MCP tools for Vultr VPS Instances (/v2/instances).
@@ -19,9 +20,23 @@ use Vultr\Mcp\Utils\VultrClient;
  */
 final class InstanceTools
 {
+    /**
+     * @param VultrClientFactory $clientFactory Factory for per-request VultrClient instances.
+     */
     public function __construct(
-        private readonly VultrClient $client,
+        private readonly VultrClientFactory $clientFactory,
     ) {}
+
+    /**
+     * Resolve the VultrClient for the current request.
+     *
+     * In per-user mode the factory creates a client with the user's API key.
+     * In legacy mode the factory uses the configured default key.
+     */
+    private function getClient(): VultrClient
+    {
+        return $this->clientFactory->create();
+    }
 
     // -------------------------------------------------------------------------
     // Collection operations
@@ -53,7 +68,7 @@ final class InstanceTools
         ?string $hostname = null,
         ?bool $showPendingCharges = null,
     ): array {
-        return $this->client->get('/instances', [
+        return $this->getClient()->get('/instances', [
             'per_page'             => $perPage,
             'cursor'               => $cursor,
             'label'                => $label,
@@ -136,7 +151,7 @@ final class InstanceTools
             throw new ToolCallException("Invalid backups value '{$backups}'. Must be 'enabled' or 'disabled'.");
         }
 
-        return $this->client->post('/instances', [
+        return $this->getClient()->post('/instances', [
             'region'               => $region,
             'plan'                 => $plan,
             'os_id'                => $osId,
@@ -179,7 +194,7 @@ final class InstanceTools
     #[McpTool(name: 'get_instance')]
     public function getInstance(string $instanceId): array
     {
-        return $this->client->get("/instances/{$instanceId}");
+        return $this->getClient()->get("/instances/{$instanceId}");
     }
 
     /**
@@ -232,7 +247,7 @@ final class InstanceTools
             throw new ToolCallException("Invalid backups value '{$backups}'. Must be 'enabled' or 'disabled'.");
         }
 
-        return $this->client->patch("/instances/{$instanceId}", [
+        return $this->getClient()->patch("/instances/{$instanceId}", [
             'label'              => $label,
             'plan'               => $plan,
             'backups'            => $backups,
@@ -262,7 +277,7 @@ final class InstanceTools
     #[McpTool(name: 'delete_instance')]
     public function deleteInstance(string $instanceId): array
     {
-        $this->client->delete("/instances/{$instanceId}");
+        $this->getClient()->delete("/instances/{$instanceId}");
 
         return ['success' => true, 'message' => "Instance {$instanceId} has been deleted."];
     }
@@ -276,7 +291,7 @@ final class InstanceTools
     #[McpTool(name: 'start_instance')]
     public function startInstance(string $instanceId): array
     {
-        $result = $this->client->post("/instances/{$instanceId}/start");
+        $result = $this->getClient()->post("/instances/{$instanceId}/start");
 
         return array_merge($result, ['message' => "Instance {$instanceId} start initiated."]);
     }
@@ -290,7 +305,7 @@ final class InstanceTools
     #[McpTool(name: 'reboot_instance')]
     public function rebootInstance(string $instanceId): array
     {
-        $result = $this->client->post("/instances/{$instanceId}/reboot");
+        $result = $this->getClient()->post("/instances/{$instanceId}/reboot");
 
         return array_merge($result, ['message' => "Instance {$instanceId} reboot initiated."]);
     }
@@ -307,7 +322,7 @@ final class InstanceTools
     #[McpTool(name: 'reinstall_instance')]
     public function reinstallInstance(string $instanceId, ?string $hostname = null): array
     {
-        return $this->client->post("/instances/{$instanceId}/reinstall", [
+        return $this->getClient()->post("/instances/{$instanceId}/reinstall", [
             'hostname' => $hostname,
         ]);
     }
@@ -321,7 +336,7 @@ final class InstanceTools
     #[McpTool(name: 'halt_instance')]
     public function haltInstance(string $instanceId): array
     {
-        $result = $this->client->post("/instances/{$instanceId}/halt");
+        $result = $this->getClient()->post("/instances/{$instanceId}/halt");
 
         return array_merge($result, ['message' => "Instance {$instanceId} halt initiated."]);
     }
@@ -343,7 +358,7 @@ final class InstanceTools
             throw new ToolCallException('instanceIds must not be empty.');
         }
 
-        $result = $this->client->post('/instances/start', ['instance_ids' => $instanceIds]);
+        $result = $this->getClient()->post('/instances/start', ['instance_ids' => $instanceIds]);
 
         return array_merge($result, ['message' => count($instanceIds) . ' instance(s) start initiated.']);
     }
@@ -361,7 +376,7 @@ final class InstanceTools
             throw new ToolCallException('instanceIds must not be empty.');
         }
 
-        $result = $this->client->post('/instances/reboot', ['instance_ids' => $instanceIds]);
+        $result = $this->getClient()->post('/instances/reboot', ['instance_ids' => $instanceIds]);
 
         return array_merge($result, ['message' => count($instanceIds) . ' instance(s) reboot initiated.']);
     }
@@ -379,7 +394,7 @@ final class InstanceTools
             throw new ToolCallException('instanceIds must not be empty.');
         }
 
-        $result = $this->client->post('/instances/halt', ['instance_ids' => $instanceIds]);
+        $result = $this->getClient()->post('/instances/halt', ['instance_ids' => $instanceIds]);
 
         return array_merge($result, ['message' => count($instanceIds) . ' instance(s) halt initiated.']);
     }
@@ -398,7 +413,7 @@ final class InstanceTools
     #[McpTool(name: 'get_instance_bandwidth')]
     public function getInstanceBandwidth(string $instanceId, ?int $dateRange = null): array
     {
-        return $this->client->get("/instances/{$instanceId}/bandwidth", [
+        return $this->getClient()->get("/instances/{$instanceId}/bandwidth", [
             'date_range' => $dateRange,
         ]);
     }
@@ -413,7 +428,7 @@ final class InstanceTools
     #[McpTool(name: 'get_instance_upgrades')]
     public function getInstanceUpgrades(string $instanceId, ?string $type = null): array
     {
-        return $this->client->get("/instances/{$instanceId}/upgrades", [
+        return $this->getClient()->get("/instances/{$instanceId}/upgrades", [
             'type' => $type,
         ]);
     }
@@ -429,7 +444,7 @@ final class InstanceTools
     #[McpTool(name: 'get_instance_user_data')]
     public function getInstanceUserData(string $instanceId): array
     {
-        return $this->client->get("/instances/{$instanceId}/user-data");
+        return $this->getClient()->get("/instances/{$instanceId}/user-data");
     }
 
     /**
@@ -443,7 +458,7 @@ final class InstanceTools
     #[McpTool(name: 'list_instance_ipv4')]
     public function listInstanceIpv4(string $instanceId, ?int $perPage = null, ?string $cursor = null): array
     {
-        return $this->client->get("/instances/{$instanceId}/ipv4", [
+        return $this->getClient()->get("/instances/{$instanceId}/ipv4", [
             'per_page' => $perPage,
             'cursor'   => $cursor,
         ]);
@@ -458,6 +473,6 @@ final class InstanceTools
     #[McpTool(name: 'list_instance_ipv6')]
     public function listInstanceIpv6(string $instanceId): array
     {
-        return $this->client->get("/instances/{$instanceId}/ipv6");
+        return $this->getClient()->get("/instances/{$instanceId}/ipv6");
     }
 }
