@@ -28,7 +28,8 @@
         }
     },
     "scripts": {
-        "serve": "php -S 0.0.0.0:8000 src/Server.php",
+        "serve": "VULTR_MCP_TRANSPORT=http php -S ${SERVER_HOST:-0.0.0.0}:${SERVER_PORT:-8000} src/Server.php",
+        "serve:stdio": "php src/Server.php",
         "generate": "php bin/generate.php",
         "test": "vendor/bin/phpunit",
         "analyse": "vendor/bin/phpstan analyse src --level=6"

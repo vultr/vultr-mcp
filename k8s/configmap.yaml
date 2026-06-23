@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vultr-mcp-config
+  labels:
+    app: vultr-mcp
+data:
+  VULTR_MCP_TRANSPORT: "http"
+  VULTR_PER_USER_MODE: "true"
+  SSL_VERIFY: "true"
+  SERVER_HOST: "0.0.0.0"
+  SERVER_PORT: "8000"

@@ -7,11 +7,13 @@ namespace Vultr\Mcp;
 use Dotenv\Dotenv;
 use Laminas\HttpHandlerRunner\Emitter\SapiEmitter;
 use Mcp\Server as McpServer;
+use Mcp\Server\Transport\StdioTransport;
 use Mcp\Server\Transport\StreamableHttpTransport;
 use Nyholm\Psr7Server\ServerRequestCreator;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Psr\Container\ContainerInterface;
 use Vultr\Mcp\Auth\VultrAuth;
+use Vultr\Mcp\Http\HealthCheckMiddleware;
 use Vultr\Mcp\Tools\BareMetalTools;
 use Vultr\Mcp\Tools\InstanceTools;
 use Vultr\Mcp\Utils\VultrClientFactory;
@@ -30,7 +32,36 @@ if (file_exists($root . '/.env')) {
 }
 
 // ---------------------------------------------------------------------------
-// Mode detection
+// Transport mode detection
+// ---------------------------------------------------------------------------
+
+// VULTR_MCP_TRANSPORT controls which transport to use:
+//   "stdio"  — Local mode: reads from STDIN, writes to STDOUT. For CLI / Claude Desktop / VS Code.
+//   "http"   — Remote mode: Streamable HTTP + SSE. For hosted / Kubernetes deployments.
+//
+// Auto-detection: if STDIN is a TTY (interactive terminal), assume HTTP mode
+// since there's no parent process piping JSON-RPC messages. Otherwise default
+// to STDIO so that `php src/Server.php` just works when launched by an MCP client.
+
+$transportMode = $_ENV['VULTR_MCP_TRANSPORT'] ?? getenv('VULTR_MCP_TRANSPORT') ?: null;
+
+if ($transportMode === null) {
+    // Auto-detect: if stdin is a TTY, we're probably running interactively → HTTP
+    $transportMode = (function_exists('posix_isatty') && posix_isatty(STDIN)) ? 'http' : 'stdio';
+}
+
+$transportMode = strtolower($transportMode);
+
+if (!in_array($transportMode, ['stdio', 'http'], true)) {
+    fwrite(STDERR, "Error: VULTR_MCP_TRANSPORT must be 'stdio' or 'http', got '{$transportMode}'" . PHP_EOL);
+    exit(1);
+}
+
+$isStdio = $transportMode === 'stdio';
+$isHttp  = $transportMode === 'http';
+
+// ---------------------------------------------------------------------------
+// Vultr API key mode detection
 // ---------------------------------------------------------------------------
 
 $perUserMode = filter_var(
@@ -38,37 +69,34 @@ $perUserMode = filter_var(
     FILTER_VALIDATE_BOOLEAN,
 );
 
+// In STDIO mode, per-user is forced on unless a VULTR_API_KEY is explicitly set.
+// The rationale: STDIO runs locally, the user's key comes from the environment
+// they launched the process in. No X-Vultr-API-Key header is needed.
+// In HTTP mode, per-user requires the X-Vultr-API-Key header per request.
 $defaultApiKey = $_ENV['VULTR_API_KEY'] ?? getenv('VULTR_API_KEY') ?: null;
 
-// In legacy mode, VULTR_API_KEY must be set.
-// In per-user mode, a global key is optional (users provide their own).
-if (!$perUserMode && empty($defaultApiKey)) {
+if ($isStdio) {
+    // STDIO: always use per-user mode. The API key comes from the env
+    // the user set when launching the process (e.g. VULTR_API_KEY=*** php src/Server.php).
+    $perUserMode = true;
+    // If VULTR_API_KEY is set, treat it as the default for this process.
+    if (!empty($defaultApiKey)) {
+        \Vultr\Mcp\Utils\RequestContext::setApiKey($defaultApiKey);
+    }
+} elseif (!$perUserMode && empty($defaultApiKey)) {
+    // HTTP legacy mode requires a global API key.
     http_response_code(500);
-    echo json_encode(['error' => 'Server misconfiguration: VULTR_API_KEY is not set. Set VULTR_PER_USER_MODE=true for per-user API key mode.']);
+    echo json_encode([
+        'error' => 'Server misconfiguration: VULTR_API_KEY is not set. '
+                 . 'Set VULTR_PER_USER_MODE=true for per-user API key mode.',
+    ]);
     exit(1);
 }
-
-// ---------------------------------------------------------------------------
-// PSR-7 / PSR-17 setup (Nyholm)
-// ---------------------------------------------------------------------------
-
-$psr17Factory = new Psr17Factory();
-$creator      = new ServerRequestCreator(
-    $psr17Factory, // ServerRequestFactory
-    $psr17Factory, // UriFactory
-    $psr17Factory, // UploadedFileFactory
-    $psr17Factory, // StreamFactory
-);
-
-$request = $creator->fromGlobals();
 
 // ---------------------------------------------------------------------------
 // VultrClientFactory — creates per-request VultrClient instances
 // ---------------------------------------------------------------------------
 
-// In per-user mode, the factory reads the API key from RequestContext
-// (populated by VultrAuth middleware). In legacy mode, it uses the
-// default key from the environment.
 $clientFactory = new VultrClientFactory(
     perUserMode: $perUserMode,
     defaultApiKey: $defaultApiKey,
@@ -110,7 +138,7 @@ $container = new class([
 // ---------------------------------------------------------------------------
 
 $serverBuilder = McpServer::builder()
-    ->setServerInfo('Vultr MCP Server', '1.1.0')
+    ->setServerInfo('Vultr MCP Server', '1.2.0')
     ->setContainer($container)
 
     // --- Instance tools ---
@@ -148,40 +176,74 @@ $serverBuilder = McpServer::builder()
     ->addTool([BareMetalTools::class, 'getBareMetalUserData'],  'get_bare_metal_user_data')
     ->addTool([BareMetalTools::class, 'getBareMetalUpgrades'],  'get_bare_metal_upgrades');
 
-// Stateless mode: no ->setSession() call. The server operates without
+// Stateless: no ->setSession() call. The server operates without
 // server-side session persistence, making it safe for Kubernetes
 // deployments with multiple replicas and rolling restarts.
 
 $server = $serverBuilder->build();
 
 // ---------------------------------------------------------------------------
-// Auth middleware (PSR-15)
+// Run with the selected transport
 // ---------------------------------------------------------------------------
 
-$authMiddleware = VultrAuth::fromEnv($psr17Factory);
+if ($isStdio) {
+    // =====================================================================
+    // STDIO Transport — Local mode
+    // =====================================================================
+    // Reads JSON-RPC from STDIN, writes responses to STDOUT.
+    // Used by Claude Desktop, VS Code Copilot, Cursor, and other MCP clients
+    // that spawn the server as a child process.
+    //
+    // Auth: Not needed — STDIO is a local pipe, no network exposure.
+    // API key: Read from VULTR_API_KEY env var (set above in RequestContext).
+    // =====================================================================
 
-// ---------------------------------------------------------------------------
-// HTTP transport — Streamable HTTP / SSE (stateless)
-// ---------------------------------------------------------------------------
+    $transport = new StdioTransport();
+    $server->run($transport);
 
-$transport = new StreamableHttpTransport(
-    request: $request,
-    responseFactory: $psr17Factory,
-    streamFactory: $psr17Factory,
-    corsHeaders: [],
-    middleware: [$authMiddleware],
-);
+} else {
+    // =====================================================================
+    // Streamable HTTP Transport — Remote / hosted mode
+    // =====================================================================
+    // Single HTTP endpoint with POST (JSON-RPC), GET (SSE stream),
+    // DELETE (session teardown), and OPTIONS (CORS pre-flight).
+    //
+    // Auth: VultrAuth middleware extracts per-user API keys.
+    // API key: Per-request via X-Vultr-API-Key header.
+    // =====================================================================
 
-$response = $server->run($transport);
+    $psr17Factory = new Psr17Factory();
+    $creator      = new ServerRequestCreator(
+        $psr17Factory,
+        $psr17Factory,
+        $psr17Factory,
+        $psr17Factory,
+    );
 
-// ---------------------------------------------------------------------------
-// Emit PSR-7 response
-// ---------------------------------------------------------------------------
+    $request = $creator->fromGlobals();
 
-(new SapiEmitter())->emit($response);
+    // Build the middleware stack:
+    //   1. HealthCheckMiddleware — K8s liveness/readiness probes (/healthz)
+    //   2. VultrAuth — extracts per-user API keys, validates MCP_AUTH_TOKEN
+    //   3. SDK defaults — CORS, DNS rebinding protection, protocol version
+    $healthMiddleware = new HealthCheckMiddleware($psr17Factory);
+    $authMiddleware   = VultrAuth::fromEnv($psr17Factory);
 
-// ---------------------------------------------------------------------------
-// Clean up request-scoped context
-// ---------------------------------------------------------------------------
+    $transport = new StreamableHttpTransport(
+        request: $request,
+        responseFactory: $psr17Factory,
+        streamFactory: $psr17Factory,
+        middleware: [
+            $healthMiddleware,
+            $authMiddleware,
+            ...StreamableHttpTransport::defaultMiddleware(),
+        ],
+    );
 
-\Vultr\Mcp\Utils\RequestContext::clear();
+    $response = $server->run($transport);
+
+    (new SapiEmitter())->emit($response);
+
+    // Clean up request-scoped context after the response is sent.
+    \Vultr\Mcp\Utils\RequestContext::clear();
+}

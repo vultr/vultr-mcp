@@ -1,0 +1,14 @@
+.dockerignore
+.git
+.github
+.env
+.phpdoc*
+vendor/
+node_modules/
+tests/
+phpstan.neon
+phpunit.xml*
+.idea/
+.vscode/
+*.md
+!README.md
