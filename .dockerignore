@@ -3,7 +3,6 @@
 .github
 .env
 .phpdoc*
-vendor/
 node_modules/
 tests/
 phpstan.neon

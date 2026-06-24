@@ -18,9 +18,11 @@ spec:
         runAsNonRoot: true
         runAsUser: 1000
         fsGroup: 1000
+      imagePullSecrets:
+        - name: vcr-creds
       containers:
         - name: vultr-mcp
-          image: vultr/mcp:latest
+          image: atl.vultrcr.com/vrnd/vultr-mcp:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 8000

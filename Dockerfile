@@ -19,35 +19,22 @@
 # ============================================================
 
 # ---------------------------------------------------------------------------
-# Stage 1: Build — install Composer dependencies
+# Stage 1: Build — use pre-installed vendor from host
 # ---------------------------------------------------------------------------
 FROM composer:2 AS build
 
 WORKDIR /app
 
-# Copy dependency files first (better layer caching)
 COPY composer.json composer.lock* ./
-
-# Install production dependencies only (no dev)
-RUN composer install \
-    --no-dev \
-    --no-interaction \
-    --no-scripts \
-    --prefer-dist \
-    --optimize-autoloader \
-    && composer clear-cache
-
-# Copy source code
+COPY vendor/ vendor/
 COPY src/ src/
 COPY bin/ bin/
 
-# Re-run dump-autoload with the full source tree present
 RUN composer dump-autoload --no-dev --optimize
-
 # ---------------------------------------------------------------------------
 # Stage 2: Runtime — minimal PHP image
 # ---------------------------------------------------------------------------
-FROM php:8.3-cli-alpine AS runtime
+FROM php:8.4-cli-alpine AS runtime
 
 # Install posix extension (for STDIO auto-detection) and opcache
 RUN apk add --no-cache \
@@ -97,7 +84,7 @@ USER mcp
 
 # STDIO entrypoint — MCP clients spawn this process and communicate via STDIN/STDOUT
 # HTTP entrypoint — starts the built-in PHP server for web requests
-ENTRYPOINT ["php", "src/Server.php"]
+CMD ["php", "-S", "0.0.0.0:8000", "src/Server.php"]
 
 # Default: STDIO mode. Override for HTTP:
 #   docker run ... vultr/mcp:latest php src/Server.php
