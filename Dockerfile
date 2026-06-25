@@ -70,6 +70,6 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
     CMD php -r "if(@fsockopen('localhost',8080)!==false){exit(0);}else{exit(1);}"
 
 # FrankenPHP worker mode — keeps the app booted in memory
-EXPOSE 8000
+EXPOSE 8080
 
-CMD ["frankenphp", "php-server", "--worker=public/index.php", "--listen=:8000"]
+CMD ["frankenphp", "php-server", "--root=/app/public", "--listen=:8080"]
