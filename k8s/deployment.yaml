@@ -25,7 +25,7 @@ spec:
           image: atl.vultrcr.com/vrnd/vultr-mcp:latest
           imagePullPolicy: Always
           ports:
-            - containerPort: 8000
+            - containerPort: 8080
               protocol: TCP
           envFrom:
             - configMapRef:
@@ -42,21 +42,17 @@ spec:
           livenessProbe:
             httpGet:
               path: /healthz
-              port: 8000
-            initialDelaySeconds: 5
-            periodSeconds: 30
-            timeoutSeconds: 5
-            failureThreshold: 3
+              port: 8080
           readinessProbe:
             httpGet:
               path: /healthz
-              port: 8000
+              port: 8080
             initialDelaySeconds: 3
             periodSeconds: 10
             timeoutSeconds: 3
             failureThreshold: 3
           securityContext:
-            allowPrivilegeEscalation: false
+            allowPrivilegeEscalation: true
             readOnlyRootFilesystem: true
             capabilities:
               drop: ["ALL"]
@@ -64,6 +60,14 @@ spec:
           volumeMounts:
             - name: tmp
               mountPath: /tmp
+            - name: data
+              mountPath: /data
+            - name: config
+              mountPath: /config
       volumes:
         - name: tmp
+          emptyDir: {}
+        - name: data
+          emptyDir: {}
+        - name: config
           emptyDir: {}

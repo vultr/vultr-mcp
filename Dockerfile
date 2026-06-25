@@ -67,7 +67,7 @@ USER mcp
 
 # Health check for K8s probes
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
-    CMD php -r "if(@fsockopen('localhost',8000)!==false){exit(0);}else{exit(1);}"
+    CMD php -r "if(@fsockopen('localhost',8080)!==false){exit(0);}else{exit(1);}"
 
 # FrankenPHP worker mode — keeps the app booted in memory
 EXPOSE 8000
