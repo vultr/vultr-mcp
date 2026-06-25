@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Vultr\Mcp;
 
 use Dotenv\Dotenv;
-use Laminas\HttpHandlerRunner\Emitter\SapiEmitter;
+use Psr\Http\Message\ResponseInterface;
 use Mcp\Server as McpServer;
 use Mcp\Server\Transport\StdioTransport;
 use Mcp\Server\Transport\StreamableHttpTransport;
@@ -24,9 +24,13 @@ use Vultr\Mcp\Utils\VultrClientFactory;
 
 $root = dirname(__DIR__);
 
-require_once $root . '/vendor/autoload.php';
+// Autoload may already be loaded in FrankenPHP worker mode
+if (!class_exists(\Composer\Autoload\ClassLoader::class)) {
+    require_once $root . '/vendor/autoload.php';
+}
 
 // Load environment variables. .env values take precedence over system env vars.
+// In FrankenPHP worker mode, this runs once at worker boot.
 if (file_exists($root . '/.env')) {
     Dotenv::createMutable($root)->safeLoad();
 }
@@ -46,8 +50,17 @@ if (file_exists($root . '/.env')) {
 $transportMode = $_ENV['VULTR_MCP_TRANSPORT'] ?? getenv('VULTR_MCP_TRANSPORT') ?: null;
 
 if ($transportMode === null) {
-    // Auto-detect: if stdin is a TTY, we're probably running interactively → HTTP
-    $transportMode = (function_exists('posix_isatty') && posix_isatty(STDIN)) ? 'http' : 'stdio';
+    // Auto-detect transport mode:
+    //   - If posix_isatty is available, check if STDIN is a TTY → HTTP
+    //   - If STDIN is not defined (e.g. php -S on Windows), we're in HTTP mode
+    //   - Otherwise assume STDIO (MCP client piping JSON-RPC)
+    if (function_exists('posix_isatty')) {
+        $transportMode = posix_isatty(STDIN) ? 'http' : 'stdio';
+    } elseif (!defined('STDIN')) {
+        $transportMode = 'http';
+    } else {
+        $transportMode = 'stdio';
+    }
 }
 
 $transportMode = strtolower($transportMode);
@@ -241,7 +254,22 @@ if ($isStdio) {
 
     $response = $server->run($transport);
 
-    (new SapiEmitter())->emit($response);
+    // Emit PSR-7 response using native PHP (replaces Laminas SapiEmitter)
+    (function (ResponseInterface $response) {
+        http_response_code($response->getStatusCode());
+        foreach ($response->getHeaders() as $name => $values) {
+            foreach ($values as $value) {
+                header("{$name}: {$value}", false);
+            }
+        }
+        $body = $response->getBody();
+        if ($body->isSeekable()) {
+            $body->rewind();
+        }
+        while (!$body->eof()) {
+            echo $body->read(8192);
+        }
+    })($response);
 
     // Clean up request-scoped context after the response is sent.
     \Vultr\Mcp\Utils\RequestContext::clear();

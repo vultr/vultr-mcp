@@ -1,0 +1,386 @@
+From ea78949f117b7764a50e30f06cf3b08420f8cc79 Mon Sep 17 00:00:00 2001
+From: Vultr MCP <mcp@vultr.local>
+Date: Thu, 25 Jun 2026 18:02:00 +0000
+Subject: [PATCH] Add FrankenPHP worker mode + Symfony Console + fix Windows
+ STDIN
+
+- Dockerfile: switch to dunglas/frankenphp base with worker mode
+- public/index.php: FrankenPHP worker entry (forces HTTP transport)
+- bin/console: Symfony Console with mcp:stdio and mcp:generate commands
+- Server.php: fix auto-detect when STDIN undefined (Windows php -S),
+  make autoload idempotent for worker mode, replace SapiEmitter with
+  native PHP response emission (removes laminas dependency)
+- composer.json: add symfony/console, symfony/runtime,
+  runtime/frankenphp-symfony; remove vlucas/phpdotenv,
+  laminas/laminas-httphandlerrunner
+- k8s/configmap: remove VULTR_MCP_TRANSPORT (forced by entry point)
+- Tested: healthz, MCP initialize, auth rejection, STDIO via bin/console
+---
+ Dockerfile         | 61 ++++++++++++++++-------------------
+ bin/console        | 80 ++++++++++++++++++++++++++++++++++++++++++++++
+ composer.json      | 16 ++++++----
+ k8s/configmap.yaml |  3 --
+ public/index.php   | 25 +++++++++++++++
+ src/Server.php     | 38 +++++++++++++++++++---
+ 6 files changed, 174 insertions(+), 49 deletions(-)
+ create mode 100644 bin/console
+ create mode 100644 public/index.php
+
+diff --git a/Dockerfile b/Dockerfile
+index b336b76..cd2a83d 100644
+--- a/Dockerfile
++++ b/Dockerfile
+@@ -1,48 +1,44 @@
+ # ============================================================
+-# Vultr MCP Server — Multi-stage Dockerfile
++# Vultr MCP Server — FrankenPHP
+ # ============================================================
+-# Supports both STDIO (local) and HTTP (remote) transport modes.
++# Supports both STDIO (local) and HTTP (FrankenPHP worker) transport modes.
+ #
+ # Build:
+ #   docker build -t vultr/mcp:latest .
+ #
+-# Run (STDIO — local MCP client):
+-#   docker run --rm -i \
+-#     -e VULTR_API_KEY=*** \
+-#     vultr/mcp:latest
+-#
+-# Run (HTTP — hosted):
++# Run (HTTP — FrankenPHP worker mode):
+ #   docker run --rm -p 8000:8000 \
+-#     -e VULTR_MCP_TRANSPORT=http \
+ #     -e VULTR_PER_USER_MODE=true \
+ #     vultr/mcp:latest
++#
++# Run (STDIO — local MCP client):
++#   docker run --rm -i \
++#     -e VULTR_API_KEY=*** \
++#     vultr/mcp:latest php bin/console mcp:stdio
+ # ============================================================
+ 
+ # ---------------------------------------------------------------------------
+-# Stage 1: Build — use pre-installed vendor from host
++# Stage 1: Build — install Composer dependencies
+ # ---------------------------------------------------------------------------
+ FROM composer:2 AS build
+ 
+ WORKDIR /app
+ 
+ COPY composer.json composer.lock* ./
+-COPY vendor/ vendor/
+ COPY src/ src/
+ COPY bin/ bin/
+ 
+-RUN composer dump-autoload --no-dev --optimize
++RUN composer install --no-dev --optimize-autoloader --no-interaction
++
+ # ---------------------------------------------------------------------------
+-# Stage 2: Runtime — minimal PHP image
++# Stage 2: Runtime — FrankenPHP with PHP 8.4
+ # ---------------------------------------------------------------------------
+-FROM php:8.4-cli-alpine AS runtime
++FROM dunglas/frankenphp:latest-php8.4 AS runtime
+ 
+-# Install posix extension (for STDIO auto-detection) and opcache
+-RUN apk add --no-cache \
+-    linux-headers \
+-    && docker-php-ext-install \
+-        posix \
+-        opcache \
+-    && apk del linux-headers
++# Install required PHP extensions
++RUN install-php-extension \
++    posix \
++    opcache
+ 
+ # Production PHP config
+ COPY <<'EOF' /usr/local/etc/php/conf.d/production.ini
+@@ -65,27 +61,24 @@ WORKDIR /app
+ COPY --from=build /app ./
+ 
+ # Copy non-code files
++COPY public/ public/
+ COPY openapi.json ./
+ COPY .env.example .env.example
+ 
+-# Default environment
+-ENV VULTR_MCP_TRANSPORT=stdio \
+-    VULTR_PER_USER_MODE=true \
++# Default environment — HTTP mode with per-user API keys
++ENV VULTR_PER_USER_MODE=true \
+     SSL_VERIFY=true
+ 
+-# Health check (only meaningful in HTTP mode)
+-HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
+-    CMD php -r "if(getenv('VULTR_MCP_TRANSPORT')==='http'){exit(@fsockopen('localhost',8000)!==false?0:1);}else{exit(0);}"
+-
+ # Non-root user for security
+ RUN addgroup -S mcp && adduser -S mcp -G mcp \
+     && chown -R mcp:mcp /app
+ USER mcp
+ 
+-# STDIO entrypoint — MCP clients spawn this process and communicate via STDIN/STDOUT
+-# HTTP entrypoint — starts the built-in PHP server for web requests
+-CMD ["php", "-S", "0.0.0.0:8000", "src/Server.php"]
++# Health check for K8s probes
++HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
++    CMD php -r "if(@fsockopen('localhost',8000)!==false){exit(0);}else{exit(1);}"
++
++# FrankenPHP worker mode — keeps the app booted in memory
++EXPOSE 8000
+ 
+-# Default: STDIO mode. Override for HTTP:
+-#   docker run ... vultr/mcp:latest php src/Server.php
+-#   (the ENTRYPOINT already runs the server; just set VULTR_MCP_TRANSPORT=http)
++CMD ["frankenphp", "php-server", "--worker=public/index.php", "--listen=:8000"]
+diff --git a/bin/console b/bin/console
+new file mode 100644
+index 0000000..e139a5e
+--- /dev/null
++++ b/bin/console
+@@ -0,0 +1,80 @@
++#!/usr/bin/env php
++<?php
++
++declare(strict_types=1);
++
++use Symfony\Component\Console\Application;
++
++require_once dirname(__DIR__).'/vendor/autoload.php';
++
++// Load .env if present
++$root = dirname(__DIR__);
++if (file_exists($root . '/.env')) {
++    (Dotenv\Dotenv::createMutable($root))->safeLoad();
++}
++
++$app = new Application('Vultr MCP Server', '1.3.0');
++
++// STDIO command — replaces `php src/Server.php` for local MCP clients
++$app->register('mcp:stdio')
++    ->setDescription('Run the MCP server in STDIO mode for local MCP clients')
++    ->addOption('api-key', 'k', Symfony\Component\Console\Input\InputOption::VALUE_OPTIONAL, 'Vultr API key (overrides VULTR_API_KEY env var)')
++    ->setCode(function ($input, $output): int {
++        $apiKey = $input->getOption('api-key')
++            ?? $_ENV['VULTR_API_KEY'] ?? getenv('VULTR_API_KEY') ?: '';
++
++        if (empty($apiKey)) {
++            $output->writeln('<error>VULTR_API_KEY is required. Set it in your environment or pass --api-key.</error>');
++            return 1;
++        }
++
++        // Force STDIO mode
++        putenv('VULTR_MCP_TRANSPORT=stdio');
++        $_ENV['VULTR_MCP_TRANSPORT'] = 'stdio';
++        \Vultr\Mcp\Utils\RequestContext::setApiKey($apiKey);
++
++        $output->getErrorOutput()->writeln('<info>Starting Vultr MCP Server (STDIO mode)...</info>');
++
++        // Delegate to Server.php which detects STDIO transport
++        require dirname(__DIR__).'/src/Server.php';
++
++        \Vultr\Mcp\Utils\RequestContext::clear();
++        return 0;
++    });
++
++// Generate command — replaces `php bin/generate.php`
++$app->register('mcp:generate')
++    ->setDescription('Regenerate MCP tool classes from the Vultr OpenAPI spec')
++    ->addOption('spec', 's', Symfony\Component\Console\Input\InputOption::VALUE_OPTIONAL, 'Path to OpenAPI JSON file', dirname(__DIR__).'/openapi.json')
++    ->addOption('tags', 't', Symfony\Component\Console\Input\InputOption::VALUE_OPTIONAL, 'Comma-separated list of tags', 'instances,baremetal')
++    ->addOption('output', 'o', Symfony\Component\Console\Input\InputOption::VALUE_OPTIONAL, 'Output directory', dirname(__DIR__).'/src/Tools')
++    ->setCode(function ($input, $output): int {
++        $specPath  = $input->getOption('spec');
++        $tagsRaw   = $input->getOption('tags');
++        $outputDir = $input->getOption('output');
++        $tags      = array_filter(array_map('trim', explode(',', $tagsRaw)));
++
++        if (!file_exists($specPath)) {
++            $output->writeln("<error>OpenAPI spec not found: {$specPath}</error>");
++            $output->writeln('Download from https://www.vultr.com/api/ and save as openapi.json');
++            return 1;
++        }
++
++        if (empty($tags)) {
++            $output->writeln('<error>--tags must be a non-empty comma-separated list.</error>');
++            return 1;
++        }
++
++        try {
++            $generator = new \Vultr\Mcp\Generator\OpenApiGenerator($specPath);
++            $generator->generate($tags, $outputDir);
++            $output->writeln('<info>Done. Review and commit the generated files.</info>');
++        } catch (\Throwable $e) {
++            $output->writeln('<error>Generation failed: ' . $e->getMessage() . '</error>');
++            return 1;
++        }
++
++        return 0;
++    });
++
++$app->run();
+diff --git a/composer.json b/composer.json
+index 77d33a8..cb28d2e 100644
+--- a/composer.json
++++ b/composer.json
+@@ -5,13 +5,14 @@
+     "license": "MIT",
+     "keywords": ["vultr", "mcp", "model-context-protocol", "cloud", "php"],
+     "require": {
+-        "php": ">=8.1",
++        "php": ">=8.2",
+         "mcp/sdk": "^0.5",
+         "guzzlehttp/guzzle": "^7.8",
+-        "vlucas/phpdotenv": "^5.6",
+         "nyholm/psr7": "^1.8",
+         "nyholm/psr7-server": "^1.1",
+-        "laminas/laminas-httphandlerrunner": "^2.10"
++        "symfony/console": "^7.2",
++        "symfony/runtime": "^7.2",
++        "runtime/frankenphp-symfony": "^0.2"
+     },
+     "require-dev": {
+         "phpunit/phpunit": "^10.5",
+@@ -28,9 +29,9 @@
+         }
+     },
+     "scripts": {
+-        "serve": "VULTR_MCP_TRANSPORT=http php -S ${SERVER_HOST:-0.0.0.0}:${SERVER_PORT:-8000} src/Server.php",
+-        "serve:stdio": "php src/Server.php",
+-        "generate": "php bin/generate.php",
++        "serve": "VULTR_MCP_TRANSPORT=http frankenphp php-server --worker=public/index.php",
++        "serve:stdio": "php bin/console mcp:stdio",
++        "generate": "php bin/console mcp:generate",
+         "test": "vendor/bin/phpunit",
+         "analyse": "vendor/bin/phpstan analyse src --level=6"
+     },
+@@ -38,7 +39,8 @@
+         "sort-packages": true,
+         "optimize-autoloader": true,
+         "allow-plugins": {
+-            "php-http/discovery": true
++            "php-http/discovery": true,
++            "symfony/runtime": true
+         }
+     },
+     "minimum-stability": "stable"
+diff --git a/k8s/configmap.yaml b/k8s/configmap.yaml
+index 57ecf8d..df9d788 100644
+--- a/k8s/configmap.yaml
++++ b/k8s/configmap.yaml
+@@ -5,8 +5,5 @@ metadata:
+   labels:
+     app: vultr-mcp
+ data:
+-  VULTR_MCP_TRANSPORT: "http"
+   VULTR_PER_USER_MODE: "true"
+   SSL_VERIFY: "true"
+-  SERVER_HOST: "0.0.0.0"
+-  SERVER_PORT: "8000"
+diff --git a/public/index.php b/public/index.php
+new file mode 100644
+index 0000000..38971bc
+--- /dev/null
++++ b/public/index.php
+@@ -0,0 +1,25 @@
++<?php
++
++declare(strict_types=1);
++
++/**
++ * FrankenPHP worker entry point.
++ *
++ * FrankenPHP keeps this worker script booted in memory between requests.
++ * Each incoming HTTP request re-runs Server.php's HTTP path:
++ *   Request → StreamableHttpTransport (VultrAuth + HealthCheck middleware)
++ *           → MCP SDK → Tool execution → Response
++ *
++ * STDIO mode is unaffected — use `php bin/console mcp:stdio` instead.
++ *
++ * Note: This does NOT use Symfony Runtime. The MCP SDK handles HTTP
++ * protocol directly — no framework bridging needed.
++ */
++
++// Force HTTP transport mode (FrankenPHP never has STDIN as a pipe)
++putenv('VULTR_MCP_TRANSPORT=http');
++
++// Server.php handles the full lifecycle:
++// env loading, auth middleware, transport, response emission, context cleanup.
++// FrankenPHP refreshes superglobals between requests so fromGlobals() works.
++require_once dirname(__DIR__).'/src/Server.php';
+diff --git a/src/Server.php b/src/Server.php
+index 0aec5cf..cbd7f5a 100644
+--- a/src/Server.php
++++ b/src/Server.php
+@@ -5,7 +5,7 @@ declare(strict_types=1);
+ namespace Vultr\Mcp;
+ 
+ use Dotenv\Dotenv;
+-use Laminas\HttpHandlerRunner\Emitter\SapiEmitter;
++use Psr\Http\Message\ResponseInterface;
+ use Mcp\Server as McpServer;
+ use Mcp\Server\Transport\StdioTransport;
+ use Mcp\Server\Transport\StreamableHttpTransport;
+@@ -24,9 +24,13 @@ use Vultr\Mcp\Utils\VultrClientFactory;
+ 
+ $root = dirname(__DIR__);
+ 
+-require_once $root . '/vendor/autoload.php';
++// Autoload may already be loaded in FrankenPHP worker mode
++if (!class_exists(\Composer\Autoload\ClassLoader::class)) {
++    require_once $root . '/vendor/autoload.php';
++}
+ 
+ // Load environment variables. .env values take precedence over system env vars.
++// In FrankenPHP worker mode, this runs once at worker boot.
+ if (file_exists($root . '/.env')) {
+     Dotenv::createMutable($root)->safeLoad();
+ }
+@@ -46,8 +50,17 @@ if (file_exists($root . '/.env')) {
+ $transportMode = $_ENV['VULTR_MCP_TRANSPORT'] ?? getenv('VULTR_MCP_TRANSPORT') ?: null;
+ 
+ if ($transportMode === null) {
+-    // Auto-detect: if stdin is a TTY, we're probably running interactively → HTTP
+-    $transportMode = (function_exists('posix_isatty') && posix_isatty(STDIN)) ? 'http' : 'stdio';
++    // Auto-detect transport mode:
++    //   - If posix_isatty is available, check if STDIN is a TTY → HTTP
++    //   - If STDIN is not defined (e.g. php -S on Windows), we're in HTTP mode
++    //   - Otherwise assume STDIO (MCP client piping JSON-RPC)
++    if (function_exists('posix_isatty')) {
++        $transportMode = posix_isatty(STDIN) ? 'http' : 'stdio';
++    } elseif (!defined('STDIN')) {
++        $transportMode = 'http';
++    } else {
++        $transportMode = 'stdio';
++    }
+ }
+ 
+ $transportMode = strtolower($transportMode);
+@@ -241,7 +254,22 @@ if ($isStdio) {
+ 
+     $response = $server->run($transport);
+ 
+-    (new SapiEmitter())->emit($response);
++    // Emit PSR-7 response using native PHP (replaces Laminas SapiEmitter)
++    (function (ResponseInterface $response) {
++        http_response_code($response->getStatusCode());
++        foreach ($response->getHeaders() as $name => $values) {
++            foreach ($values as $value) {
++                header("{$name}: {$value}", false);
++            }
++        }
++        $body = $response->getBody();
++        if ($body->isSeekable()) {
++            $body->rewind();
++        }
++        while (!$body->eof()) {
++            echo $body->read(8192);
++        }
++    })($response);
+ 
+     // Clean up request-scoped context after the response is sent.
+     \Vultr\Mcp\Utils\RequestContext::clear();
+-- 
+2.43.0
+

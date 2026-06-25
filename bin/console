@@ -1,0 +1,80 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+use Symfony\Component\Console\Application;
+
+require_once dirname(__DIR__).'/vendor/autoload.php';
+
+// Load .env if present
+$root = dirname(__DIR__);
+if (file_exists($root . '/.env')) {
+    (Dotenv\Dotenv::createMutable($root))->safeLoad();
+}
+
+$app = new Application('Vultr MCP Server', '1.3.0');
+
+// STDIO command — replaces `php src/Server.php` for local MCP clients
+$app->register('mcp:stdio')
+    ->setDescription('Run the MCP server in STDIO mode for local MCP clients')
+    ->addOption('api-key', 'k', Symfony\Component\Console\Input\InputOption::VALUE_OPTIONAL, 'Vultr API key (overrides VULTR_API_KEY env var)')
+    ->setCode(function ($input, $output): int {
+        $apiKey = $input->getOption('api-key')
+            ?? $_ENV['VULTR_API_KEY'] ?? getenv('VULTR_API_KEY') ?: '';
+
+        if (empty($apiKey)) {
+            $output->writeln('<error>VULTR_API_KEY is required. Set it in your environment or pass --api-key.</error>');
+            return 1;
+        }
+
+        // Force STDIO mode
+        putenv('VULTR_MCP_TRANSPORT=stdio');
+        $_ENV['VULTR_MCP_TRANSPORT'] = 'stdio';
+        \Vultr\Mcp\Utils\RequestContext::setApiKey($apiKey);
+
+        $output->getErrorOutput()->writeln('<info>Starting Vultr MCP Server (STDIO mode)...</info>');
+
+        // Delegate to Server.php which detects STDIO transport
+        require dirname(__DIR__).'/src/Server.php';
+
+        \Vultr\Mcp\Utils\RequestContext::clear();
+        return 0;
+    });
+
+// Generate command — replaces `php bin/generate.php`
+$app->register('mcp:generate')
+    ->setDescription('Regenerate MCP tool classes from the Vultr OpenAPI spec')
+    ->addOption('spec', 's', Symfony\Component\Console\Input\InputOption::VALUE_OPTIONAL, 'Path to OpenAPI JSON file', dirname(__DIR__).'/openapi.json')
+    ->addOption('tags', 't', Symfony\Component\Console\Input\InputOption::VALUE_OPTIONAL, 'Comma-separated list of tags', 'instances,baremetal')
+    ->addOption('output', 'o', Symfony\Component\Console\Input\InputOption::VALUE_OPTIONAL, 'Output directory', dirname(__DIR__).'/src/Tools')
+    ->setCode(function ($input, $output): int {
+        $specPath  = $input->getOption('spec');
+        $tagsRaw   = $input->getOption('tags');
+        $outputDir = $input->getOption('output');
+        $tags      = array_filter(array_map('trim', explode(',', $tagsRaw)));
+
+        if (!file_exists($specPath)) {
+            $output->writeln("<error>OpenAPI spec not found: {$specPath}</error>");
+            $output->writeln('Download from https://www.vultr.com/api/ and save as openapi.json');
+            return 1;
+        }
+
+        if (empty($tags)) {
+            $output->writeln('<error>--tags must be a non-empty comma-separated list.</error>');
+            return 1;
+        }
+
+        try {
+            $generator = new \Vultr\Mcp\Generator\OpenApiGenerator($specPath);
+            $generator->generate($tags, $outputDir);
+            $output->writeln('<info>Done. Review and commit the generated files.</info>');
+        } catch (\Throwable $e) {
+            $output->writeln('<error>Generation failed: ' . $e->getMessage() . '</error>');
+            return 1;
+        }
+
+        return 0;
+    });
+
+$app->run();

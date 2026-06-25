@@ -1,48 +1,44 @@
 # ============================================================
-# Vultr MCP Server — Multi-stage Dockerfile
+# Vultr MCP Server — FrankenPHP
 # ============================================================
-# Supports both STDIO (local) and HTTP (remote) transport modes.
+# Supports both STDIO (local) and HTTP (FrankenPHP worker) transport modes.
 #
 # Build:
 #   docker build -t vultr/mcp:latest .
 #
+# Run (HTTP — FrankenPHP worker mode):
+#   docker run --rm -p 8000:8000 \
+#     -e VULTR_PER_USER_MODE=true \
+#     vultr/mcp:latest
+#
 # Run (STDIO — local MCP client):
 #   docker run --rm -i \
 #     -e VULTR_API_KEY=*** \
-#     vultr/mcp:latest
-#
-# Run (HTTP — hosted):
-#   docker run --rm -p 8000:8000 \
-#     -e VULTR_MCP_TRANSPORT=http \
-#     -e VULTR_PER_USER_MODE=true \
-#     vultr/mcp:latest
+#     vultr/mcp:latest php bin/console mcp:stdio
 # ============================================================
 
 # ---------------------------------------------------------------------------
-# Stage 1: Build — use pre-installed vendor from host
+# Stage 1: Build — install Composer dependencies
 # ---------------------------------------------------------------------------
 FROM composer:2 AS build
 
 WORKDIR /app
 
 COPY composer.json composer.lock* ./
-COPY vendor/ vendor/
 COPY src/ src/
 COPY bin/ bin/
 
-RUN composer dump-autoload --no-dev --optimize
-# ---------------------------------------------------------------------------
-# Stage 2: Runtime — minimal PHP image
-# ---------------------------------------------------------------------------
-FROM php:8.4-cli-alpine AS runtime
+RUN composer install --no-dev --optimize-autoloader --no-interaction
 
-# Install posix extension (for STDIO auto-detection) and opcache
-RUN apk add --no-cache \
-    linux-headers \
-    && docker-php-ext-install \
-        posix \
-        opcache \
-    && apk del linux-headers
+# ---------------------------------------------------------------------------
+# Stage 2: Runtime — FrankenPHP with PHP 8.4
+# ---------------------------------------------------------------------------
+FROM dunglas/frankenphp:latest-php8.4 AS runtime
+
+# Install required PHP extensions
+RUN install-php-extension \
+    posix \
+    opcache
 
 # Production PHP config
 COPY <<'EOF' /usr/local/etc/php/conf.d/production.ini
@@ -65,27 +61,24 @@ WORKDIR /app
 COPY --from=build /app ./
 
 # Copy non-code files
+COPY public/ public/
 COPY openapi.json ./
 COPY .env.example .env.example
 
-# Default environment
-ENV VULTR_MCP_TRANSPORT=stdio \
-    VULTR_PER_USER_MODE=true \
+# Default environment — HTTP mode with per-user API keys
+ENV VULTR_PER_USER_MODE=true \
     SSL_VERIFY=true
-
-# Health check (only meaningful in HTTP mode)
-HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
-    CMD php -r "if(getenv('VULTR_MCP_TRANSPORT')==='http'){exit(@fsockopen('localhost',8000)!==false?0:1);}else{exit(0);}"
 
 # Non-root user for security
 RUN addgroup -S mcp && adduser -S mcp -G mcp \
     && chown -R mcp:mcp /app
 USER mcp
 
-# STDIO entrypoint — MCP clients spawn this process and communicate via STDIN/STDOUT
-# HTTP entrypoint — starts the built-in PHP server for web requests
-CMD ["php", "-S", "0.0.0.0:8000", "src/Server.php"]
+# Health check for K8s probes
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
+    CMD php -r "if(@fsockopen('localhost',8000)!==false){exit(0);}else{exit(1);}"
 
-# Default: STDIO mode. Override for HTTP:
-#   docker run ... vultr/mcp:latest php src/Server.php
-#   (the ENTRYPOINT already runs the server; just set VULTR_MCP_TRANSPORT=http)
+# FrankenPHP worker mode — keeps the app booted in memory
+EXPOSE 8000
+
+CMD ["frankenphp", "php-server", "--worker=public/index.php", "--listen=:8000"]
