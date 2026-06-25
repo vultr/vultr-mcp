@@ -1,21 +1,6 @@
 # ============================================================
 # Vultr MCP Server — FrankenPHP
 # ============================================================
-# Supports both STDIO (local) and HTTP (FrankenPHP worker) transport modes.
-#
-# Build:
-#   docker build -t vultr/mcp:latest .
-#
-# Run (HTTP — FrankenPHP worker mode):
-#   docker run --rm -p 8000:8000 \
-#     -e VULTR_PER_USER_MODE=true \
-#     vultr/mcp:latest
-#
-# Run (STDIO — local MCP client):
-#   docker run --rm -i \
-#     -e VULTR_API_KEY=*** \
-#     vultr/mcp:latest php bin/console mcp:stdio
-# ============================================================
 
 # ---------------------------------------------------------------------------
 # Stage 1: Build — install Composer dependencies
@@ -28,7 +13,7 @@ COPY composer.json composer.lock* ./
 COPY src/ src/
 COPY bin/ bin/
 
-RUN composer install --no-dev --optimize-autoloader --no-interaction --prefer-source
+RUN COMPOSER_DISABLE_TLS=1 composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
 
 # ---------------------------------------------------------------------------
 # Runtime — FrankenPHP with PHP 8.4
@@ -36,6 +21,10 @@ RUN composer install --no-dev --optimize-autoloader --no-interaction --prefer-so
 FROM dunglas/frankenphp:1-php8.4 AS runtime
 
 RUN install-php-extensions posix opcache
+
+# Strip setcap from frankenphp binary — we listen on port 8080 (not privileged).
+# The setcap causes "Operation not permitted" in K8s when capabilities are dropped.
+RUN setcap -r /usr/local/bin/frankenphp
 
 # Production PHP config
 COPY <<'EOF' /usr/local/etc/php/conf.d/production.ini
@@ -57,19 +46,16 @@ WORKDIR /app
 # Copy entire application (including vendor/ from local composer install)
 COPY . .
 
-# Default environment — HTTP mode with per-user API keys
+# Create non-root user and set ownership
+RUN groupadd -r mcp && useradd -r -g mcp mcp \
+    && chown -R mcp:mcp /app \
+    && chown -R mcp:mcp /data/caddy /config/caddy
+
+USER mcp
+
 ENV VULTR_PER_USER_MODE=true \
     SSL_VERIFY=true
 
-RUN groupadd -r mcp && useradd -r -g mcp mcp \
-    && chown -R mcp:mcp /app
-USER mcp
-
-# Health check for K8s probes
-HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
-    CMD php -r "if(@fsockopen('localhost',8080)!==false){exit(0);}else{exit(1);}"
-
-# FrankenPHP worker mode — keeps the app booted in memory
 EXPOSE 8080
 
 CMD ["frankenphp", "php-server", "--root=/app/public", "--listen=:8080"]
