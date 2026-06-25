@@ -31,7 +31,7 @@ Or run directly with PHP:
 git clone https://github.com/vultr/vultr-mcp.git
 cd vultr-mcp
 composer install
-VULTR_API_KEY=YOUR_VULTR_API_KEY php src/Server.php
+VULTR_API_KEY=YOUR_VULTR_API_KEY php bin/console mcp:stdio
 ```
 
 The server auto-detects STDIO mode when launched by an MCP client.
@@ -39,8 +39,7 @@ The server auto-detects STDIO mode when launched by an MCP client.
 ### Remote Use (HTTP) — For Hosted / Team Deployments
 
 ```bash
-docker run --rm -p 8000:8000 \
-  -e VULTR_MCP_TRANSPORT=http \
+docker run --rm -p 8080:8080 \
   -e VULTR_PER_USER_MODE=true \
   vultr/mcp:latest
 ```
@@ -78,7 +77,7 @@ Add to your `claude_desktop_config.json`:
   "mcpServers": {
     "vultr": {
       "command": "php",
-      "args": ["/absolute/path/to/vultr-mcp/src/Server.php"],
+      "args": ["/absolute/path/to/vultr-mcp/bin/console", "mcp:stdio"],
       "env": {
         "VULTR_API_KEY": "YOUR_VULTR_API_KEY"
       }
@@ -129,7 +128,7 @@ Add to your `.cursor/mcp.json`:
 For AI clients that support remote MCP endpoints (Streamable HTTP transport):
 
 ```
-URL:  https://mcp.vultr.com
+URL:  https://mcp.vrnd.io
 Auth: X-Vultr-API-Key: YOUR_VULTR_API_KEY
 ```
 
@@ -140,31 +139,43 @@ Auth: X-Vultr-API-Key: YOUR_VULTR_API_KEY
 ```
 vultr-mcp/
 ├── bin/
-│   └── generate.php               ← CLI tool regenerator
+│   └── console                     ← Symfony Console (mcp:stdio, mcp:generate)
+├── config/
+│   ├── bundles.php
+│   ├── packages/
+│   │   ├── framework.yaml
+│   │   └── vultr_mcp.yaml
+│   ├── routes.yaml
+│   └── services.yaml
 ├── k8s/
-│   ├── configmap.yaml              ← K8s ConfigMap (transport, mode settings)
+│   ├── configmap.yaml              ← K8s ConfigMap (mode settings)
 │   ├── deployment.yaml             ← K8s Deployment (2 replicas, resource limits)
-│   ├── service.yaml                ← K8s ClusterIP Service
-│   ├── ingress.yaml                ← K8s Ingress (TLS, domain)
+│   ├── service.yaml                ← K8s ClusterIP Service (port 8000 → 8080)
+│   ├── ingress.yaml                ← K8s Ingress (Traefik, TLS, mcp.vrnd.io)
 │   └── secret.yaml                 ← K8s Secret (MCP_AUTH_TOKEN)
+├── public/
+│   └── index.php                   ← FrankenPHP entry point (HTTP mode)
 ├── src/
-│   ├── Server.php                  ← Entry point (STDIO + HTTP dual transport)
-│   ├── Auth/
-│   │   └── VultrAuth.php           ← PSR-15 auth middleware (per-user API keys)
+│   ├── Command/
+│   │   ├── StdioMcpCommand.php    ← STDIO transport (Symfony Console)
+│   │   └── GenerateToolsCommand.php ← Tool regeneration command
 │   ├── Generator/
-│   │   └── OpenApiGenerator.php    ← Parses OpenAPI spec → PHP tool classes
-│   ├── Http/
-│   │   └── HealthCheckMiddleware.php ← /healthz endpoint for K8s probes
-│   ├── Tools/
-│   │   ├── InstanceTools.php       ← MCP tools for /v2/instances
-│   │   └── BareMetalTools.php     ← MCP tools for /v2/bare-metals
-│   └── Utils/
-│       ├── VultrClient.php         ← Guzzle wrapper (auth, JSON, error handling)
-│       ├── VultrClientFactory.php  ← Per-request client factory
-│       ├── RequestContext.php      ← Request-scoped API key holder
-│       ├── RateLimiter.php         ← Exponential back-off retry
-│       └── RateLimitException.php
-├── Dockerfile                      ← Multi-stage (build + runtime)
+│   │   └── OpenApiGenerator.php   ← Parses OpenAPI spec → PHP tool classes
+│   ├── Mcp/
+│   │   ├── McpServerBuilder.php   ← MCP server builder
+│   │   └── Tool/
+│   │       ├── InstanceTools.php  ← MCP tools for /v2/instances
+│   │       └── BareMetalTools.php ← MCP tools for /v2/bare-metals
+│   ├── Middleware/
+│   │   └── VultrAuthMiddleware.php ← Per-user API key auth
+│   ├── Service/
+│   │   ├── VultrClient.php         ← Guzzle wrapper (auth, JSON, error handling)
+│   │   ├── VultrClientFactory.php  ← Per-request client factory
+│   │   ├── RequestContext.php      ← Request-scoped API key holder
+│   │   ├── RateLimiter.php         ← Exponential back-off retry
+│   │   └── RateLimitException.php
+│   └── Server.php                  ← Core server (STDIO + HTTP dual transport)
+├── Dockerfile                      ← FrankenPHP runtime (PHP 8.4)
 ├── composer.json
 ├── .env.example
 └── README.md
@@ -229,7 +240,7 @@ Default when launched by an MCP client (stdin is a pipe). Reads JSON-RPC from ST
 
 ### HTTP (Remote / Hosted)
 
-Set `VULTR_MCP_TRANSPORT=http` to enable. Provides a Streamable HTTP + SSE endpoint.
+Automatically enabled in the FrankenPHP Docker image. Provides a Streamable HTTP + SSE endpoint on port 8080.
 
 - Per-user API keys via `X-Vultr-API-Key` header
 - Optional `MCP_AUTH_TOKEN` bearer gate
@@ -241,7 +252,7 @@ Set `VULTR_MCP_TRANSPORT=http` to enable. Provides a Streamable HTTP + SSE endpo
 
 If `VULTR_MCP_TRANSPORT` is not set, the server auto-detects:
 - **STDIN is a pipe** (launched by MCP client) → STDIO mode
-- **STDIN is a TTY** (interactive / Docker with `-p`) → HTTP mode
+- **STDIN is a TTY / undefined** (interactive / Docker with `-p`) → HTTP mode
 
 ---
 
@@ -252,7 +263,7 @@ If `VULTR_MCP_TRANSPORT` is not set, the server auto-detects:
 Set `VULTR_API_KEY` in your environment. No additional auth — STDIO is a local pipe.
 
 ```bash
-VULTR_API_KEY=YOUR_KEY php src/Server.php
+VULTR_API_KEY=YOUR_KEY php bin/console mcp:stdio
 ```
 
 ### Remote (HTTP) Mode — Per-User API Keys
@@ -288,6 +299,8 @@ Vultr enforces 30 requests/second. The `RateLimiter` class automatically retries
 
 ## Docker
 
+The Docker image uses [FrankenPHP](https://frankenphp.dev/) for high-performance PHP serving with built-in Caddy and opcache/JIT.
+
 ### Build
 
 ```bash
@@ -298,15 +311,14 @@ docker build -t vultr/mcp:latest .
 
 ```bash
 docker run --rm -i \
-  -e VULTR_API_KEY=YOUR_KEY \
+  -e VULTR_API_KEY=*** \
   vultr/mcp:latest
 ```
 
 ### Run (HTTP)
 
 ```bash
-docker run --rm -p 8000:8000 \
-  -e VULTR_MCP_TRANSPORT=http \
+docker run --rm -p 8080:8080 \
   -e VULTR_PER_USER_MODE=true \
   vultr/mcp:latest
 ```
@@ -314,10 +326,9 @@ docker run --rm -p 8000:8000 \
 ### With MCP Auth Token (HTTP)
 
 ```bash
-docker run --rm -p 8000:8000 \
-  -e VULTR_MCP_TRANSPORT=http \
+docker run --rm -p 8080:8080 \
   -e VULTR_PER_USER_MODE=true \
-  -e MCP_AUTH_TOKEN=a-secret-token \
+  -e MCP_AUTH_TOKEN=*** \
   vultr/mcp:latest
 ```
 
@@ -325,7 +336,9 @@ docker run --rm -p 8000:8000 \
 
 ## Kubernetes Deployment
 
-Apply all manifests:
+Deployed on [Vultr VKE](https://www.vultr.com/kubernetes/) with Traefik ingress and Let's Encrypt TLS.
+
+### Apply all manifests:
 
 ```bash
 kubectl apply -f k8s/
@@ -334,11 +347,23 @@ kubectl apply -f k8s/
 This creates:
 - **ConfigMap** — transport mode, per-user settings
 - **Secret** — MCP_AUTH_TOKEN (edit before applying)
-- **Deployment** — 2 replicas, resource limits, health probes
-- **Service** — ClusterIP on port 8000
-- **Ingress** — TLS at `mcp.vultr.com` (adjust host and TLS secret)
+- **Deployment** — 2 replicas, resource limits, health probes on port 8080
+- **Service** — ClusterIP on port 8000 → targetPort 8080
+- **Ingress** — Traefik ingress with TLS at `mcp.vrnd.io`
 
-Customize the Ingress for your ingress controller and cert-manager setup.
+### Ingress Controller
+
+Install Traefik with Let's Encrypt certificate resolver:
+
+```bash
+helm repo add traefik https://traefik.github.io/charts
+helm repo update
+helm install traefik traefik/traefik \
+  --namespace traefik --create-namespace \
+  --set certificatesResolvers.letsencrypt.acme.email=your-email@vrnd.io \
+  --set certificatesResolvers.letsencrypt.acme.storage=/data/acme.json \
+  --set certificatesResolvers.letsencrypt.acme.tlsChallenge=true
+```
 
 ---
 
@@ -347,15 +372,5 @@ Customize the Ingress for your ingress controller and cert-manager setup.
 Download the latest Vultr OpenAPI spec from https://www.vultr.com/api/ and save it as `openapi.json` in the project root, then run:
 
 ```bash
-php bin/generate.php
-# or:
-php bin/generate.php --spec=openapi.json --tags=instances,baremetal --output=src/Tools/
+php bin/console mcp:generate
 ```
-
-Generated files are committed to the repository. Review the diff before committing.
-
----
-
-## License
-
-MIT

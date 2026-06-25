@@ -5,18 +5,17 @@ metadata:
   labels:
     app: vultr-mcp
   annotations:
-    # Uncomment and adjust for your cert-manager / ingress controller:
-    # cert-manager.io/cluster-issuer: letsencrypt-prod
-    # nginx.ingress.kubernetes.io/rate-limit: "30"
-    # nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.tls: "true"
+    traefik.ingress.kubernetes.io/router.tls.certresolver: letsencrypt
 spec:
-  ingressClassName: nginx  # Adjust to your ingress class
+  ingressClassName: traefik
   tls:
     - hosts:
-        - mcp.vultr.com
+        - mcp.vrnd.io
       secretName: vultr-mcp-tls
   rules:
-    - host: mcp.vultr.com
+    - host: mcp.vrnd.io
       http:
         paths:
           - path: /
