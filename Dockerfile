@@ -33,7 +33,7 @@ RUN composer install --no-dev --optimize-autoloader --no-interaction
 # ---------------------------------------------------------------------------
 # Stage 2: Runtime — FrankenPHP with PHP 8.4
 # ---------------------------------------------------------------------------
-FROM dunglas/frankenphp:latest-php8.4 AS runtime
+FROM dunglas/frankenphp:1-php8.4 AS runtime
 
 # Install required PHP extensions
 RUN install-php-extension \
