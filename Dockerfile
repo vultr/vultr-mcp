@@ -28,17 +28,14 @@ COPY composer.json composer.lock* ./
 COPY src/ src/
 COPY bin/ bin/
 
-RUN composer install --no-dev --optimize-autoloader --no-interaction
+RUN composer install --no-dev --optimize-autoloader --no-interaction --prefer-source
 
 # ---------------------------------------------------------------------------
-# Stage 2: Runtime — FrankenPHP with PHP 8.4
+# Runtime — FrankenPHP with PHP 8.4
 # ---------------------------------------------------------------------------
 FROM dunglas/frankenphp:1-php8.4 AS runtime
 
-# Install required PHP extensions
-RUN install-php-extension \
-    posix \
-    opcache
+RUN install-php-extensions posix opcache
 
 # Production PHP config
 COPY <<'EOF' /usr/local/etc/php/conf.d/production.ini
@@ -57,20 +54,14 @@ EOF
 
 WORKDIR /app
 
-# Copy built application from build stage
-COPY --from=build /app ./
-
-# Copy non-code files
-COPY public/ public/
-COPY openapi.json ./
-COPY .env.example .env.example
+# Copy entire application (including vendor/ from local composer install)
+COPY . .
 
 # Default environment — HTTP mode with per-user API keys
 ENV VULTR_PER_USER_MODE=true \
     SSL_VERIFY=true
 
-# Non-root user for security
-RUN addgroup -S mcp && adduser -S mcp -G mcp \
+RUN groupadd -r mcp && useradd -r -g mcp mcp \
     && chown -R mcp:mcp /app
 USER mcp
 
