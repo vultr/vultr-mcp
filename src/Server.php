@@ -21,6 +21,7 @@ use Symfony\Component\Cache\Adapter\RedisAdapter;
 use Vultr\Mcp\Utils\VultrClientFactory;
 
 
+
 $root = dirname(__DIR__);
 
 if (!class_exists(\Composer\Autoload\ClassLoader::class)) {
@@ -159,11 +160,9 @@ $serverBuilder = McpServer::builder()
     ->addTool([BareMetalTools::class, 'getBareMetalUpgrades'],  'get_bare_metal_upgrades');
 
 // Redis-backed session store for multi-replica support
-$redis = new \Redis();
-$redis->connect($_ENV['REDIS_HOST'] ?? 'redis', (int)($_ENV['REDIS_PORT'] ?? 6379));
-
+$redisUrl = 'redis://' . ($_ENV['REDIS_HOST'] ?? 'redis') . ':' . (int)($_ENV['REDIS_PORT'] ?? 6379);
 $sessionStore = new Psr16SessionStore(
-    cache: new \Symfony\Component\Cache\Psr16Cache(new RedisAdapter($redis)),
+    cache: new \Symfony\Component\Cache\Psr16Cache(new RedisAdapter(\Symfony\Component\Cache\Adapter\RedisAdapter::createConnection($redisUrl))),
     prefix: 'mcp-session-',
     ttl: 3600,
 );

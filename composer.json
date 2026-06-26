@@ -10,6 +10,7 @@
         "mcp/sdk": "^0.5",
         "nyholm/psr7": "^1.8",
         "nyholm/psr7-server": "^1.1",
+        "predis/predis": "^3.5",
         "runtime/frankenphp-symfony": "^0.2",
         "symfony/cache": "^8.1",
         "symfony/console": "^7.2",
