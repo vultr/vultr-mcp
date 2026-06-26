@@ -78,6 +78,9 @@ ENV VULTR_PER_USER_MODE=true \
 # Non-root user for security (Debian-style)
 RUN groupadd -r mcp && useradd -r -g mcp mcp \
     && chown -R mcp:mcp /app
+
+COPY Caddyfile /etc/caddy/Caddyfile
+
 USER mcp
 
 # Health check for K8s probes
@@ -87,4 +90,4 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
 # FrankenPHP worker mode — keeps the app booted in memory
 EXPOSE 8080
 
-CMD ["frankenphp", "php-server", "--worker=public/index.php", "--listen=:8080"]
+CMD ["frankenphp", "run", "--config", "/etc/caddy/Caddyfile"]
