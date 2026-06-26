@@ -13,33 +13,14 @@ use Vultr\Mcp\Utils\RequestContext;
 
 /**
  * PSR-15 middleware that authenticates MCP client requests and extracts
- * per-user Vultr API keys.
+ * per-user Vultr API keys. Supports three modes:
  *
- * ## Authentication modes
+ *   - No auth: empty MCP_AUTH_TOKEN (local/trusted environments only)
+ *   - Bearer token: set MCP_AUTH_TOKEN, clients send Authorization: Bearer <token>
+ *   - Per-user API key: VULTR_PER_USER_MODE=true, clients send X-Vultr-API-Key
  *
- * ### Development / no-auth
- * Set `MCP_AUTH_TOKEN=` (empty) in your .env to disable MCP-level authentication.
- * Only recommended for local, trusted environments.
- *
- * ### Static bearer token
- * Set `MCP_AUTH_TOKEN=<secret>` in .env. The client must send the header:
- *   Authorization: Bearer <secret>
- *
- * ### Per-user Vultr API key (multi-tenant / public hosting)
- * When `VULTR_PER_USER_MODE=true`, each client must supply their own Vultr API
- * key via the `X-Vultr-API-Key` header. This key is stored as a request attribute
- * (`vultr_api_key`) for downstream use by VultrClientFactory.
- *
- * If MCP_AUTH_TOKEN is also set, it is validated first; the Vultr API key is
- * then extracted separately. This allows a deployment where MCP access is gated
- * by a shared bearer token while each user operates on their own Vultr account.
- *
- * ### OAuth 2.0 / PKCE (production)
- * Replace {@see VultrAuth::validateToken()} with a call to your JWT validation
- * library (e.g. `firebase/php-jwt`, `lcobucci/jwt`). Issue tokens from a
- * dedicated `/oauth/token` endpoint backed by an OAuth 2.0 server.
- * The PKCE flow (RFC 7636) protects public clients from code-interception
- * attacks and does not require a client secret.
+ * Bearer token and per-user API key can be combined: the token gates MCP access
+ * while each user operates on their own Vultr account.
  */
 final class VultrAuth implements MiddlewareInterface
 {
@@ -143,12 +124,7 @@ final class VultrAuth implements MiddlewareInterface
     }
 
     /**
-     * Validate the provided bearer token.
-     *
-     * Override or replace this method to integrate a JWT library for
-     * production OAuth 2.0 token validation.
-     *
-     * @param string $token The raw token value extracted from the Authorization header.
+     * Constant-time token comparison to prevent timing attacks.
      */
     private function validateToken(string $token): bool
     {

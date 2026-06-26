@@ -209,9 +209,7 @@ $server = $serverBuilder
 // ---------------------------------------------------------------------------
 
 if ($isStdio) {
-    // =====================================================================
-    // STDIO Transport — Local mode
-    // =====================================================================
+    // STDIO - local pipe, no auth, API key from env
     // Reads JSON-RPC from STDIN, writes responses to STDOUT.
     // Used by Claude Desktop, VS Code Copilot, Cursor, and other MCP clients
     // that spawn the server as a child process.
@@ -224,9 +222,7 @@ if ($isStdio) {
     $server->run($transport);
 
 } else {
-    // =====================================================================
-    // Streamable HTTP Transport — Remote / hosted mode
-    // =====================================================================
+    // HTTP - Streamable HTTP + SSE, per-user auth via X-Vultr-API-Key
 
     $psr17Factory = new Psr17Factory();
     $healthMiddleware = new HealthCheckMiddleware($psr17Factory);

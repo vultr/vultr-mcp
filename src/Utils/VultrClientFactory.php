@@ -73,11 +73,4 @@ final class VultrClientFactory
         );
     }
 
-    /**
-     * Whether this factory operates in per-user mode.
-     */
-    public function isPerUserMode(): bool
-    {
-        return $this->perUserMode;
-    }
 }

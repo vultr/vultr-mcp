@@ -11,14 +11,7 @@ use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 
 /**
- * PSR-15 middleware that responds to Kubernetes health check requests.
- *
- * Returns 200 OK for GET /healthz with a small JSON payload.
- * All other requests pass through to the next handler.
- *
- * This must be registered BEFORE the MCP StreamableHttpTransport
- * in the middleware stack so health checks are handled without
- * entering the MCP protocol layer.
+ * Returns 200 for GET /healthz, passes all other requests through.
  */
 final class HealthCheckMiddleware implements MiddlewareInterface
 {
