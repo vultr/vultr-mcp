@@ -2,10 +2,8 @@
 	root * /app/public
 
 	# Health check — respond directly at Caddy level, no PHP needed
-	respond /healthz `{"status":"ok","service":"vultr-mcp-server","version":"1.2.0"}` 200 {
-		header Content-Type application/json
-		close
-	}
+	header /healthz Content-Type application/json
+	respond /healthz `{"status":"ok","service":"vultr-mcp-server","version":"1.2.0"}` 200
 
 	# All other requests go through the PHP worker
 	php_server {
