@@ -1,6 +1,21 @@
 # ============================================================
 # Vultr MCP Server — FrankenPHP
 # ============================================================
+# Supports both STDIO (local) and HTTP (FrankenPHP worker) transport modes.
+#
+# Build:
+#   docker build -t vultr/mcp:latest .
+#
+# Run (HTTP — FrankenPHP worker mode):
+#   docker run --rm -p 8080:8080 \
+#     -e VULTR_PER_USER_MODE=true \
+#     vultr/mcp:latest
+#
+# Run (STDIO — local MCP client):
+#   docker run --rm -i \
+#     -e VULTR_API_KEY=*** \
+#     vultr/mcp:latest php bin/console mcp:stdio
+# ============================================================
 
 # ---------------------------------------------------------------------------
 # Stage 1: Build — install Composer dependencies
@@ -13,18 +28,20 @@ COPY composer.json composer.lock* ./
 COPY src/ src/
 COPY bin/ bin/
 
-RUN COMPOSER_DISABLE_TLS=1 composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
+RUN composer install --no-dev --optimize-autoloader --no-interaction
 
 # ---------------------------------------------------------------------------
-# Runtime — FrankenPHP with PHP 8.4
+# Stage 2: Runtime — FrankenPHP with PHP 8.4
 # ---------------------------------------------------------------------------
 FROM dunglas/frankenphp:1-php8.4 AS runtime
 
-RUN install-php-extensions posix opcache
+# Install required PHP extensions (plural 's' — FrankenPHP uses Debian)
+RUN install-php-extensions \
+    posix \
+    opcache
 
-# Strip setcap from frankenphp binary — we listen on port 8080 (not privileged).
-# The setcap causes "Operation not permitted" in K8s when capabilities are dropped.
-RUN setcap -r /usr/local/bin/frankenphp
+# Strip setcap from frankenphp binary (not needed on non-privileged ports)
+RUN setcap -r /usr/local/bin/frankenphp 2>/dev/null || true
 
 # Production PHP config
 COPY <<'EOF' /usr/local/etc/php/conf.d/production.ini
@@ -43,19 +60,28 @@ EOF
 
 WORKDIR /app
 
-# Copy entire application (including vendor/ from local composer install)
-COPY . .
+# Copy built application from build stage
+COPY --from=build /app ./
 
-# Create non-root user and set ownership
-RUN groupadd -r mcp && useradd -r -g mcp mcp \
-    && chown -R mcp:mcp /app \
-    && chown -R mcp:mcp /data/caddy /config/caddy
+# Copy non-code files
+COPY public/ public/
+COPY openapi.json ./
+COPY .env.example .env.example
 
-USER mcp
-
+# Default environment — HTTP mode with per-user API keys
 ENV VULTR_PER_USER_MODE=true \
     SSL_VERIFY=true
 
+# Non-root user for security (Debian-style)
+RUN groupadd -r mcp && useradd -r -g mcp mcp \
+    && chown -R mcp:mcp /app
+USER mcp
+
+# Health check for K8s probes
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
+    CMD php -r "if(@fsockopen('localhost',8080)!==false){exit(0);}else{exit(1);}"
+
+# FrankenPHP worker mode — keeps the app booted in memory
 EXPOSE 8080
 
-CMD ["frankenphp", "php-server", "--root=/app/public", "--listen=:8080"]
+CMD ["frankenphp", "php-server", "--worker=public/index.php", "--listen=:8080"]

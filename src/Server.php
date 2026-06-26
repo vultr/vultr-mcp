@@ -16,6 +16,7 @@ use Vultr\Mcp\Auth\VultrAuth;
 use Vultr\Mcp\Http\HealthCheckMiddleware;
 use Vultr\Mcp\Tools\BareMetalTools;
 use Vultr\Mcp\Tools\InstanceTools;
+use Mcp\Server\Session\FileSessionStore;
 use Vultr\Mcp\Utils\VultrClientFactory;
 
 // ---------------------------------------------------------------------------
@@ -189,11 +190,19 @@ $serverBuilder = McpServer::builder()
     ->addTool([BareMetalTools::class, 'getBareMetalUserData'],  'get_bare_metal_user_data')
     ->addTool([BareMetalTools::class, 'getBareMetalUpgrades'],  'get_bare_metal_upgrades');
 
-// Stateless: no ->setSession() call. The server operates without
-// server-side session persistence, making it safe for Kubernetes
-// deployments with multiple replicas and rolling restarts.
+// Session persistence for HTTP transport.
+// FileSessionStore stores session state on disk so it survives across
+// HTTP requests. This is required for Streamable HTTP transport where
+// the client sends each JSON-RPC message as a separate POST.
+// The /tmp/sessions directory is backed by an emptyDir volume in K8s.
+$sessionStore = new FileSessionStore(
+    directory: sys_get_temp_dir() . '/mcp-sessions',
+    ttl: 3600,
+);
 
-$server = $serverBuilder->build();
+$server = $serverBuilder
+    ->setSession($sessionStore)
+    ->build();
 
 // ---------------------------------------------------------------------------
 // Run with the selected transport

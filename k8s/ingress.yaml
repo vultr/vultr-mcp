@@ -12,10 +12,9 @@ spec:
   ingressClassName: traefik
   tls:
     - hosts:
-        - mcp.vrnd.io
-      secretName: vultr-mcp-tls
+        - vultrmcp.com
   rules:
-    - host: mcp.vrnd.io
+    - host: vultrmcp.com
       http:
         paths:
           - path: /

@@ -1,0 +1,38 @@
+# Traefik Helm values for Vultr MCP
+# Install with:
+#   helm install traefik traefik/traefik --namespace traefik --create-namespace -f k8s/traefik-values.yaml
+
+deployment:
+  kind: Deployment
+  replicas: 1
+
+ports:
+  web:
+    expose:
+      default: true
+    exposedPort: 80
+  websecure:
+    expose:
+      default: true
+    exposedPort: 443
+
+certificatesResolvers:
+  letsencrypt:
+    acme:
+      email: ghaughawout@vultr.com
+      storage: /data/acme.json
+      tlsChallenge: true
+
+securityContext:
+  runAsNonRoot: false
+  runAsUser: 0
+  runAsGroup: 0
+
+persistence:
+  enabled: true
+  size: 1Gi
+  storageClassName: vultr-block-storage
+
+ingressRoute:
+  dashboard:
+    enabled: false

@@ -106,9 +106,16 @@ final class VultrAuth implements MiddlewareInterface
         }
 
         // --- Step 2: Extract per-user Vultr API key ---
+        // Priority: header > query param > Bearer token fallback
         $vultrApiKey = $request->getHeaderLine('X-Vultr-API-Key');
 
-        // Fallback: allow the API key to be passed as a Bearer token when
+        // Fallback 1: query parameter (compatible with MCP clients that only
+        // support URL + env config, not custom headers).
+        if (empty($vultrApiKey)) {
+            $vultrApiKey = $request->getQueryParams()['api_key'] ?? '';
+        }
+
+        // Fallback 2: allow the API key to be passed as a Bearer token when
         // there is no separate MCP_AUTH_TOKEN configured (simple single-layer auth).
         if (empty($vultrApiKey) && ($this->expectedToken === null || $this->expectedToken === '')) {
             $authHeader = $request->getHeaderLine('Authorization');
