@@ -57,16 +57,17 @@ spec:
             capabilities:
               drop: ["ALL"]
           volumeMounts:
-            - name: tmp
-              mountPath: /tmp
-            - name: data
-              mountPath: /data
-            - name: config
-              mountPath: /config
+            - mountPath: /tmp
+              name: tmp
+            - mountPath: /tmp/mcp-sessions
+              name: sessions
+            - mountPath: /config
+              name: config
       volumes:
-        - name: tmp
-          emptyDir: {}
-        - name: data
-          emptyDir: {}
-        - name: config
-          emptyDir: {}
+        - emptyDir: {}
+          name: tmp
+        - name: sessions
+          persistentVolumeClaim:
+            claimName: vultr-mcp-sessions
+        - emptyDir: {}
+          name: config
