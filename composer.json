@@ -5,15 +5,15 @@
     "license": "MIT",
     "keywords": ["vultr", "mcp", "model-context-protocol", "cloud", "php"],
     "require": {
-        "symfony/cache": "^7.2",
         "php": ">=8.2",
-        "mcp/sdk": "^0.5",
         "guzzlehttp/guzzle": "^7.8",
+        "mcp/sdk": "^0.5",
         "nyholm/psr7": "^1.8",
         "nyholm/psr7-server": "^1.1",
+        "runtime/frankenphp-symfony": "^0.2",
+        "symfony/cache": "^8.1",
         "symfony/console": "^7.2",
-        "symfony/runtime": "^7.2",
-        "runtime/frankenphp-symfony": "^0.2"
+        "symfony/runtime": "^7.2"
     },
     "require-dev": {
         "phpunit/phpunit": "^10.5",
