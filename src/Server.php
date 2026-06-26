@@ -227,59 +227,73 @@ if ($isStdio) {
     // =====================================================================
     // Streamable HTTP Transport — Remote / hosted mode
     // =====================================================================
-    // Single HTTP endpoint with POST (JSON-RPC), GET (SSE stream),
-    // DELETE (session teardown), and OPTIONS (CORS pre-flight).
-    //
-    // Auth: VultrAuth middleware extracts per-user API keys.
-    // API key: Per-request via X-Vultr-API-Key header.
-    // =====================================================================
 
     $psr17Factory = new Psr17Factory();
-    $creator      = new ServerRequestCreator(
-        $psr17Factory,
-        $psr17Factory,
-        $psr17Factory,
-        $psr17Factory,
-    );
-
-    $request = $creator->fromGlobals();
-
-    // Build the middleware stack:
-    //   1. HealthCheckMiddleware — K8s liveness/readiness probes (/healthz)
-    //   2. VultrAuth — extracts per-user API keys, validates MCP_AUTH_TOKEN
-    //   3. SDK defaults — CORS, DNS rebinding protection, protocol version
     $healthMiddleware = new HealthCheckMiddleware($psr17Factory);
-    $authMiddleware   = VultrAuth::fromEnv($psr17Factory);
+    $authMiddleware = VultrAuth::fromEnv($psr17Factory);
 
-    $transport = new StreamableHttpTransport(
-        request: $request,
-        responseFactory: $psr17Factory,
-        streamFactory: $psr17Factory,
-        middleware: [
-            $healthMiddleware,
-            $authMiddleware,
-        ],
-    );
+    // Per-request handler — runs for each incoming HTTP request
+    $handler = function () use (
+        $server, $psr17Factory, $healthMiddleware, $authMiddleware
+    ): void {
+        $creator = new ServerRequestCreator(
+            $psr17Factory, $psr17Factory,
+            $psr17Factory, $psr17Factory,
+        );
 
-    $response = $server->run($transport);
+        $request = $creator->fromGlobals();
 
-    // Emit PSR-7 response using native PHP (replaces Laminas SapiEmitter)
-    (function (ResponseInterface $response) {
-        http_response_code($response->getStatusCode());
-        foreach ($response->getHeaders() as $name => $values) {
-            foreach ($values as $value) {
-                header("{$name}: {$value}", false);
+        // Handle health checks directly — no MCP transport needed
+        if ($request->getMethod() === 'GET' && $request->getUri()->getPath() === '/healthz') {
+            header('Content-Type: application/json');
+            http_response_code(200);
+            echo json_encode([
+                'status'  => 'ok',
+                'service' => 'vultr-mcp-server',
+                'version' => '1.2.0',
+            ], JSON_THROW_ON_ERROR);
+            return;
+        }
+
+        $transport = new StreamableHttpTransport(
+            request: $request,
+            responseFactory: $psr17Factory,
+            streamFactory: $psr17Factory,
+            middleware: [
+                $healthMiddleware,
+                $authMiddleware,
+            ],
+        );
+
+        $response = $server->run($transport);
+
+        // Emit PSR-7 response
+        (function (ResponseInterface $response) {
+            http_response_code($response->getStatusCode());
+            foreach ($response->getHeaders() as $name => $values) {
+                foreach ($values as $value) {
+                    header("{$name}: {$value}", false);
+                }
             }
-        }
-        $body = $response->getBody();
-        if ($body->isSeekable()) {
-            $body->rewind();
-        }
-        while (!$body->eof()) {
-            echo $body->read(8192);
-        }
-    })($response);
+            $body = $response->getBody();
+            if ($body->isSeekable()) {
+                $body->rewind();
+            }
+            while (!$body->eof()) {
+                echo $body->read(8192);
+            }
+        })($response);
 
-    // Clean up request-scoped context after the response is sent.
-    \Vultr\Mcp\Utils\RequestContext::clear();
+        \Vultr\Mcp\Utils\RequestContext::clear();
+    };
+
+    // FrankenPHP worker mode: handle each request in a loop
+    if (function_exists('frankenphp_handle_request')) {
+        while (true) {
+            frankenphp_handle_request($handler);
+        }
+    } else {
+        // Fallback for non-worker mode (e.g. php -S)
+        $handler();
+    }
 }

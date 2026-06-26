@@ -18,17 +18,15 @@
 # ============================================================
 
 # ---------------------------------------------------------------------------
-# Stage 1: Build — install Composer dependencies
+# Stage 1: Build — copy pre-installed Composer dependencies
 # ---------------------------------------------------------------------------
+# NOTE: `composer install` is run locally before `docker build` because
+# TLS-intercepting proxies can block GitHub API access inside Docker.
 FROM composer:2 AS build
 
 WORKDIR /app
 
-COPY composer.json composer.lock* ./
-COPY src/ src/
-COPY bin/ bin/
-
-RUN composer install --no-dev --optimize-autoloader --no-interaction
+COPY vendor/ vendor/
 
 # ---------------------------------------------------------------------------
 # Stage 2: Runtime — FrankenPHP with PHP 8.4
@@ -62,6 +60,11 @@ WORKDIR /app
 
 # Copy built application from build stage
 COPY --from=build /app ./
+
+# Copy application source code
+COPY src/ src/
+COPY bin/ bin/
+COPY composer.json ./
 
 # Copy non-code files
 COPY public/ public/
