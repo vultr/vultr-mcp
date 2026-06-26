@@ -71,6 +71,8 @@ COPY public/ public/
 COPY openapi.json ./
 COPY .env.example .env.example
 
+COPY Caddyfile /etc/frankenphp/Caddyfile
+
 # Default environment — HTTP mode with per-user API keys
 ENV VULTR_PER_USER_MODE=true \
     SSL_VERIFY=true
@@ -78,8 +80,6 @@ ENV VULTR_PER_USER_MODE=true \
 # Non-root user for security (Debian-style)
 RUN groupadd -r mcp && useradd -r -g mcp mcp \
     && chown -R mcp:mcp /app
-
-COPY Caddyfile /etc/caddy/Caddyfile
 
 USER mcp
 
@@ -90,4 +90,4 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
 # FrankenPHP worker mode — keeps the app booted in memory
 EXPOSE 8080
 
-CMD ["frankenphp", "run", "--config", "/etc/caddy/Caddyfile"]
+CMD ["frankenphp", "run", "--config", "/etc/frankenphp/Caddyfile"]
