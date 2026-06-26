@@ -8,7 +8,7 @@ Supports **both local (STDIO) and remote (HTTP)** transport modes.
 
 ## Requirements
 
-- PHP 8.1+ (with `posix` extension for STDIO auto-detection)
+- PHP 8.4+ (with `posix` extension for STDIO auto-detection)
 - Composer
 
 ---
@@ -128,7 +128,7 @@ Add to your `.cursor/mcp.json`:
 For AI clients that support remote MCP endpoints (Streamable HTTP transport):
 
 ```
-URL:  https://mcp.vrnd.io
+URL:  https://vultrmcp.com
 Auth: X-Vultr-API-Key: YOUR_VULTR_API_KEY
 ```
 
@@ -136,50 +136,6 @@ Auth: X-Vultr-API-Key: YOUR_VULTR_API_KEY
 
 ## Project Structure
 
-```
-vultr-mcp/
-├── bin/
-│   └── console                     ← Symfony Console (mcp:stdio, mcp:generate)
-├── config/
-│   ├── bundles.php
-│   ├── packages/
-│   │   ├── framework.yaml
-│   │   └── vultr_mcp.yaml
-│   ├── routes.yaml
-│   └── services.yaml
-├── k8s/
-│   ├── configmap.yaml              ← K8s ConfigMap (mode settings)
-│   ├── deployment.yaml             ← K8s Deployment (2 replicas, resource limits)
-│   ├── service.yaml                ← K8s ClusterIP Service (port 8000 → 8080)
-│   ├── ingress.yaml                ← K8s Ingress (Traefik, TLS, mcp.vrnd.io)
-│   └── secret.yaml                 ← K8s Secret (MCP_AUTH_TOKEN)
-├── public/
-│   └── index.php                   ← FrankenPHP entry point (HTTP mode)
-├── src/
-│   ├── Command/
-│   │   ├── StdioMcpCommand.php    ← STDIO transport (Symfony Console)
-│   │   └── GenerateToolsCommand.php ← Tool regeneration command
-│   ├── Generator/
-│   │   └── OpenApiGenerator.php   ← Parses OpenAPI spec → PHP tool classes
-│   ├── Mcp/
-│   │   ├── McpServerBuilder.php   ← MCP server builder
-│   │   └── Tool/
-│   │       ├── InstanceTools.php  ← MCP tools for /v2/instances
-│   │       └── BareMetalTools.php ← MCP tools for /v2/bare-metals
-│   ├── Middleware/
-│   │   └── VultrAuthMiddleware.php ← Per-user API key auth
-│   ├── Service/
-│   │   ├── VultrClient.php         ← Guzzle wrapper (auth, JSON, error handling)
-│   │   ├── VultrClientFactory.php  ← Per-request client factory
-│   │   ├── RequestContext.php      ← Request-scoped API key holder
-│   │   ├── RateLimiter.php         ← Exponential back-off retry
-│   │   └── RateLimitException.php
-│   └── Server.php                  ← Core server (STDIO + HTTP dual transport)
-├── Dockerfile                      ← FrankenPHP runtime (PHP 8.4)
-├── composer.json
-├── .env.example
-└── README.md
-```
 
 ---
 

@@ -21,11 +21,9 @@ final class VultrClientFactory
     private readonly bool $sslVerify;
     private readonly string $baseUri;
 
-    /** @var string|null Cached single-key mode API key */
     private readonly ?string $defaultApiKey;
 
     /**
-     * @param bool $perUserMode When true, the API key is read from RequestContext per-request.
      */
     public function __construct(
         private readonly bool $perUserMode = false,

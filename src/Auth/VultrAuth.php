@@ -29,12 +29,7 @@ final class VultrAuth implements MiddlewareInterface
      */
     public const VULTR_API_KEY_ATTR = 'vultr_api_key';
 
-    /**
-     * @param ResponseFactoryInterface $responseFactory PSR-17 factory for creating error responses.
-     * @param string|null              $expectedToken   Expected bearer token value.
-     *                                                  Pass null or empty string to skip authentication.
-     * @param bool                     $perUserMode     When true, require X-Vultr-API-Key header.
-     */
+    /***/
     public function __construct(
         private readonly ResponseFactoryInterface $responseFactory,
         private readonly ?string $expectedToken = null,
@@ -66,13 +61,11 @@ final class VultrAuth implements MiddlewareInterface
      */
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
-        // Always allow OPTIONS (CORS pre-flight) through unauthenticated.
-        if ($request->getMethod() === 'OPTIONS') {
+                if ($request->getMethod() === 'OPTIONS') {
             return $handler->handle($request);
         }
 
-        // --- Step 1: Validate MCP-level bearer token (if configured) ---
-        if ($this->expectedToken !== null && $this->expectedToken !== '') {
+                if ($this->expectedToken !== null && $this->expectedToken !== '') {
             $authHeader = $request->getHeaderLine('Authorization');
 
             if (!str_starts_with($authHeader, 'Bearer ')) {
@@ -86,8 +79,7 @@ final class VultrAuth implements MiddlewareInterface
             }
         }
 
-        // --- Step 2: Extract per-user Vultr API key ---
-        // Priority: header > query param > Bearer token fallback
+                // Priority: header > query param > Bearer token fallback
         $vultrApiKey = $request->getHeaderLine('X-Vultr-API-Key');
 
         // Fallback 1: query parameter (compatible with MCP clients that only
@@ -128,7 +120,6 @@ final class VultrAuth implements MiddlewareInterface
      */
     private function validateToken(string $token): bool
     {
-        // Constant-time comparison to prevent timing attacks.
         return hash_equals($this->expectedToken ?? '', $token);
     }
 

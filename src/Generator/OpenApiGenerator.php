@@ -145,13 +145,11 @@ final class OpenApiGenerator
 
                 $op = $pathItem[$method];
 
-                // Skip operations not belonging to this tag.
-                if (!in_array($tag, array_map('strtolower', $op['tags'] ?? []), true)) {
+                                if (!in_array($tag, array_map('strtolower', $op['tags'] ?? []), true)) {
                     continue;
                 }
 
-                // Skip deprecated operations.
-                if ($op['deprecated'] ?? false) {
+                                if ($op['deprecated'] ?? false) {
                     continue;
                 }
 
@@ -397,15 +395,13 @@ PHP;
             }
         }
 
-        // Optional body params (nullable with null default).
-        foreach ($op['bodyProps'] as $p) {
+                foreach ($op['bodyProps'] as $p) {
             if (!$p['required']) {
                 $params[] = "?{$p['type']} \${$this->camelCase($p['name'])} = null";
             }
         }
 
-        // Optional query params (always optional).
-        foreach ($op['queryParams'] as $p) {
+                foreach ($op['queryParams'] as $p) {
             if ($p['required']) {
                 $params[] = "{$p['type']} \${$this->camelCase($p['name'])}";
             } else {

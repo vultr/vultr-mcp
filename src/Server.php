@@ -19,43 +19,23 @@ use Vultr\Mcp\Tools\InstanceTools;
 use Mcp\Server\Session\FileSessionStore;
 use Vultr\Mcp\Utils\VultrClientFactory;
 
-// ---------------------------------------------------------------------------
-// Bootstrap
-// ---------------------------------------------------------------------------
 
 $root = dirname(__DIR__);
 
-// Autoload may already be loaded in FrankenPHP worker mode
 if (!class_exists(\Composer\Autoload\ClassLoader::class)) {
     require_once $root . '/vendor/autoload.php';
 }
 
-// Load environment variables. .env values take precedence over system env vars.
-// In FrankenPHP worker mode, this runs once at worker boot.
 if (file_exists($root . '/.env')) {
     Dotenv::createMutable($root)->safeLoad();
 }
 
-// ---------------------------------------------------------------------------
-// Transport mode detection
-// ---------------------------------------------------------------------------
 
-// VULTR_MCP_TRANSPORT controls which transport to use:
-//   "stdio"  — Local mode: reads from STDIN, writes to STDOUT. For CLI / Claude Desktop / VS Code.
-//   "http"   — Remote mode: Streamable HTTP + SSE. For hosted / Kubernetes deployments.
-//
-// Auto-detection: if STDIN is a TTY (interactive terminal), assume HTTP mode
-// since there's no parent process piping JSON-RPC messages. Otherwise default
-// to STDIO so that `php src/Server.php` just works when launched by an MCP client.
 
 $transportMode = $_ENV['VULTR_MCP_TRANSPORT'] ?? getenv('VULTR_MCP_TRANSPORT') ?: null;
 
 if ($transportMode === null) {
-    // Auto-detect transport mode:
-    //   - If posix_isatty is available, check if STDIN is a TTY → HTTP
-    //   - If STDIN is not defined (e.g. php -S on Windows), we're in HTTP mode
-    //   - Otherwise assume STDIO (MCP client piping JSON-RPC)
-    if (function_exists('posix_isatty')) {
+        if (function_exists('posix_isatty')) {
         $transportMode = posix_isatty(STDIN) ? 'http' : 'stdio';
     } elseif (!defined('STDIN')) {
         $transportMode = 'http';
@@ -74,32 +54,22 @@ if (!in_array($transportMode, ['stdio', 'http'], true)) {
 $isStdio = $transportMode === 'stdio';
 $isHttp  = $transportMode === 'http';
 
-// ---------------------------------------------------------------------------
-// Vultr API key mode detection
-// ---------------------------------------------------------------------------
 
 $perUserMode = filter_var(
     $_ENV['VULTR_PER_USER_MODE'] ?? getenv('VULTR_PER_USER_MODE') ?: 'false',
     FILTER_VALIDATE_BOOLEAN,
 );
 
-// In STDIO mode, per-user is forced on unless a VULTR_API_KEY is explicitly set.
-// The rationale: STDIO runs locally, the user's key comes from the environment
-// they launched the process in. No X-Vultr-API-Key header is needed.
-// In HTTP mode, per-user requires the X-Vultr-API-Key header per request.
 $defaultApiKey = $_ENV['VULTR_API_KEY'] ?? getenv('VULTR_API_KEY') ?: null;
 
 if ($isStdio) {
-    // STDIO: always use per-user mode. The API key comes from the env
-    // the user set when launching the process (e.g. VULTR_API_KEY=*** php src/Server.php).
+        // the user set when launching the process (e.g. VULTR_API_KEY=*** php src/Server.php).
     $perUserMode = true;
-    // If VULTR_API_KEY is set, treat it as the default for this process.
-    if (!empty($defaultApiKey)) {
+        if (!empty($defaultApiKey)) {
         \Vultr\Mcp\Utils\RequestContext::setApiKey($defaultApiKey);
     }
 } elseif (!$perUserMode && empty($defaultApiKey)) {
-    // HTTP legacy mode requires a global API key.
-    http_response_code(500);
+        http_response_code(500);
     echo json_encode([
         'error' => 'Server misconfiguration: VULTR_API_KEY is not set. '
                  . 'Set VULTR_PER_USER_MODE=true for per-user API key mode.',
@@ -116,9 +86,6 @@ $clientFactory = new VultrClientFactory(
     defaultApiKey: $defaultApiKey,
 );
 
-// ---------------------------------------------------------------------------
-// Tool classes
-// ---------------------------------------------------------------------------
 
 $instanceTools  = new InstanceTools($clientFactory);
 $bareMetalTools = new BareMetalTools($clientFactory);
@@ -190,11 +157,6 @@ $serverBuilder = McpServer::builder()
     ->addTool([BareMetalTools::class, 'getBareMetalUserData'],  'get_bare_metal_user_data')
     ->addTool([BareMetalTools::class, 'getBareMetalUpgrades'],  'get_bare_metal_upgrades');
 
-// Session persistence for HTTP transport.
-// FileSessionStore stores session state on disk so it survives across
-// HTTP requests. This is required for Streamable HTTP transport where
-// the client sends each JSON-RPC message as a separate POST.
-// The /tmp/sessions directory is backed by an emptyDir volume in K8s.
 $sessionStore = new FileSessionStore(
     directory: sys_get_temp_dir() . '/mcp-sessions',
     ttl: 3600,
@@ -204,19 +166,11 @@ $server = $serverBuilder
     ->setSession($sessionStore)
     ->build();
 
-// ---------------------------------------------------------------------------
-// Run with the selected transport
-// ---------------------------------------------------------------------------
 
 if ($isStdio) {
     // STDIO - local pipe, no auth, API key from env
-    // Reads JSON-RPC from STDIN, writes responses to STDOUT.
-    // Used by Claude Desktop, VS Code Copilot, Cursor, and other MCP clients
-    // that spawn the server as a child process.
-    //
-    // Auth: Not needed — STDIO is a local pipe, no network exposure.
-    // API key: Read from VULTR_API_KEY env var (set above in RequestContext).
-    // =====================================================================
+            //
+            // =====================================================================
 
     $transport = new StdioTransport();
     $server->run($transport);
@@ -263,8 +217,7 @@ if ($isStdio) {
 
         $response = $server->run($transport);
 
-        // Emit PSR-7 response
-        (function (ResponseInterface $response) {
+                (function (ResponseInterface $response) {
             http_response_code($response->getStatusCode());
             foreach ($response->getHeaders() as $name => $values) {
                 foreach ($values as $value) {

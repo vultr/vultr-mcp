@@ -7,7 +7,6 @@ use Symfony\Component\Console\Application;
 
 require_once dirname(__DIR__).'/vendor/autoload.php';
 
-// Load .env if present
 $root = dirname(__DIR__);
 if (file_exists($root . '/.env')) {
     (Dotenv\Dotenv::createMutable($root))->safeLoad();
@@ -28,15 +27,13 @@ $app->register('mcp:stdio')
             return 1;
         }
 
-        // Force STDIO mode
-        putenv('VULTR_MCP_TRANSPORT=stdio');
+                putenv('VULTR_MCP_TRANSPORT=stdio');
         $_ENV['VULTR_MCP_TRANSPORT'] = 'stdio';
         \Vultr\Mcp\Utils\RequestContext::setApiKey($apiKey);
 
         $output->getErrorOutput()->writeln('<info>Starting Vultr MCP Server (STDIO mode)...</info>');
 
-        // Delegate to Server.php which detects STDIO transport
-        require dirname(__DIR__).'/src/Server.php';
+                require dirname(__DIR__).'/src/Server.php';
 
         \Vultr\Mcp\Utils\RequestContext::clear();
         return 0;
