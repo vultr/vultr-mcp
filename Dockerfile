@@ -35,6 +35,7 @@ FROM dunglas/frankenphp:1-php8.4 AS runtime
 
 # Install required PHP extensions (plural 's' — FrankenPHP uses Debian)
 RUN install-php-extensions \
+    redis \
     posix \
     opcache
 

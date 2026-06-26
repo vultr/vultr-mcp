@@ -16,7 +16,8 @@ use Vultr\Mcp\Auth\VultrAuth;
 use Vultr\Mcp\Http\HealthCheckMiddleware;
 use Vultr\Mcp\Tools\BareMetalTools;
 use Vultr\Mcp\Tools\InstanceTools;
-use Mcp\Server\Session\FileSessionStore;
+use Mcp\Server\Session\Psr16SessionStore;
+use Symfony\Component\Cache\Adapter\RedisAdapter;
 use Vultr\Mcp\Utils\VultrClientFactory;
 
 
@@ -157,8 +158,13 @@ $serverBuilder = McpServer::builder()
     ->addTool([BareMetalTools::class, 'getBareMetalUserData'],  'get_bare_metal_user_data')
     ->addTool([BareMetalTools::class, 'getBareMetalUpgrades'],  'get_bare_metal_upgrades');
 
-$sessionStore = new FileSessionStore(
-    directory: sys_get_temp_dir() . '/mcp-sessions',
+// Redis-backed session store for multi-replica support
+$redis = new \Redis();
+$redis->connect($_ENV['REDIS_HOST'] ?? 'redis', (int)($_ENV['REDIS_PORT'] ?? 6379));
+
+$sessionStore = new Psr16SessionStore(
+    cache: new \Symfony\Component\Cache\Psr16Cache(new RedisAdapter($redis)),
+    prefix: 'mcp-session-',
     ttl: 3600,
 );
 

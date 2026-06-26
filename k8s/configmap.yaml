@@ -7,3 +7,5 @@ metadata:
 data:
   VULTR_PER_USER_MODE: "true"
   SSL_VERIFY: "true"
+  REDIS_HOST: "redis"
+  REDIS_PORT: "6379"
