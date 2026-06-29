@@ -46,14 +46,88 @@ final class OpenApiGenerator
 
     /** Maps tag names to PHP class names. */
     private const CLASS_NAMES = [
-        'instances' => 'InstanceTools',
-        'baremetal' => 'BareMetalTools',
+        'account'              => 'AccountTools',
+        'api-keys'             => 'ApiKeysTools',
+        'application'          => 'ApplicationTools',
+        'backup'               => 'BackupTools',
+        'baremetal'             => 'BareMetalTools',
+        'billing'              => 'BillingTools',
+        'block'                => 'BlockStorageTools',
+        'cdns'                 => 'CdnsTools',
+        'clusters'             => 'ClustersTools',
+        'container registry'   => 'ContainerRegistryTools',
+        'dns'                  => 'DnsTools',
+        'firewall'             => 'FirewallTools',
+        'iam'                  => 'IamTools',
+        'instance-templates'   => 'InstanceTemplatesTools',
+        'instances'            => 'InstanceTools',
+        'iso'                  => 'IsoTools',
+        'kubernetes'           => 'KubernetesTools',
+        'load-balancer'        => 'LoadBalancerTools',
+        'logs'                 => 'LogsTools',
+        'managed-databases'    => 'ManagedDatabasesTools',
+        'marketplace'          => 'MarketplaceTools',
+        'oidc'                 => 'OidcTools',
+        'organizations'        => 'OrganizationsTools',
+        'os'                   => 'OsTools',
+        'plans'                => 'PlanTools',
+        'region'               => 'RegionTools',
+        'reserved-ip'          => 'ReservedIpTools',
+        's3'                   => 'S3Tools',
+        'scim'                 => 'ScimTools',
+        'serverless-inference' => 'ServerlessInferenceTools',
+        'snapshot'             => 'SnapshotTools',
+        'ssh'                  => 'SshKeyTools',
+        'startup'              => 'StartupTools',
+        'storage-gateways'     => 'StorageGatewaysTools',
+        'subaccount'           => 'SubaccountTools',
+        'tickets'              => 'TicketsTools',
+        'users'                => 'UsersTools',
+        'vfs'                  => 'VfsTools',
+        'vpcs'                 => 'VpcsTools',
     ];
 
     /** Maps tag names to Vultr API path prefixes. */
     private const PATH_PREFIXES = [
-        'instances' => '/instances',
-        'baremetal' => '/bare-metals',
+        'account'              => '/account',
+        'api-keys'             => '/apikeys',
+        'application'          => '/applications',
+        'backup'               => '/backups',
+        'baremetal'             => '/bare-metals',
+        'billing'              => '/billing',
+        'block'                => '/blocks',
+        'cdns'                 => '/cdns',
+        'clusters'             => '/clusters',
+        'container registry'   => '/registry',
+        'dns'                  => '/domains',
+        'firewall'             => '/firewalls',
+        'iam'                  => '/v2',
+        'instance-templates'   => '/instances/templates',
+        'instances'            => '/instances',
+        'iso'                  => '/iso',
+        'kubernetes'           => '/kubernetes',
+        'load-balancer'        => '/load-balancers',
+        'logs'                 => '/logs',
+        'managed-databases'    => '/databases',
+        'marketplace'          => '/marketplace',
+        'oidc'                 => '/v2/oidc',
+        'organizations'        => '/v2',
+        'os'                   => '/os',
+        'plans'                => '/plans',
+        'region'               => '/regions',
+        'reserved-ip'          => '/reserved-ips',
+        's3'                   => '/object-storage',
+        'scim'                 => '/scim',
+        'serverless-inference' => '/inference',
+        'snapshot'             => '/snapshots',
+        'ssh'                  => '/ssh-keys',
+        'startup'              => '/startup-scripts',
+        'storage-gateways'     => '/storage-gateways',
+        'subaccount'           => '/subaccounts',
+        'tickets'              => '/tickets',
+        'users'                => '/users',
+        'vfs'                  => '/vfs',
+        'vpcs'                 => '/vpcs',
     ];
 
     public function __construct(private readonly string $specPath)
@@ -259,8 +333,10 @@ final class OpenApiGenerator
         $className = self::CLASS_NAMES[$tag];
         $prefix    = self::PATH_PREFIXES[$tag];
         $methods   = '';
+        $seenNames = [];
 
         foreach ($operations as $op) {
+            $op = $this->deduplicateOperationId($op, $seenNames);
             $methods .= $this->renderMethod($op) . "\n";
         }
 
@@ -274,6 +350,7 @@ namespace Vultr\\Mcp\\Tools;
 use Mcp\\Capability\\Attribute\\McpTool;
 use Mcp\\Exception\\ToolCallException;
 use Vultr\\Mcp\\Utils\\VultrClient;
+use Vultr\\Mcp\\Utils\\VultrClientFactory;
 
 /**
  * MCP tools for Vultr {$prefix} endpoints.
@@ -285,12 +362,53 @@ use Vultr\\Mcp\\Utils\\VultrClient;
  */
 final class {$className}
 {
+    /**
+     * @param VultrClientFactory \$clientFactory Factory for per-request VultrClient instances.
+     */
     public function __construct(
-        private readonly VultrClient \$client,
+        private readonly VultrClientFactory \$clientFactory,
     ) {}
+
+    /**
+     * Resolve the VultrClient for the current request.
+     */
+    private function getClient(): VultrClient
+    {
+        return \$this->clientFactory->create();
+    }
 
 {$methods}}
 PHP;
+    }
+
+    /**
+     * Ensure unique operationId + method names within a class.
+     *
+     * The Vultr OpenAPI spec occasionally reuses an operationId across
+     * different endpoints (e.g. get-pushzone for both the zone and a file
+     * inside it).  Append a suffix derived from the path so every generated
+     * method has a unique name.
+     */
+    private function deduplicateOperationId(array $op, array &$seenNames): array
+    {
+        $baseId = $op['operationId'];
+        $suffix = 1;
+
+        while (in_array($op['operationId'], $seenNames, true)) {
+            // Build a meaningful suffix from the last non-variable path segment
+            $pathParts = explode('/', trim($op['path'], '/'));
+            $tail      = end($pathParts);
+            $tail      = preg_replace('/[^a-zA-Z0-9]/', '', $tail);
+            if ($tail !== '' && !str_starts_with($tail, '{')) {
+                $op['operationId'] = $baseId . '-' . $tail . ($suffix > 1 ? '-' . $suffix : '');
+            } else {
+                $op['operationId'] = $baseId . '-' . $suffix;
+            }
+            $suffix++;
+        }
+
+        $seenNames[] = $op['operationId'];
+        return $op;
     }
 
     /**
@@ -439,7 +557,7 @@ PHP;
     private function buildGetBody(string $pathExpr, array $queryParams): string
     {
         if (empty($queryParams)) {
-            return "        return \$this->client->get({$pathExpr});";
+            return "        return \$this->getClient()->get({$pathExpr});";
         }
 
         $pairs = [];
@@ -451,7 +569,7 @@ PHP;
         $inner = implode("\n", $pairs);
 
         return <<<PHP
-        return \$this->client->get({$pathExpr}, [
+        return \$this->getClient()->get({$pathExpr}, [
 {$inner}
         ]);
 PHP;
@@ -460,7 +578,7 @@ PHP;
     private function buildDeleteBody(string $pathExpr): string
     {
         return <<<PHP
-        \$this->client->delete({$pathExpr});
+        \$this->getClient()->delete({$pathExpr});
 
         return ['success' => true];
 PHP;

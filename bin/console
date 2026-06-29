@@ -43,7 +43,7 @@ $app->register('mcp:stdio')
 $app->register('mcp:generate')
     ->setDescription('Regenerate MCP tool classes from the Vultr OpenAPI spec')
     ->addOption('spec', 's', Symfony\Component\Console\Input\InputOption::VALUE_OPTIONAL, 'Path to OpenAPI JSON file', dirname(__DIR__).'/openapi.json')
-    ->addOption('tags', 't', Symfony\Component\Console\Input\InputOption::VALUE_OPTIONAL, 'Comma-separated list of tags', 'instances,baremetal')
+    ->addOption('tags', 't', Symfony\Component\Console\Input\InputOption::VALUE_OPTIONAL, 'Comma-separated list of tags', 'account,api-keys,application,backup,baremetal,billing,block,cdns,clusters,container registry,dns,firewall,iam,instance-templates,instances,iso,kubernetes,load-balancer,logs,managed-databases,marketplace,oidc,organizations,os,plans,region,reserved-ip,s3,scim,serverless-inference,snapshot,ssh,startup,storage-gateways,subaccount,tickets,users,vfs,vpcs')
     ->addOption('output', 'o', Symfony\Component\Console\Input\InputOption::VALUE_OPTIONAL, 'Output directory', dirname(__DIR__).'/src/Tools')
     ->setCode(function ($input, $output): int {
         $specPath  = $input->getOption('spec');

@@ -14,14 +14,9 @@ use Nyholm\Psr7\Factory\Psr17Factory;
 use Psr\Container\ContainerInterface;
 use Vultr\Mcp\Auth\VultrAuth;
 use Vultr\Mcp\Http\HealthCheckMiddleware;
-use Vultr\Mcp\Tools\BareMetalTools;
-use Vultr\Mcp\Tools\InstanceTools;
 use Mcp\Server\Session\Psr16SessionStore;
 use Symfony\Component\Cache\Adapter\RedisAdapter;
-use Symfony\Component\Cache\Psr16Cache;
 use Vultr\Mcp\Utils\VultrClientFactory;
-
-
 
 $root = dirname(__DIR__);
 
@@ -33,12 +28,10 @@ if (file_exists($root . '/.env')) {
     Dotenv::createMutable($root)->safeLoad();
 }
 
-
-
 $transportMode = $_ENV['VULTR_MCP_TRANSPORT'] ?? getenv('VULTR_MCP_TRANSPORT') ?: null;
 
 if ($transportMode === null) {
-        if (function_exists('posix_isatty')) {
+    if (function_exists('posix_isatty')) {
         $transportMode = posix_isatty(STDIN) ? 'http' : 'stdio';
     } elseif (!defined('STDIN')) {
         $transportMode = 'http';
@@ -57,7 +50,6 @@ if (!in_array($transportMode, ['stdio', 'http'], true)) {
 $isStdio = $transportMode === 'stdio';
 $isHttp  = $transportMode === 'http';
 
-
 $perUserMode = filter_var(
     $_ENV['VULTR_PER_USER_MODE'] ?? getenv('VULTR_PER_USER_MODE') ?: 'false',
     FILTER_VALIDATE_BOOLEAN,
@@ -66,13 +58,12 @@ $perUserMode = filter_var(
 $defaultApiKey = $_ENV['VULTR_API_KEY'] ?? getenv('VULTR_API_KEY') ?: null;
 
 if ($isStdio) {
-        // the user set when launching the process (e.g. VULTR_API_KEY=*** php src/Server.php).
     $perUserMode = true;
-        if (!empty($defaultApiKey)) {
+    if (!empty($defaultApiKey)) {
         \Vultr\Mcp\Utils\RequestContext::setApiKey($defaultApiKey);
     }
 } elseif (!$perUserMode && empty($defaultApiKey)) {
-        http_response_code(500);
+    http_response_code(500);
     echo json_encode([
         'error' => 'Server misconfiguration: VULTR_API_KEY is not set. '
                  . 'Set VULTR_PER_USER_MODE=true for per-user API key mode.',
@@ -81,7 +72,7 @@ if ($isStdio) {
 }
 
 // ---------------------------------------------------------------------------
-// VultrClientFactory — creates per-request VultrClient instances
+// VultrClientFactory
 // ---------------------------------------------------------------------------
 
 $clientFactory = new VultrClientFactory(
@@ -89,163 +80,299 @@ $clientFactory = new VultrClientFactory(
     defaultApiKey: $defaultApiKey,
 );
 
+// ---------------------------------------------------------------------------
+// Tag → Tool class mapping (path-based routing)
+// ---------------------------------------------------------------------------
+// The request path determines which tools are exposed:
+//   /              → all tools (494)
+//   /instances     → InstanceTools only (35 tools)
+//   /kubernetes    → KubernetesTools only (26 tools)
+//   /baremetal     → BareMetalTools only (25 tools)
+//   etc.
+// In STDIO mode, all tools are always loaded.
 
-$instanceTools  = new InstanceTools($clientFactory);
-$bareMetalTools = new BareMetalTools($clientFactory);
+$TAG_TO_CLASS = [
+    'instances'            => 'InstanceTools',
+    'baremetal'            => 'BareMetalTools',
+    'kubernetes'           => 'KubernetesTools',
+    'load-balancer'        => 'LoadBalancerTools',
+    'dns'                  => 'DnsTools',
+    'firewall'             => 'FirewallTools',
+    'snapshot'             => 'SnapshotTools',
+    'ssh'                  => 'SshKeyTools',
+    'plans'                => 'PlanTools',
+    'region'               => 'RegionTools',
+    'os'                   => 'OsTools',
+    'vpcs'                 => 'VpcsTools',
+    'block'                => 'BlockStorageTools',
+    'reserved-ip'          => 'ReservedIpTools',
+    'iso'                  => 'IsoTools',
+    'account'              => 'AccountTools',
+    'api-keys'             => 'ApiKeysTools',
+    'application'          => 'ApplicationTools',
+    'backup'               => 'BackupTools',
+    'billing'              => 'BillingTools',
+    'cdns'                 => 'CdnsTools',
+    'clusters'             => 'ClustersTools',
+    'container-registry'   => 'ContainerRegistryTools',
+    'iam'                  => 'IamTools',
+    'instance-templates'   => 'InstanceTemplatesTools',
+    'logs'                 => 'LogsTools',
+    'managed-databases'    => 'ManagedDatabasesTools',
+    'marketplace'          => 'MarketplaceTools',
+    'oidc'                 => 'OidcTools',
+    'organizations'        => 'OrganizationsTools',
+    's3'                   => 'S3Tools',
+    'scim'                 => 'ScimTools',
+    'serverless-inference' => 'ServerlessInferenceTools',
+    'startup'              => 'StartupTools',
+    'storage-gateways'     => 'StorageGatewaysTools',
+    'subaccount'           => 'SubaccountTools',
+    'tickets'              => 'TicketsTools',
+    'users'                => 'UsersTools',
+    'vfs'                  => 'VfsTools',
+];
 
 // ---------------------------------------------------------------------------
-// PSR-11 container — supplies pre-wired instances to the SDK's ReferenceHandler
+// Determine which tools to load based on request path (HTTP) or all (STDIO)
 // ---------------------------------------------------------------------------
 
-$container = new class([
-    InstanceTools::class  => $instanceTools,
-    BareMetalTools::class => $bareMetalTools,
-]) implements ContainerInterface {
-    public function __construct(private readonly array $services) {}
+$activeClasses = null; // null = load all
 
-    public function get(string $id): mixed
-    {
-        if (!$this->has($id)) {
-            throw new \RuntimeException("Service not found: {$id}");
+if ($isHttp) {
+    // We need the request path to determine the category.
+    // The handler closure below will filter tools per-request.
+    // For now, load ALL tool classes (they'll be filtered at registration time).
+}
+
+$toolsDir = $root . '/src/Tools';
+$allToolServices = [];
+$allToolRegistrations = [];
+
+// Load all tool classes upfront (cheap — just require + instantiate)
+foreach (glob($toolsDir . '/*Tools.php') as $toolFile) {
+    require_once $toolFile;
+    $className = 'Vultr\Mcp\Tools\\' . basename($toolFile, '.php');
+    if (!class_exists($className)) {
+        continue;
+    }
+
+    $instance = new $className($clientFactory);
+    $allToolServices[$className] = $instance;
+
+    // Scan public methods for #[McpTool] attributes
+    $reflection = new \ReflectionClass($className);
+    foreach ($reflection->getMethods(\ReflectionMethod::IS_PUBLIC) as $method) {
+        $attrs = $method->getAttributes(\Mcp\Capability\Attribute\McpTool::class);
+        if (empty($attrs)) {
+            continue;
         }
-        return $this->services[$id];
+        foreach ($attrs as $attr) {
+            $toolAttr = $attr->newInstance();
+            $toolName = $toolAttr->name ?? $method->getName();
+            $allToolRegistrations[] = [
+                'class'    => $className,
+                'handler'  => [$className, $method->getName()],
+                'name'     => $toolName,
+            ];
+        }
     }
+}
 
-    public function has(string $id): bool
-    {
-        return isset($this->services[$id]);
-    }
-};
-
-// ---------------------------------------------------------------------------
-// MCP Server construction — manual tool registration
-// ---------------------------------------------------------------------------
-
-$serverBuilder = McpServer::builder()
-    ->setServerInfo('Vultr MCP Server', '1.2.0')
-    ->setContainer($container)
-
-    // --- Instance tools ---
-    ->addTool([InstanceTools::class, 'listInstances'],          'list_instances')
-    ->addTool([InstanceTools::class, 'createInstance'],         'create_instance')
-    ->addTool([InstanceTools::class, 'getInstance'],            'get_instance')
-    ->addTool([InstanceTools::class, 'updateInstance'],         'update_instance')
-    ->addTool([InstanceTools::class, 'deleteInstance'],         'delete_instance')
-    ->addTool([InstanceTools::class, 'startInstance'],          'start_instance')
-    ->addTool([InstanceTools::class, 'rebootInstance'],         'reboot_instance')
-    ->addTool([InstanceTools::class, 'reinstallInstance'],      'reinstall_instance')
-    ->addTool([InstanceTools::class, 'haltInstance'],           'halt_instance')
-    ->addTool([InstanceTools::class, 'startInstances'],         'start_instances')
-    ->addTool([InstanceTools::class, 'rebootInstances'],        'reboot_instances')
-    ->addTool([InstanceTools::class, 'haltInstances'],          'halt_instances')
-    ->addTool([InstanceTools::class, 'getInstanceBandwidth'],   'get_instance_bandwidth')
-    ->addTool([InstanceTools::class, 'getInstanceUpgrades'],    'get_instance_upgrades')
-    ->addTool([InstanceTools::class, 'getInstanceUserData'],    'get_instance_user_data')
-    ->addTool([InstanceTools::class, 'listInstanceIpv4'],       'list_instance_ipv4')
-    ->addTool([InstanceTools::class, 'listInstanceIpv6'],       'list_instance_ipv6')
-
-    // --- Bare Metal tools ---
-    ->addTool([BareMetalTools::class, 'listBareMetals'],        'list_bare_metals')
-    ->addTool([BareMetalTools::class, 'createBareMetal'],       'create_bare_metal')
-    ->addTool([BareMetalTools::class, 'getBareMetal'],          'get_bare_metal')
-    ->addTool([BareMetalTools::class, 'updateBareMetal'],       'update_bare_metal')
-    ->addTool([BareMetalTools::class, 'deleteBareMetal'],       'delete_bare_metal')
-    ->addTool([BareMetalTools::class, 'startBareMetal'],        'start_bare_metal')
-    ->addTool([BareMetalTools::class, 'rebootBareMetal'],       'reboot_bare_metal')
-    ->addTool([BareMetalTools::class, 'reinstallBareMetal'],    'reinstall_bare_metal')
-    ->addTool([BareMetalTools::class, 'haltBareMetal'],         'halt_bare_metal')
-    ->addTool([BareMetalTools::class, 'getBareMetalIpv4'],      'get_bare_metal_ipv4')
-    ->addTool([BareMetalTools::class, 'getBareMetalIpv6'],      'get_bare_metal_ipv6')
-    ->addTool([BareMetalTools::class, 'getBareMetalBandwidth'], 'get_bare_metal_bandwidth')
-    ->addTool([BareMetalTools::class, 'getBareMetalUserData'],  'get_bare_metal_user_data')
-    ->addTool([BareMetalTools::class, 'getBareMetalUpgrades'],  'get_bare_metal_upgrades');
-
-// Redis-backed session store for multi-replica support
-$redisUrl = 'redis://' . ($_ENV['REDIS_HOST'] ?? 'redis') . ':' . (int)($_ENV['REDIS_PORT'] ?? 6379);
-$sessionStore = new Psr16SessionStore(
-    cache: new Psr16Cache(new RedisAdapter(RedisAdapter::createConnection($redisUrl))),
-    prefix: 'mcp-session-',
-    ttl: 3600,
-);
-
-$server = $serverBuilder
-    ->setSession($sessionStore)
-    ->build();
-
-// STDIO - local pipe, no auth, API key from env
+// In STDIO mode, register all tools on a single server
 if ($isStdio) {
+    $toolServices = $allToolServices;
+    $toolRegistrations = $allToolRegistrations;
+
+    $container = new class($toolServices) implements ContainerInterface {
+        public function __construct(private readonly array $services) {}
+        public function get(string $id): mixed
+        {
+            if (!$this->has($id)) {
+                throw new \RuntimeException("Service not found: {$id}");
+            }
+            return $this->services[$id];
+        }
+        public function has(string $id): bool
+        {
+            return isset($this->services[$id]);
+        }
+    };
+
+    $serverBuilder = McpServer::builder()
+        ->setServerInfo('Vultr MCP Server', '1.2.0')
+        ->setContainer($container)
+        ->setPaginationLimit(1000);
+
+    foreach ($toolRegistrations as $reg) {
+        $serverBuilder = $serverBuilder->addTool($reg['handler'], $reg['name']);
+    }
+
+    $redisUrl = 'redis://' . ($_ENV['REDIS_HOST'] ?? 'redis') . ':' . (int)($_ENV['REDIS_PORT'] ?? 6379);
+    $sessionStore = new Psr16SessionStore(
+        cache: new \Symfony\Component\Cache\Psr16Cache(new RedisAdapter(\Symfony\Component\Cache\Adapter\RedisAdapter::createConnection($redisUrl))),
+        prefix: 'mcp-session-',
+        ttl: 3600,
+    );
+
+    $server = $serverBuilder->setSession($sessionStore)->build();
 
     $transport = new StdioTransport();
     $server->run($transport);
+    exit(0);
+}
 
-} else {
-    // HTTP - Streamable HTTP + SSE, per-user auth via X-Vultr-API-Key
+// ---------------------------------------------------------------------------
+// HTTP mode — per-request server with path-based tool filtering
+// ---------------------------------------------------------------------------
 
-    $psr17Factory = new Psr17Factory();
-    $healthMiddleware = new HealthCheckMiddleware($psr17Factory);
-    $authMiddleware = VultrAuth::fromEnv($psr17Factory);
+$psr17Factory = new Psr17Factory();
+$healthMiddleware = new HealthCheckMiddleware($psr17Factory);
+$authMiddleware = VultrAuth::fromEnv($psr17Factory);
 
-    // Per-request handler — runs for each incoming HTTP request
-    $handler = function () use (
-        $server, $psr17Factory, $healthMiddleware, $authMiddleware
-    ): void {
-        $creator = new ServerRequestCreator(
-            $psr17Factory, $psr17Factory,
-            $psr17Factory, $psr17Factory,
-        );
+$handler = function () use (
+    $allToolServices, $allToolRegistrations, $TAG_TO_CLASS,
+    $psr17Factory, $healthMiddleware, $authMiddleware
+): void {
+    $creator = new ServerRequestCreator(
+        $psr17Factory, $psr17Factory,
+        $psr17Factory, $psr17Factory,
+    );
 
-        $request = $creator->fromGlobals();
+    $request = $creator->fromGlobals();
+    $path = $request->getUri()->getPath();
+    $path = '/' . ltrim($path, '/');
 
-        // Handle health checks directly — no MCP transport needed
-        if ($request->getMethod() === 'GET' && $request->getUri()->getPath() === '/healthz') {
+    // Health check
+    if ($request->getMethod() === 'GET' && $path === '/healthz') {
+        header('Content-Type: application/json');
+        http_response_code(200);
+        echo json_encode([
+            'status'  => 'ok',
+            'service' => 'vultr-mcp-server',
+            'version' => '1.2.0',
+        ], JSON_THROW_ON_ERROR);
+        return;
+    }
+
+    // Strip trailing slash
+    $path = rtrim($path, '/');
+    if ($path === '') {
+        $path = '/';
+    }
+
+    // Determine which tool classes to expose based on path
+    $activeClassNames = null; // null = all
+
+    if ($path === '/' || $path === '/mcp') {
+        // Root → all tools (for clients with limited MCP connections)
+        $activeClassNames = null;
+    } else {
+        // Extract category from path: /instances, /kubernetes, etc.
+        $category = ltrim($path, '/');
+        // Remove /mcp prefix if present (e.g. /mcp/instances → instances)
+        if (str_starts_with($category, 'mcp/')) {
+            $category = substr($category, 4);
+        }
+
+        if (isset($TAG_TO_CLASS[$category])) {
+            $activeClassNames = ['Vultr\Mcp\Tools\\' . $TAG_TO_CLASS[$category]];
+        } else {
+            // Unknown path — 404
             header('Content-Type: application/json');
-            http_response_code(200);
+            http_response_code(404);
             echo json_encode([
-                'status'  => 'ok',
-                'service' => 'vultr-mcp-server',
-                'version' => '1.2.0',
+                'error' => 'Unknown category',
+                'message' => "Unknown path: {$path}. Available categories: " . implode(', ', array_keys($TAG_TO_CLASS)),
             ], JSON_THROW_ON_ERROR);
             return;
         }
+    }
 
-        $transport = new StreamableHttpTransport(
-            request: $request,
-            responseFactory: $psr17Factory,
-            streamFactory: $psr17Factory,
-            middleware: [
-                $healthMiddleware,
-                $authMiddleware,
-            ],
-        );
+    // Filter tools based on active classes
+    if ($activeClassNames === null) {
+        $toolServices = $allToolServices;
+        $toolRegistrations = $allToolRegistrations;
+    } else {
+        $toolServices = array_filter($allToolServices, function ($key) use ($activeClassNames) {
+            return in_array($key, $activeClassNames, true);
+        }, ARRAY_FILTER_USE_KEY);
 
-        $response = $server->run($transport);
+        $toolRegistrations = array_filter($allToolRegistrations, function ($reg) use ($activeClassNames) {
+            return in_array($reg['class'], $activeClassNames, true);
+        });
+    }
 
-                (function (ResponseInterface $response) {
-            http_response_code($response->getStatusCode());
-            foreach ($response->getHeaders() as $name => $values) {
-                foreach ($values as $value) {
-                    header("{$name}: {$value}", false);
-                }
+    // Build container with filtered services
+    $container = new class($toolServices) implements ContainerInterface {
+        public function __construct(private readonly array $services) {}
+        public function get(string $id): mixed
+        {
+            if (!$this->has($id)) {
+                throw new \RuntimeException("Service not found: {$id}");
             }
-            $body = $response->getBody();
-            if ($body->isSeekable()) {
-                $body->rewind();
-            }
-            while (!$body->eof()) {
-                echo $body->read(8192);
-            }
-        })($response);
-
-        \Vultr\Mcp\Utils\RequestContext::clear();
+            return $this->services[$id];
+        }
+        public function has(string $id): bool
+        {
+            return isset($this->services[$id]);
+        }
     };
 
-    // FrankenPHP worker mode: handle each request in a loop
-    if (function_exists('frankenphp_handle_request')) {
-        while (true) {
-            frankenphp_handle_request($handler);
-        }
-    } else {
-        // Fallback for non-worker mode (e.g. php -S)
-        $handler();
+    $serverBuilder = McpServer::builder()
+        ->setServerInfo('Vultr MCP Server', '1.2.0')
+        ->setContainer($container)
+        ->setPaginationLimit(1000);
+
+    foreach ($toolRegistrations as $reg) {
+        $serverBuilder = $serverBuilder->addTool($reg['handler'], $reg['name']);
     }
+
+    $redisUrl = 'redis://' . ($_ENV['REDIS_HOST'] ?? 'redis') . ':' . (int)($_ENV['REDIS_PORT'] ?? 6379);
+    $sessionStore = new Psr16SessionStore(
+        cache: new \Symfony\Component\Cache\Psr16Cache(new RedisAdapter(\Symfony\Component\Cache\Adapter\RedisAdapter::createConnection($redisUrl))),
+        prefix: 'mcp-session-',
+        ttl: 3600,
+    );
+
+    $server = $serverBuilder->setSession($sessionStore)->build();
+
+    $transport = new StreamableHttpTransport(
+        request: $request,
+        responseFactory: $psr17Factory,
+        streamFactory: $psr17Factory,
+        middleware: [
+            $healthMiddleware,
+            $authMiddleware,
+        ],
+    );
+
+    $response = $server->run($transport);
+
+    (function (ResponseInterface $response) {
+        http_response_code($response->getStatusCode());
+        foreach ($response->getHeaders() as $name => $values) {
+            foreach ($values as $value) {
+                header("{$name}: {$value}", false);
+            }
+        }
+        $body = $response->getBody();
+        if ($body->isSeekable()) {
+            $body->rewind();
+        }
+        while (!$body->eof()) {
+            echo $body->read(8192);
+        }
+    })($response);
+
+    \Vultr\Mcp\Utils\RequestContext::clear();
+};
+
+// FrankenPHP worker mode
+if (function_exists('frankenphp_handle_request')) {
+    while (true) {
+        frankenphp_handle_request($handler);
+    }
+} else {
+    $handler();
 }
