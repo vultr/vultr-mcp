@@ -3,16 +3,23 @@
     "description": "PHP MCP (Model Context Protocol) server for the Vultr cloud platform",
     "type": "project",
     "license": "MIT",
-    "keywords": ["vultr", "mcp", "model-context-protocol", "cloud", "php"],
+    "keywords": [
+        "vultr",
+        "mcp",
+        "model-context-protocol",
+        "cloud",
+        "php"
+    ],
     "require": {
         "php": ">=8.2",
         "guzzlehttp/guzzle": "^7.8",
         "mcp/sdk": "^0.5",
         "nyholm/psr7": "^1.8",
         "nyholm/psr7-server": "^1.1",
-        "predis/predis": "^3.5",
+        "predis/predis": "^2.0",
+        "psr/simple-cache": "^3.0",
         "runtime/frankenphp-symfony": "^0.2",
-        "symfony/cache": "^8.1",
+        "symfony/cache": "^7.2",
         "symfony/console": "^7.2",
         "symfony/runtime": "^7.2"
     },

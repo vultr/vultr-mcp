@@ -18,6 +18,7 @@ use Vultr\Mcp\Tools\BareMetalTools;
 use Vultr\Mcp\Tools\InstanceTools;
 use Mcp\Server\Session\Psr16SessionStore;
 use Symfony\Component\Cache\Adapter\RedisAdapter;
+use Symfony\Component\Cache\Psr16Cache;
 use Vultr\Mcp\Utils\VultrClientFactory;
 
 
@@ -162,7 +163,7 @@ $serverBuilder = McpServer::builder()
 // Redis-backed session store for multi-replica support
 $redisUrl = 'redis://' . ($_ENV['REDIS_HOST'] ?? 'redis') . ':' . (int)($_ENV['REDIS_PORT'] ?? 6379);
 $sessionStore = new Psr16SessionStore(
-    cache: new \Symfony\Component\Cache\Psr16Cache(new RedisAdapter(\Symfony\Component\Cache\Adapter\RedisAdapter::createConnection($redisUrl))),
+    cache: new Psr16Cache(new RedisAdapter(RedisAdapter::createConnection($redisUrl))),
     prefix: 'mcp-session-',
     ttl: 3600,
 );
@@ -171,11 +172,8 @@ $server = $serverBuilder
     ->setSession($sessionStore)
     ->build();
 
-
+// STDIO - local pipe, no auth, API key from env
 if ($isStdio) {
-    // STDIO - local pipe, no auth, API key from env
-            //
-            // =====================================================================
 
     $transport = new StdioTransport();
     $server->run($transport);
