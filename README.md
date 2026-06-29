@@ -132,6 +132,41 @@ URL:  https://vultrmcp.com
 Auth: X-Vultr-API-Key: YOUR_VULTR_API_KEY
 ```
 
+For clients that don't support custom headers, use the query parameter fallback:
+
+```
+URL:  https://vultrmcp.com/?api_key=YOUR_V…_KEY
+```
+
+### Hermes (Nous Research)
+
+Hermes supports HTTP/SSE and STDIO transports. For HTTP/SSE, use the query parameter method since Hermes doesn't support custom headers in the dashboard UI:
+
+```
+Name:        vultr
+Transport:   HTTP/SSE
+URL:         https://vultrmcp.com/?api_key=YOUR_V…_KEY
+```
+
+Or via the config file (`config.yaml`):
+
+```yaml
+mcp_servers:
+  vultr:
+    type: http
+    url: https://vultrmcp.com/?api_key=YOUR_V…_KEY
+```
+
+For local STDIO mode:
+
+```
+Name:        vultr
+Transport:   stdio
+Command:     docker
+Args:        run --rm -i -e VULTR_API_KEY vultr/mcp:latest
+Environment: VULTR_API_KEY=YOUR_V…_KEY
+```
+
 ---
 
 ## Project Structure
@@ -253,11 +288,27 @@ VULTR_API_KEY=YOUR_KEY php bin/console mcp:stdio
 
 ### Remote (HTTP) Mode — Per-User API Keys
 
-When `VULTR_PER_USER_MODE=true` (default), each client provides their own Vultr API key:
+When `VULTR_PER_USER_MODE=true` (default), each client provides their own Vultr API key. The server accepts the key via three methods, in priority order:
+
+**1. Header (preferred):**
 
 ```
 X-Vultr-API-Key: YOUR_VULTR_API_KEY
 ```
+
+**2. Query parameter (for MCP clients that don't support custom headers):**
+
+```
+https://vultrmcp.com/?api_key=YOUR_V…_KEY
+```
+
+**3. Bearer token (when `MCP_AUTH_TOKEN` is not set):**
+
+```
+Authorization: Bearer YOUR_V…_KEY
+```
+
+This fallback only applies when `MCP_AUTH_TOKEN` is not configured. When it is set, the `Authorization` header is used for the MCP auth gate instead.
 
 The key is held in memory only for the duration of the request — never logged, never persisted to disk.
 
