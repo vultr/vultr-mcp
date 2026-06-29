@@ -308,9 +308,6 @@ If `VULTR_MCP_TRANSPORT` is not set, the server auto-detects:
 
 ---
 
-## Rate Limiting
-
-Vultr enforces 30 requests/second. The `RateLimiter` class automatically retries on HTTP 429 with exponential back-off (up to 5 attempts, up to 30 s delay, with ±10% jitter). The `Retry-After` response header is honoured when present.
 
 ---
 
@@ -353,52 +350,6 @@ docker run --rm -p 8080:8080 \
 
 ---
 
-## Kubernetes Deployment
-
-Deployed on [Vultr VKE](https://www.vultr.com/kubernetes/) with Traefik ingress and Let's Encrypt TLS.
-
-### Prerequisites
-
-- A Vultr Kubernetes Engine (VKE) cluster
-- `kubectl` configured with your cluster credentials
-- Traefik ingress controller with Let's Encrypt
-
-### Apply all manifests:
-
-```bash
-kubectl apply -f k8s/
-```
-
-This creates:
-- **ConfigMap** — transport mode, per-user settings, Redis host
-- **Secret** — MCP_AUTH_TOKEN (edit before applying)
-- **Deployment** — 2 replicas, resource limits, health probes on port 8080
-- **Service** — ClusterIP on port 8000 → targetPort 8080
-- **Ingress** — Traefik ingress with TLS
-
-### Redis for Multi-Replica Sessions
-
-When running multiple replicas, MCP sessions are stored in Redis to allow SSE connections to span across pods. The deployment expects a Redis service at `redis:6379` in the same namespace.
-
-```bash
-kubectl apply -f k8s/redis.yaml
-```
-
-The session store uses a 1-hour TTL with the `mcp-session-` key prefix. No PVC is needed — sessions are ephemeral.
-
-### Ingress Controller
-
-Install Traefik with Let's Encrypt certificate resolver:
-
-```bash
-helm repo add traefik https://traefik.github.io/charts
-helm repo update
-helm install traefik traefik/traefik \
-  --namespace traefik --create-namespace \
-  --set certificatesResolvers.letsencrypt.acme.email=your-email@example.com \
-  --set certificatesResolvers.letsencrypt.acme.storage=/data/acme.json \
-  --set certificatesResolvers.letsencrypt.acme.tlsChallenge=true
-```
 
 ---
 
