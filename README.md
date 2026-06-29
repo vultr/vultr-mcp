@@ -2,13 +2,13 @@
 
 A **PHP MCP (Model Context Protocol) server** for the [Vultr](https://www.vultr.com/) cloud platform.
 
-Exposes Vultr's REST API v2 as MCP tools so AI agents (Claude, Copilot, Cursor, etc.) can provision and manage cloud infrastructure in natural language.
+Exposes **494 tools** across **39 categories** of the Vultr REST API v2 as MCP tools, so AI agents (Claude, Copilot, Cursor, Hermes, etc.) can provision and manage cloud infrastructure in natural language.
 
-Supports **both local (STDIO) and remote (HTTP)** transport modes.
+Supports **both local (STDIO) and remote (HTTP)** transport modes, with **path-based tool filtering** for token-efficient AI connections.
 
 ## Requirements
 
-- PHP 8.2+ (with `posix` extension for STDIO auto-detection)
+- PHP 8.4+ (with `posix` extension for STDIO auto-detection)
 - Composer
 
 ---
@@ -45,6 +45,98 @@ docker run --rm -p 8080:8080 \
 ```
 
 Each user provides their own Vultr API key via the `X-Vultr-API-Key` header.
+
+---
+
+## Path-Based Tool Filtering (HTTP Mode)
+
+When deployed as a remote HTTP server, you can connect to specific category endpoints to limit which tools the AI sees — saving tokens and context window space.
+
+### All Tools (One Connection)
+
+```
+URL:  https://vultrmcp.com/
+```
+
+Returns all 494 tools. Best for clients with limited MCP connections or free plans.
+
+### Category Endpoints (Token-Efficient)
+
+Connect to a category path to load only that category's tools:
+
+| Endpoint | Tools | Description |
+|---|---|---|
+| `/instances` | 35 | VPS instances (create, list, start, halt, reboot, etc.) |
+| `/baremetal` | 25 | Bare Metal servers |
+| `/kubernetes` | 26 | VKE clusters and node pools |
+| `/load-balancer` | 19 | Load balancers and forwarding rules |
+| `/dns` | 13 | DNS domains and records |
+| `/firewall` | 9 | Firewall groups and rules |
+| `/block` | 12 | Block storage volumes |
+| `/snapshot` | 6 | Snapshots |
+| `/ssh` | 5 | SSH keys |
+| `/iso` | 6 | ISO images |
+| `/reserved-ip` | 8 | Reserved IPs |
+| `/vpcs` | 21 | VPCs and NAT gateways |
+| `/plans` | 2 | Available plans |
+| `/region` | 2 | Available regions |
+| `/os` | 1 | Available operating systems |
+| `/account` | 6 | Account info and bandwidth |
+| `/billing` | 6 | Billing history and invoices |
+| `/users` | 19 | User management |
+| `/api-keys` | 4 | API key management |
+| `/backup` | 2 | Backups |
+| `/startup` | 5 | Startup scripts |
+| `/marketplace` | 2 | Marketplace apps |
+| `/clusters` | 9 | Container clusters |
+| `/container-registry` | 32 | Container registries |
+| `/managed-databases` | 66 | Managed databases (MySQL, PostgreSQL, Kafka, etc.) |
+| `/s3` | 14 | S3-compatible object storage |
+| `/vfs` | 10 | Vultr File Storage |
+| `/cdns` | 15 | CDN pull/push zones |
+| `/storage-gateways` | 7 | Storage gateways and exports |
+| `/serverless-inference` | 6 | Serverless inference endpoints |
+| `/iam` | 51 | IAM roles, policies, groups, trust relationships |
+| `/organizations` | 15 | Organizations and invitations |
+| `/oidc` | 16 | OIDC providers and issuers |
+| `/scim` | 11 | SCIM user/group provisioning |
+| `/instance-templates` | 5 | Instance templates |
+| `/application` | 1 | Application definitions |
+| `/logs` | 1 | Log retrieval |
+| `/subaccount` | 2 | Subaccounts |
+| `/tickets` | 8 | Support tickets |
+
+### Example Client Config (Category Endpoints)
+
+**Claude Desktop:**
+
+```json
+{
+  "mcpServers": {
+    "vultr-instances": {
+      "url": "https://vultrmcp.com/instances"
+    },
+    "vultr-kubernetes": {
+      "url": "https://vultrmcp.com/kubernetes"
+    },
+    "vultr-dns": {
+      "url": "https://vultrmcp.com/dns"
+    }
+  }
+}
+```
+
+**Hermes (Nous Research):**
+
+```yaml
+mcp_servers:
+  - name: vultr-instances
+    transport: http
+    url: https://vultrmcp.com/instances?api_key=YOUR_VULTR_API_KEY
+  - name: vultr-kubernetes
+    transport: http
+    url: https://vultrmcp.com/kubernetes?api_key=YOUR_VULTR_API_KEY
+```
 
 ---
 
@@ -128,123 +220,62 @@ Add to your `.cursor/mcp.json`:
 For AI clients that support remote MCP endpoints (Streamable HTTP transport):
 
 ```
-URL:  https://vultrmcp.com
+URL:  https://vultrmcp.com/
 Auth: X-Vultr-API-Key: YOUR_VULTR_API_KEY
 ```
 
-For clients that don't support custom headers, use the query parameter fallback:
+Or use a category endpoint for fewer tokens:
 
 ```
-URL:  https://vultrmcp.com/?api_key=YOUR_V…_KEY
-```
-
-### Hermes (Nous Research)
-
-Hermes supports HTTP/SSE and STDIO transports. For HTTP/SSE, use the query parameter method since Hermes doesn't support custom headers in the dashboard UI:
-
-```
-Name:        vultr
-Transport:   HTTP/SSE
-URL:         https://vultrmcp.com/?api_key=YOUR_V…_KEY
-```
-
-Or via the config file (`config.yaml`):
-
-```yaml
-mcp_servers:
-  vultr:
-    type: http
-    url: https://vultrmcp.com/?api_key=YOUR_V…_KEY
-```
-
-For local STDIO mode:
-
-```
-Name:        vultr
-Transport:   stdio
-Command:     docker
-Args:        run --rm -i -e VULTR_API_KEY vultr/mcp:latest
-Environment: VULTR_API_KEY=YOUR_V…_KEY
+URL:  https://vultrmcp.com/instances
+Auth: X-Vultr-API-Key: YOUR_VULTR_API_KEY
 ```
 
 ---
 
-## Project Structure
+## Authentication
 
-```
-vultr-mcp/
-├── bin/
-│   └── console                 # CLI entry point (STDIO mode + generator)
-├── k8s/                        # Kubernetes manifests
-│   ├── configmap.yaml           # Transport mode, per-user settings, Redis config
-│   ├── deployment.yaml          # MCP server deployment (2 replicas)
-│   ├── ingress.yaml             # Traefik ingress with TLS
-│   ├── redis.yaml               # Redis deployment + service (session store)
-│   ├── secret.yaml              # MCP_AUTH_TOKEN secret
-│   ├── service.yaml             # ClusterIP service
-│   └── traefik-values.yaml      # Traefik Helm values
-├── public/
-│   └── index.php                # HTTP entry point
-├── src/
-│   ├── Auth/                    # Authentication middleware
-│   ├── Generator/               # OpenAPI → MCP tool code generator
-│   ├── Http/                    # Health check middleware
-│   ├── Tools/                   # Generated MCP tool classes
-│   │   ├── InstanceTools.php    # VPS instance operations
-│   │   └── BareMetalTools.php   # Bare metal operations
-│   ├── Utils/                   # VultrClient, RateLimiter, RequestContext
-│   └── Server.php               # Main server bootstrap
-├── composer.json
-├── composer.lock
-├── Dockerfile                   # Multi-stage build (FrankenPHP + PHP 8.4)
-├── Caddyfile                    # FrankenPHP/Caddy config
-└── openapi.json                 # Vultr OpenAPI v3 spec (for tool generation)
+### Local (STDIO) Mode
+
+Set `VULTR_API_KEY` in your environment. No additional auth — STDIO is a local pipe.
+
+```bash
+VULTR_API_KEY=YOUR_KEY php bin/console mcp:stdio
 ```
 
----
+### Remote (HTTP) Mode — Per-User API Keys
 
-## Available MCP Tools
+When `VULTR_PER_USER_MODE=true` (default), each client provides their own Vultr API key. Three methods are supported:
 
-### Instances (17 tools)
+**1. Header (preferred):**
+```
+X-Vultr-API-Key: YOUR_VULTR_API_KEY
+```
 
-| Tool | Description |
-|---|---|
-| `list_instances` | List all VPS instances (with filters) |
-| `create_instance` | Create a new VPS instance |
-| `get_instance` | Get details for a single instance |
-| `update_instance` | Update instance attributes (label, plan, tags…) |
-| `delete_instance` | Permanently delete an instance |
-| `start_instance` | Start a stopped instance |
-| `reboot_instance` | Reboot an instance |
-| `reinstall_instance` | Reinstall OS on an instance |
-| `halt_instance` | Hard-power-off an instance |
-| `start_instances` | Start multiple instances at once |
-| `reboot_instances` | Reboot multiple instances at once |
-| `halt_instances` | Halt multiple instances at once |
-| `get_instance_bandwidth` | Bandwidth usage for an instance |
-| `get_instance_upgrades` | Available plan upgrades |
-| `get_instance_user_data` | User data (base64) attached to instance |
-| `list_instance_ipv4` | IPv4 addresses on an instance |
-| `list_instance_ipv6` | IPv6 addresses on an instance |
+**2. Query parameter (for clients that don't support custom headers, e.g. Hermes):**
+```
+https://vultrmcp.com/instances?api_key=YOUR_VULTR_API_KEY
+```
 
-### Bare Metal (14 tools)
+**3. Bearer token (when `MCP_AUTH_TOKEN` is not set):**
+```
+Authorization: Bearer YOUR_VULTR_API_KEY
+```
 
-| Tool | Description |
-|---|---|
-| `list_bare_metals` | List all Bare Metal instances |
-| `create_bare_metal` | Create a new Bare Metal server |
-| `get_bare_metal` | Get details for a single Bare Metal server |
-| `update_bare_metal` | Update Bare Metal attributes |
-| `delete_bare_metal` | Permanently delete a Bare Metal server |
-| `start_bare_metal` | Start a Bare Metal server |
-| `reboot_bare_metal` | Reboot a Bare Metal server |
-| `reinstall_bare_metal` | Reinstall OS on a Bare Metal server |
-| `halt_bare_metal` | Hard-power-off a Bare Metal server |
-| `get_bare_metal_ipv4` | IPv4 addresses on a Bare Metal server |
-| `get_bare_metal_ipv6` | IPv6 addresses on a Bare Metal server |
-| `get_bare_metal_bandwidth` | Bandwidth usage |
-| `get_bare_metal_user_data` | User data attached to instance |
-| `get_bare_metal_upgrades` | Available plan upgrades |
+The key is held in memory only for the duration of the request — never logged, never persisted to disk.
+
+### Optional MCP Auth Token Gate
+
+Set `MCP_AUTH_TOKEN` in your environment to add a second auth layer. Clients must send both:
+
+```
+Authorization: Bearer <MCP_AUTH_TOKEN>
+X-Vultr-API-Key: <user_vultr_key>
+```
+
+This is useful for deployments where access to the MCP server itself should be restricted, separate from each user's Vultr account.
+
+For production, replace the static token check in `VultrAuth::validateToken()` with JWT verification from an OAuth 2.0 / PKCE provider.
 
 ---
 
@@ -266,64 +297,14 @@ Automatically enabled in the FrankenPHP Docker image. Provides a Streamable HTTP
 - Optional `MCP_AUTH_TOKEN` bearer gate
 - Built-in CORS, DNS rebinding protection, protocol version validation (from MCP SDK)
 - Health check at `/healthz`
-- Redis-backed session store for multi-replica horizontal scaling (see [Kubernetes Deployment](#kubernetes-deployment))
+- **Path-based tool filtering** — connect to `/instances`, `/kubernetes`, etc. for token-efficient connections
+- Redis-backed session store for multi-replica horizontal scaling
 
 ### Auto-Detection
 
 If `VULTR_MCP_TRANSPORT` is not set, the server auto-detects:
 - **STDIN is a pipe** (launched by MCP client) → STDIO mode
 - **STDIN is a TTY / undefined** (interactive / Docker with `-p`) → HTTP mode
-
----
-
-## Authentication
-
-### Local (STDIO) Mode
-
-Set `VULTR_API_KEY` in your environment. No additional auth — STDIO is a local pipe.
-
-```bash
-VULTR_API_KEY=YOUR_KEY php bin/console mcp:stdio
-```
-
-### Remote (HTTP) Mode — Per-User API Keys
-
-When `VULTR_PER_USER_MODE=true` (default), each client provides their own Vultr API key. The server accepts the key via three methods, in priority order:
-
-**1. Header (preferred):**
-
-```
-X-Vultr-API-Key: YOUR_VULTR_API_KEY
-```
-
-**2. Query parameter (for MCP clients that don't support custom headers):**
-
-```
-https://vultrmcp.com/?api_key=YOUR_V…_KEY
-```
-
-**3. Bearer token (when `MCP_AUTH_TOKEN` is not set):**
-
-```
-Authorization: Bearer YOUR_V…_KEY
-```
-
-This fallback only applies when `MCP_AUTH_TOKEN` is not configured. When it is set, the `Authorization` header is used for the MCP auth gate instead.
-
-The key is held in memory only for the duration of the request — never logged, never persisted to disk.
-
-### Optional MCP Auth Token Gate
-
-Set `MCP_AUTH_TOKEN` in your environment to add a second auth layer. Clients must send both:
-
-```
-Authorization: Bearer <MCP_AUTH_TOKEN>
-X-Vultr-API-Key: <user_vultr_key>
-```
-
-This is useful for deployments where access to the MCP server itself should be restricted, separate from each user's Vultr account.
-
-For production, replace the static token check in `VultrAuth::validateToken()` with JWT verification from an OAuth 2.0 / PKCE provider.
 
 ---
 
@@ -339,12 +320,11 @@ The Docker image uses [FrankenPHP](https://frankenphp.dev/) for high-performance
 
 ### Build
 
-> **Note:** If you are behind a TLS-intercepting proxy or VPN, run `composer install` locally before building. The Docker build stage copies the pre-installed `vendor/` directory instead of running `composer install` inside the container, which avoids SSL certificate failures when downloading packages from GitHub.
-
 ```bash
-composer install --no-dev --no-interaction --optimize-autoloader
 docker build -t vultr/mcp:latest .
 ```
+
+> **Note:** Run `composer install` locally before building if you're behind a TLS-intercepting VPN/proxy. The Dockerfile copies `vendor/` from the local directory to avoid package download issues during the build.
 
 ### Run (STDIO)
 
@@ -377,6 +357,12 @@ docker run --rm -p 8080:8080 \
 
 Deployed on [Vultr VKE](https://www.vultr.com/kubernetes/) with Traefik ingress and Let's Encrypt TLS.
 
+### Prerequisites
+
+- A Vultr Kubernetes Engine (VKE) cluster
+- `kubectl` configured with your cluster credentials
+- Traefik ingress controller with Let's Encrypt
+
 ### Apply all manifests:
 
 ```bash
@@ -384,18 +370,21 @@ kubectl apply -f k8s/
 ```
 
 This creates:
-- **ConfigMap** — transport mode, per-user settings, Redis connection config
+- **ConfigMap** — transport mode, per-user settings, Redis host
 - **Secret** — MCP_AUTH_TOKEN (edit before applying)
-- **Redis Deployment + Service** — session store for multi-replica support
 - **Deployment** — 2 replicas, resource limits, health probes on port 8080
 - **Service** — ClusterIP on port 8000 → targetPort 8080
-- **Ingress** — Traefik ingress with TLS at `mcp.vrnd.io`
+- **Ingress** — Traefik ingress with TLS
 
-### Multi-Replica Session Handling
+### Redis for Multi-Replica Sessions
 
-MCP's Streamable HTTP transport uses SSE for server-to-client streaming and POST requests for client-to-server messages. With multiple replicas, these requests may land on different pods — the Redis-backed session store (`Psr16SessionStore`) ensures session state is shared across all pods so any pod can handle any request for a given session.
+When running multiple replicas, MCP sessions are stored in Redis to allow SSE connections to span across pods. The deployment expects a Redis service at `redis:6379` in the same namespace.
 
-The Redis connection is configured via the `REDIS_HOST` and `REDIS_PORT` environment variables in the ConfigMap. Sessions have a 1-hour TTL.
+```bash
+kubectl apply -f k8s/redis.yaml
+```
+
+The session store uses a 1-hour TTL with the `mcp-session-` key prefix. No PVC is needed — sessions are ephemeral.
 
 ### Ingress Controller
 
@@ -406,7 +395,7 @@ helm repo add traefik https://traefik.github.io/charts
 helm repo update
 helm install traefik traefik/traefik \
   --namespace traefik --create-namespace \
-  --set certificatesResolvers.letsencrypt.acme.email=your-email@vrnd.io \
+  --set certificatesResolvers.letsencrypt.acme.email=your-email@example.com \
   --set certificatesResolvers.letsencrypt.acme.storage=/data/acme.json \
   --set certificatesResolvers.letsencrypt.acme.tlsChallenge=true
 ```
@@ -415,10 +404,22 @@ helm install traefik traefik/traefik \
 
 ## Regenerating Tools from the OpenAPI Spec
 
-Download the latest Vultr OpenAPI spec from https://www.vultr.com/api/ and save it as `openapi.json` in the project root, then run:
+The tool classes in `src/Tools/` are auto-generated from the Vultr OpenAPI spec. To regenerate:
+
+1. Download the latest spec from https://www.vultr.com/api/ and save it as `openapi.json` in the project root
+2. Run:
 
 ```bash
 php bin/console mcp:generate
 ```
 
-This parses the OpenAPI spec, filters by the `instances` and `baremetal` tags, and generates typed PHP tool classes in `src/Tools/`. Generated files are meant to be checked in and committed. Re-running the generator after a spec update will overwrite them.
+This generates one `*Tools.php` class per API tag, with `#[McpTool]` attributes on each method. The generator handles:
+- All 39 API tags (494 tools total)
+- Duplicate `operationId` deduplication
+- Path parameter and query parameter extraction
+- Request body schema generation
+- `VultrClientFactory` injection for per-request API key handling
+
+Tool registration is fully automatic — `Server.php` scans `src/Tools/*Tools.php` via reflection and registers all `#[McpTool]`-attributed methods with the MCP SDK. No manual `addTool()` calls needed.
+
+To add a new API tag, add it to `CLASS_NAMES` and `PATH_PREFIXES` in `src/Generator/OpenApiGenerator.php`, then regenerate.
