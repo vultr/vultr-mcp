@@ -308,9 +308,6 @@ If `VULTR_MCP_TRANSPORT` is not set, the server auto-detects:
 
 ---
 
-
----
-
 ## Docker
 
 The Docker image uses [FrankenPHP](https://frankenphp.dev/) for high-performance PHP serving with built-in Caddy and opcache/JIT.
