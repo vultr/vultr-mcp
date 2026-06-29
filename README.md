@@ -8,7 +8,7 @@ Supports **both local (STDIO) and remote (HTTP)** transport modes.
 
 ## Requirements
 
-- PHP 8.4+ (with `posix` extension for STDIO auto-detection)
+- PHP 8.2+ (with `posix` extension for STDIO auto-detection)
 - Composer
 
 ---
@@ -136,6 +136,35 @@ Auth: X-Vultr-API-Key: YOUR_VULTR_API_KEY
 
 ## Project Structure
 
+```
+vultr-mcp/
+├── bin/
+│   └── console                 # CLI entry point (STDIO mode + generator)
+├── k8s/                        # Kubernetes manifests
+│   ├── configmap.yaml           # Transport mode, per-user settings, Redis config
+│   ├── deployment.yaml          # MCP server deployment (2 replicas)
+│   ├── ingress.yaml             # Traefik ingress with TLS
+│   ├── redis.yaml               # Redis deployment + service (session store)
+│   ├── secret.yaml              # MCP_AUTH_TOKEN secret
+│   ├── service.yaml             # ClusterIP service
+│   └── traefik-values.yaml      # Traefik Helm values
+├── public/
+│   └── index.php                # HTTP entry point
+├── src/
+│   ├── Auth/                    # Authentication middleware
+│   ├── Generator/               # OpenAPI → MCP tool code generator
+│   ├── Http/                    # Health check middleware
+│   ├── Tools/                   # Generated MCP tool classes
+│   │   ├── InstanceTools.php    # VPS instance operations
+│   │   └── BareMetalTools.php   # Bare metal operations
+│   ├── Utils/                   # VultrClient, RateLimiter, RequestContext
+│   └── Server.php               # Main server bootstrap
+├── composer.json
+├── composer.lock
+├── Dockerfile                   # Multi-stage build (FrankenPHP + PHP 8.4)
+├── Caddyfile                    # FrankenPHP/Caddy config
+└── openapi.json                 # Vultr OpenAPI v3 spec (for tool generation)
+```
 
 ---
 
@@ -202,7 +231,7 @@ Automatically enabled in the FrankenPHP Docker image. Provides a Streamable HTTP
 - Optional `MCP_AUTH_TOKEN` bearer gate
 - Built-in CORS, DNS rebinding protection, protocol version validation (from MCP SDK)
 - Health check at `/healthz`
-- Stateless — no session persistence, safe for horizontal scaling
+- Redis-backed session store for multi-replica horizontal scaling (see [Kubernetes Deployment](#kubernetes-deployment))
 
 ### Auto-Detection
 
@@ -259,7 +288,10 @@ The Docker image uses [FrankenPHP](https://frankenphp.dev/) for high-performance
 
 ### Build
 
+> **Note:** If you are behind a TLS-intercepting proxy or VPN, run `composer install` locally before building. The Docker build stage copies the pre-installed `vendor/` directory instead of running `composer install` inside the container, which avoids SSL certificate failures when downloading packages from GitHub.
+
 ```bash
+composer install --no-dev --no-interaction --optimize-autoloader
 docker build -t vultr/mcp:latest .
 ```
 
@@ -301,11 +333,18 @@ kubectl apply -f k8s/
 ```
 
 This creates:
-- **ConfigMap** — transport mode, per-user settings
+- **ConfigMap** — transport mode, per-user settings, Redis connection config
 - **Secret** — MCP_AUTH_TOKEN (edit before applying)
+- **Redis Deployment + Service** — session store for multi-replica support
 - **Deployment** — 2 replicas, resource limits, health probes on port 8080
 - **Service** — ClusterIP on port 8000 → targetPort 8080
 - **Ingress** — Traefik ingress with TLS at `mcp.vrnd.io`
+
+### Multi-Replica Session Handling
+
+MCP's Streamable HTTP transport uses SSE for server-to-client streaming and POST requests for client-to-server messages. With multiple replicas, these requests may land on different pods — the Redis-backed session store (`Psr16SessionStore`) ensures session state is shared across all pods so any pod can handle any request for a given session.
+
+The Redis connection is configured via the `REDIS_HOST` and `REDIS_PORT` environment variables in the ConfigMap. Sessions have a 1-hour TTL.
 
 ### Ingress Controller
 
@@ -330,3 +369,5 @@ Download the latest Vultr OpenAPI spec from https://www.vultr.com/api/ and save 
 ```bash
 php bin/console mcp:generate
 ```
+
+This parses the OpenAPI spec, filters by the `instances` and `baremetal` tags, and generates typed PHP tool classes in `src/Tools/`. Generated files are meant to be checked in and committed. Re-running the generator after a spec update will overwrite them.
