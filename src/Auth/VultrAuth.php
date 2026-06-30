@@ -13,14 +13,43 @@ use Vultr\Mcp\Utils\RequestContext;
 
 /**
  * PSR-15 middleware that authenticates MCP client requests and extracts
- * per-user Vultr API keys. Supports three modes:
+ * per-user Vultr API keys.
  *
- *   - No auth: empty MCP_AUTH_TOKEN (local/trusted environments only)
- *   - Bearer token: set MCP_AUTH_TOKEN, clients send Authorization: Bearer <token>
- *   - Per-user API key: VULTR_PER_USER_MODE=true, clients send X-Vultr-API-Key
+ * KEY DELIVERY — pass your Vultr API key as a Bearer token:
  *
- * Bearer token and per-user API key can be combined: the token gates MCP access
- * while each user operates on their own Vultr account.
+ *   Authorization: Bearer YOUR_VULTR_API_KEY
+ *
+ * Claude Desktop (claude_desktop_config.json):
+ *   {
+ *     "mcpServers": {
+ *       "vultr": {
+ *         "url": "https://vultrmcp.com/instances",
+ *         "headers": { "Authorization": "Bearer YOUR_VULTR_API_KEY" }
+ *       }
+ *     }
+ *   }
+ *
+ * Claude Code:
+ *   claude mcp add --transport http vultr https://vultrmcp.com/instances \
+ *     --header "Authorization: Bearer YOUR_VULTR_API_KEY"
+ *
+ * Cursor / VS Code (.cursor/mcp.json or .vscode/mcp.json):
+ *   {
+ *     "mcpServers": {
+ *       "vultr": {
+ *         "url": "https://vultrmcp.com/instances",
+ *         "headers": { "Authorization": "Bearer YOUR_VULTR_API_KEY" }
+ *       }
+ *     }
+ *   }
+ *
+ * OPTIONAL SERVER GATE — set MCP_AUTH_TOKEN to add a second auth layer that
+ * restricts access to the server itself. When set, the Bearer slot is consumed
+ * by the gate token; set VULTR_PER_USER_MODE=false and use a shared VULTR_API_KEY.
+ *
+ * NOTE: Query parameter auth (?api_key=) is not supported. Query parameters
+ * appear in server access logs, which would expose users' full-access Vultr
+ * API keys to anyone with log access.
  */
 final class VultrAuth implements MiddlewareInterface
 {
@@ -61,55 +90,50 @@ final class VultrAuth implements MiddlewareInterface
      */
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
-                if ($request->getMethod() === 'OPTIONS') {
+        if ($request->getMethod() === 'OPTIONS') {
             return $handler->handle($request);
         }
 
-                if ($this->expectedToken !== null && $this->expectedToken !== '') {
-            $authHeader = $request->getHeaderLine('Authorization');
+        $authHeader = $request->getHeaderLine('Authorization');
 
-            if (!str_starts_with($authHeader, 'Bearer ')) {
-                return $this->unauthorised('Missing or malformed Authorization header. Expected: Bearer <token>');
-            }
-
-            $providedToken = substr($authHeader, strlen('Bearer '));
-
-            if (!$this->validateToken($providedToken)) {
-                return $this->unauthorised('Invalid or expired bearer token.');
-            }
-        }
-
-                // Priority: header > query param > Bearer token fallback
-        $vultrApiKey = $request->getHeaderLine('X-Vultr-API-Key');
-
-        // Fallback 1: query parameter (compatible with MCP clients that only
-        // support URL + env config, not custom headers).
-        if (empty($vultrApiKey)) {
-            $vultrApiKey = $request->getQueryParams()['api_key'] ?? '';
-        }
-
-        // Fallback 2: allow the API key to be passed as a Bearer token when
-        // there is no separate MCP_AUTH_TOKEN configured (simple single-layer auth).
-        if (empty($vultrApiKey) && ($this->expectedToken === null || $this->expectedToken === '')) {
-            $authHeader = $request->getHeaderLine('Authorization');
-            if (str_starts_with($authHeader, 'Bearer ')) {
-                $vultrApiKey = substr($authHeader, strlen('Bearer '));
-            }
-        }
-
-        if ($this->perUserMode && empty($vultrApiKey)) {
+        if (!str_starts_with($authHeader, 'Bearer ')) {
             return $this->unauthorised(
-                'X-Vultr-API-Key header is required. Provide your Vultr API key '
-                . '(generate one at https://my.vultr.com/settings/#settingsapi).'
+                'Missing or malformed Authorization header. '
+                . 'Expected: Authorization: Bearer YOUR_VULTR_API_KEY — '
+                . 'generate a key at https://my.vultr.com/settings/#settingsapi'
             );
         }
 
-        // Store the extracted key in the request-scoped context so
-        // VultrClientFactory can access it when creating per-request clients.
-        // This bridges the gap between the PSR-15 middleware layer and the
-        // MCP SDK's tool invocation layer (which doesn't pass the request).
-        if (!empty($vultrApiKey)) {
-            RequestContext::setApiKey($vultrApiKey);
+        $bearerToken = substr($authHeader, strlen('Bearer '));
+
+        // Optional server gate: if MCP_AUTH_TOKEN is set, validate the bearer
+        // token against it before treating it as a Vultr API key.
+        if ($this->expectedToken !== null && $this->expectedToken !== '') {
+            if (!$this->validateToken($bearerToken)) {
+                return $this->unauthorised('Invalid or expired bearer token.');
+            }
+
+            // When a server gate token is active the bearer slot is consumed
+            // by the gate — the Vultr API key cannot also be in the bearer slot.
+            // In this mode VULTR_PER_USER_MODE should be false (single shared key).
+            return $handler->handle($request);
+        }
+
+        // No server gate — treat the bearer token as the per-user Vultr API key.
+        if ($this->perUserMode && empty($bearerToken)) {
+            return $this->unauthorised(
+                'A Vultr API key is required. '
+                . 'Send it as: Authorization: Bearer YOUR_VULTR_API_KEY — '
+                . 'generate a key at https://my.vultr.com/settings/#settingsapi'
+            );
+        }
+
+        if (!empty($bearerToken)) {
+            // Store the extracted key in the request-scoped context so
+            // VultrClientFactory can access it when creating per-request clients.
+            // This bridges the gap between the PSR-15 middleware layer and the
+            // MCP SDK's tool invocation layer (which doesn't pass the request).
+            RequestContext::setApiKey($bearerToken);
         }
 
         return $handler->handle($request);
