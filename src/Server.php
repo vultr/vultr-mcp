@@ -16,6 +16,7 @@ use Vultr\Mcp\Auth\VultrAuth;
 use Vultr\Mcp\Http\HealthCheckMiddleware;
 use Mcp\Server\Session\Psr16SessionStore;
 use Symfony\Component\Cache\Adapter\RedisAdapter;
+use Symfony\Component\Cache\Adapter\ArrayAdapter;
 use Vultr\Mcp\Utils\VultrClientFactory;
 
 $root = dirname(__DIR__);
@@ -179,11 +180,80 @@ foreach (glob($toolsDir . '/*Tools.php') as $toolFile) {
     }
 }
 
-// In STDIO mode, register all tools on a single server
-if ($isStdio) {
-    $toolServices = $allToolServices;
-    $toolRegistrations = $allToolRegistrations;
+// ---------------------------------------------------------------------------
+// Session store — built ONCE per worker process, not per request.
+//
+// Redis connection failures previously surfaced as an uncaught exception on
+// every request (500 with a raw stack trace). We now fail fast with a clear
+// stderr message at boot, and support an explicit in-memory fallback for
+// local/dev use via SESSION_STORE_FALLBACK=memory so a missing Redis doesn't
+// take the whole server down for users who don't need multi-replica session
+// sharing (e.g. STDIO mode, or a single-instance HTTP deployment).
+// ---------------------------------------------------------------------------
 
+function buildSessionStore(): \Mcp\Server\Session\SessionStoreInterface
+{
+    $redisHost = $_ENV['REDIS_HOST'] ?? getenv('REDIS_HOST') ?: 'redis';
+    $redisPort = (int)($_ENV['REDIS_PORT'] ?? getenv('REDIS_PORT') ?: 6379);
+
+    $fallback = strtolower($_ENV['SESSION_STORE_FALLBACK'] ?? getenv('SESSION_STORE_FALLBACK') ?: 'fail');
+
+    try {
+        // Explicitly use Predis (pure PHP, no ext-redis required).
+        // We construct the client directly rather than using
+        // RedisAdapter::createConnection(), which would silently prefer
+        // the phpredis C extension if installed, making the underlying
+        // client an implicit function of the environment.
+        $predis = new \Predis\Client([
+            'host'    => $redisHost,
+            'port'    => $redisPort,
+            'timeout' => 2.0,
+        ]);
+        $adapter = new RedisAdapter($predis);
+        // Force an early roundtrip so connection problems surface here,
+        // at boot, instead of silently on first session read/write.
+        $adapter->getItem('mcp-session-healthcheck');
+
+        return new Psr16SessionStore(
+            cache: new \Symfony\Component\Cache\Psr16Cache($adapter),
+            prefix: 'mcp-session-',
+            ttl: 3600,
+        );
+    } catch (\Throwable $e) {
+        $message = "Warning: could not connect to Redis at {$redisHost}:{$redisPort}: {$e->getMessage()}";
+
+        if ($fallback === 'memory') {
+            fwrite(STDERR, $message . " — falling back to in-memory session store (SESSION_STORE_FALLBACK=memory). "
+                . "Sessions will NOT survive restarts or be shared across replicas." . PHP_EOL);
+
+            return new Psr16SessionStore(
+                cache: new \Symfony\Component\Cache\Psr16Cache(new \Symfony\Component\Cache\Adapter\ArrayAdapter()),
+                prefix: 'mcp-session-',
+                ttl: 3600,
+            );
+        }
+
+        fwrite(STDERR, $message . PHP_EOL);
+        fwrite(STDERR, "Set SESSION_STORE_FALLBACK=memory to run without Redis (not recommended for "
+            . "multi-replica HTTP deployments)." . PHP_EOL);
+        exit(1);
+    }
+}
+
+$sessionStore = buildSessionStore();
+
+// ---------------------------------------------------------------------------
+// Per-category server cache — built once per category, reused across
+// requests within the same worker process instead of rebuilt every time.
+// ---------------------------------------------------------------------------
+
+$serverCache = [];
+
+function buildServer(
+    array $toolServices,
+    array $toolRegistrations,
+    \Mcp\Server\Session\SessionStoreInterface $sessionStore,
+): McpServer {
     $container = new class($toolServices) implements ContainerInterface {
         public function __construct(private readonly array $services) {}
         public function get(string $id): mixed
@@ -208,14 +278,12 @@ if ($isStdio) {
         $serverBuilder = $serverBuilder->addTool($reg['handler'], $reg['name']);
     }
 
-    $redisUrl = 'redis://' . ($_ENV['REDIS_HOST'] ?? 'redis') . ':' . (int)($_ENV['REDIS_PORT'] ?? 6379);
-    $sessionStore = new Psr16SessionStore(
-        cache: new \Symfony\Component\Cache\Psr16Cache(new RedisAdapter(\Symfony\Component\Cache\Adapter\RedisAdapter::createConnection($redisUrl))),
-        prefix: 'mcp-session-',
-        ttl: 3600,
-    );
+    return $serverBuilder->setSession($sessionStore)->build();
+}
 
-    $server = $serverBuilder->setSession($sessionStore)->build();
+// In STDIO mode, register all tools on a single server
+if ($isStdio) {
+    $server = buildServer($allToolServices, $allToolRegistrations, $sessionStore);
 
     $transport = new StdioTransport();
     $server->run($transport);
@@ -232,7 +300,8 @@ $authMiddleware = VultrAuth::fromEnv($psr17Factory);
 
 $handler = function () use (
     $allToolServices, $allToolRegistrations, $TAG_TO_CLASS,
-    $psr17Factory, $healthMiddleware, $authMiddleware
+    $psr17Factory, $healthMiddleware, $authMiddleware,
+    $sessionStore, &$serverCache
 ): void {
     $creator = new ServerRequestCreator(
         $psr17Factory, $psr17Factory,
@@ -261,12 +330,15 @@ $handler = function () use (
         $path = '/';
     }
 
-    // Determine which tool classes to expose based on path
+    // Determine which tool classes to expose based on path, and a stable
+    // cache key for the server-cache lookup below.
     $activeClassNames = null; // null = all
+    $cacheKey = 'all';
 
     if ($path === '/' || $path === '/mcp') {
         // Root → all tools (for clients with limited MCP connections)
         $activeClassNames = null;
+        $cacheKey = 'all';
     } else {
         // Extract category from path: /instances, /kubernetes, etc.
         $category = ltrim($path, '/');
@@ -277,6 +349,7 @@ $handler = function () use (
 
         if (isset($TAG_TO_CLASS[$category])) {
             $activeClassNames = ['Vultr\Mcp\Tools\\' . $TAG_TO_CLASS[$category]];
+            $cacheKey = $category;
         } else {
             // Unknown path — 404
             header('Content-Type: application/json');
@@ -289,53 +362,28 @@ $handler = function () use (
         }
     }
 
-    // Filter tools based on active classes
-    if ($activeClassNames === null) {
-        $toolServices = $allToolServices;
-        $toolRegistrations = $allToolRegistrations;
-    } else {
-        $toolServices = array_filter($allToolServices, function ($key) use ($activeClassNames) {
-            return in_array($key, $activeClassNames, true);
-        }, ARRAY_FILTER_USE_KEY);
+    // Reuse a cached server for this category if we've already built one
+    // in this worker process. Only the tool registration/container differs
+    // per category — the session store is shared and built once at boot.
+    if (!isset($serverCache[$cacheKey])) {
+        // Filter tools based on active classes
+        if ($activeClassNames === null) {
+            $toolServices = $allToolServices;
+            $toolRegistrations = $allToolRegistrations;
+        } else {
+            $toolServices = array_filter($allToolServices, function ($key) use ($activeClassNames) {
+                return in_array($key, $activeClassNames, true);
+            }, ARRAY_FILTER_USE_KEY);
 
-        $toolRegistrations = array_filter($allToolRegistrations, function ($reg) use ($activeClassNames) {
-            return in_array($reg['class'], $activeClassNames, true);
-        });
+            $toolRegistrations = array_filter($allToolRegistrations, function ($reg) use ($activeClassNames) {
+                return in_array($reg['class'], $activeClassNames, true);
+            });
+        }
+
+        $serverCache[$cacheKey] = buildServer($toolServices, $toolRegistrations, $sessionStore);
     }
 
-    // Build container with filtered services
-    $container = new class($toolServices) implements ContainerInterface {
-        public function __construct(private readonly array $services) {}
-        public function get(string $id): mixed
-        {
-            if (!$this->has($id)) {
-                throw new \RuntimeException("Service not found: {$id}");
-            }
-            return $this->services[$id];
-        }
-        public function has(string $id): bool
-        {
-            return isset($this->services[$id]);
-        }
-    };
-
-    $serverBuilder = McpServer::builder()
-        ->setServerInfo('Vultr MCP Server', '1.2.0')
-        ->setContainer($container)
-        ->setPaginationLimit(1000);
-
-    foreach ($toolRegistrations as $reg) {
-        $serverBuilder = $serverBuilder->addTool($reg['handler'], $reg['name']);
-    }
-
-    $redisUrl = 'redis://' . ($_ENV['REDIS_HOST'] ?? 'redis') . ':' . (int)($_ENV['REDIS_PORT'] ?? 6379);
-    $sessionStore = new Psr16SessionStore(
-        cache: new \Symfony\Component\Cache\Psr16Cache(new RedisAdapter(\Symfony\Component\Cache\Adapter\RedisAdapter::createConnection($redisUrl))),
-        prefix: 'mcp-session-',
-        ttl: 3600,
-    );
-
-    $server = $serverBuilder->setSession($sessionStore)->build();
+    $server = $serverCache[$cacheKey];
 
     $transport = new StreamableHttpTransport(
         request: $request,
