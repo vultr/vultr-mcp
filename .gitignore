@@ -1,7 +1,7 @@
-vendor/
-sessions/
+.venv/
+__pycache__/
 .env
-*.log
-test_api.php
-test_all_tools.php
-generated_test/
+*.egg-info/
+.pytest_cache/
+# Real deployment secrets — copy k8s/secret.yaml.example to k8s/secret.yaml.
+k8s/secret.yaml

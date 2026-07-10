@@ -5,7 +5,27 @@ metadata:
   labels:
     app: vultr-mcp
 data:
-  VULTR_PER_USER_MODE: "true"
+  VULTR_MCP_TRANSPORT: "http"
   SSL_VERIFY: "true"
   REDIS_HOST: "redis"
   REDIS_PORT: "6379"
+
+  # ---- OAuth 2.1 / OIDC via FastMCP OAuthProxy ----
+  # MONDAY: set to "true" (needs VULTR_OAUTH_CLIENT_SECRET in the secret AND
+  # the platform /oauth/authorize fix live). Then OAuth + header auth run side
+  # by side via DualTokenVerifier.
+  # TODAY: "false" so the pod boots without the client secret; header/API-key
+  # auth (Authorization: Bearer <vultr_api_key>) is the active path.
+  VULTR_OIDC_ENABLED: "false"
+  VULTR_OIDC_PROVIDER_ID: "d66bf304-1e2b-4b7f-93f7-2a8c3a23df1f"
+  VULTR_OAUTH_CLIENT_ID: "2a522a8f-0a14-46b7-a40b-5b7196a4210e"
+  MCP_RESOURCE_URL: "https://vultrmcp.com"
+  # aud defaults to VULTR_OAUTH_CLIENT_ID; override only if Vultr changes it.
+  # VULTR_OIDC_AUDIENCE: ""
+
+  # ---- Tool surface ----
+  # Identity categories excluded by default; empty string disables exclusions.
+  # VULTR_MCP_EXCLUDED_CATEGORIES: "api-keys,users,iam,scim,organizations,oidc"
+  # Category endpoints to expose (default: all non-excluded). Trim to reduce
+  # boot cost / session-manager count per replica.
+  # VULTR_MCP_CATEGORY_ENDPOINTS: "instances,kubernetes,dns,firewall,block"

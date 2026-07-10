@@ -5,11 +5,10 @@ metadata:
   labels:
     app: vultr-mcp
 spec:
-  type: ClusterIP
   selector:
     app: vultr-mcp
   ports:
-    - port: 8000
+    - name: http
+      port: 80
       targetPort: 8080
       protocol: TCP
-      name: http

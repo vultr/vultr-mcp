@@ -17,15 +17,16 @@ spec:
       containers:
         - name: redis
           image: redis:7-alpine
+          args: ["--save", "", "--appendonly", "no"]
           ports:
             - containerPort: 6379
           resources:
             requests:
               cpu: 50m
-              memory: 32Mi
-            limits:
-              cpu: 200m
               memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 128Mi
 ---
 apiVersion: v1
 kind: Service
@@ -39,4 +40,3 @@ spec:
   ports:
     - port: 6379
       targetPort: 6379
-  clusterIP: None

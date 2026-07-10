@@ -1,373 +1,155 @@
 # vultr-mcp
 
-A **PHP MCP (Model Context Protocol) server** for the [Vultr](https://www.vultr.com/) cloud platform.
+A **Python MCP (Model Context Protocol) server** for the [Vultr](https://www.vultr.com/) cloud platform, built on [FastMCP](https://gofastmcp.com).
 
-Exposes **494 tools** across **39 categories** of the Vultr REST API v2 as MCP tools, so AI agents (Claude, Copilot, Cursor, Hermes, etc.) can provision and manage cloud infrastructure in natural language.
+Tools are generated directly from the Vultr OpenAPI spec, so AI agents (Claude, Cursor, VS Code Copilot, etc.) can provision and manage Vultr infrastructure in natural language. Supports **local (STDIO)** and **remote (HTTP)** transports, per-request auth, identity-tool exclusions, and token-efficient category endpoints.
 
-Supports **both local (STDIO) and remote (HTTP)** transport modes, with **path-based tool filtering** for token-efficient AI connections.
+> **v2** is a ground-up rewrite in Python/FastMCP. The original PHP server lives in this repo's git history.
 
 ## Requirements
 
-- PHP 8.4+ (with `posix` extension for STDIO auto-detection)
-- Composer
+- Python 3.12+
+- [uv](https://docs.astral.sh/uv/)
 
 ---
 
 ## Quick Start
 
-### Local Use (STDIO) — Recommended for Individuals
-
-The simplest way: Docker with your own API key.
+### Local (STDIO)
 
 ```bash
-docker run --rm -i \
-  -e VULTR_API_KEY=YOUR_VULTR_API_KEY \
-  vultr/mcp:latest
+uv sync
+VULTR_API_KEY=YOUR_VULTR_API_KEY uv run python -m vultr_mcp
 ```
 
-Or run directly with PHP:
+The server auto-detects STDIO when launched by an MCP client. In STDIO mode the credential comes from `VULTR_API_KEY`.
+
+### Remote (HTTP)
 
 ```bash
-git clone https://github.com/vultr/vultr-mcp.git
-cd vultr-mcp
-composer install
-VULTR_API_KEY=YOUR_VULTR_API_KEY php bin/console mcp:stdio
+VULTR_MCP_TRANSPORT=http uv run python -m vultr_mcp
 ```
 
-The server auto-detects STDIO mode when launched by an MCP client.
-
-### Remote Use (HTTP) — For Hosted / Team Deployments
-
-```bash
-docker run --rm -p 8080:8080 \
-  -e VULTR_PER_USER_MODE=true \
-  vultr/mcp:latest
-```
-
-Each user provides their own Vultr API key via the `X-Vultr-API-Key` header.
+Serves Streamable HTTP on port 8080 (configurable via `SERVER_PORT`), plus `/healthz`. Each user provides their own Vultr API key per request (see Authentication).
 
 ---
 
-## Path-Based Tool Filtering (HTTP Mode)
+## Tool Surface
 
-When deployed as a remote HTTP server, you can connect to specific category endpoints to limit which tools the AI sees — saving tokens and context window space.
+Tools are generated from `openapi.json` via `FastMCP.from_openapi()` — no hand-written tool code.
 
-### All Tools (One Connection)
+### Excluded categories
 
-```
-URL:  https://vultrmcp.com/
-```
+Identity and credential-management categories are **excluded by default** so they stay out of agent reach (the same posture as the GitHub/Stripe/DigitalOcean MCPs): `api-keys`, `users`, `iam`, `scim`, `organizations`, `oidc`. Enforcement of these permissions belongs in the IAM policy attached to the OAuth client app; excluding the tools is UX-layer hygiene.
 
-Returns all 494 tools. Best for clients with limited MCP connections or free plans.
+Override with `VULTR_MCP_EXCLUDED_CATEGORIES` (comma-separated tags; empty string keeps everything — appropriate for local STDIO use).
 
-### Category Endpoints (Token-Efficient)
+### Category endpoints (token-efficient)
 
-Connect to a category path to load only that category's tools:
-
-| Endpoint | Tools | Description |
-|---|---|---|
-| `/instances` | 35 | VPS instances (create, list, start, halt, reboot, etc.) |
-| `/baremetal` | 25 | Bare Metal servers |
-| `/kubernetes` | 26 | VKE clusters and node pools |
-| `/load-balancer` | 19 | Load balancers and forwarding rules |
-| `/dns` | 13 | DNS domains and records |
-| `/firewall` | 9 | Firewall groups and rules |
-| `/block` | 12 | Block storage volumes |
-| `/snapshot` | 6 | Snapshots |
-| `/ssh` | 5 | SSH keys |
-| `/iso` | 6 | ISO images |
-| `/reserved-ip` | 8 | Reserved IPs |
-| `/vpcs` | 21 | VPCs and NAT gateways |
-| `/plans` | 2 | Available plans |
-| `/region` | 2 | Available regions |
-| `/os` | 1 | Available operating systems |
-| `/account` | 6 | Account info and bandwidth |
-| `/billing` | 6 | Billing history and invoices |
-| `/users` | 19 | User management |
-| `/api-keys` | 4 | API key management |
-| `/backup` | 2 | Backups |
-| `/startup` | 5 | Startup scripts |
-| `/marketplace` | 2 | Marketplace apps |
-| `/clusters` | 9 | Container clusters |
-| `/container-registry` | 32 | Container registries |
-| `/managed-databases` | 66 | Managed databases (MySQL, PostgreSQL, Kafka, etc.) |
-| `/s3` | 14 | S3-compatible object storage |
-| `/vfs` | 10 | Vultr File Storage |
-| `/cdns` | 15 | CDN pull/push zones |
-| `/storage-gateways` | 7 | Storage gateways and exports |
-| `/serverless-inference` | 6 | Serverless inference endpoints |
-| `/iam` | 51 | IAM roles, policies, groups, trust relationships |
-| `/organizations` | 15 | Organizations and invitations |
-| `/oidc` | 16 | OIDC providers and issuers |
-| `/scim` | 11 | SCIM user/group provisioning |
-| `/instance-templates` | 5 | Instance templates |
-| `/application` | 1 | Application definitions |
-| `/logs` | 1 | Log retrieval |
-| `/subaccount` | 2 | Subaccounts |
-| `/tickets` | 8 | Support tickets |
-
-### Example Client Config (Category Endpoints)
-
-**Claude Desktop:**
-
-```json
-{
-  "mcpServers": {
-    "vultr-instances": {
-      "url": "https://vultrmcp.com/instances"
-    },
-    "vultr-kubernetes": {
-      "url": "https://vultrmcp.com/kubernetes"
-    },
-    "vultr-dns": {
-      "url": "https://vultrmcp.com/dns"
-    }
-  }
-}
-```
-
-**Hermes (Nous Research):**
-
-```yaml
-mcp_servers:
-  - name: vultr-instances
-    transport: http
-    url: https://vultrmcp.com/instances?api_key=YOUR_VULTR_API_KEY
-  - name: vultr-kubernetes
-    transport: http
-    url: https://vultrmcp.com/kubernetes?api_key=YOUR_VULTR_API_KEY
-```
-
----
-
-## Client Configuration
-
-### Claude Desktop
-
-Add to your `claude_desktop_config.json`:
-
-**With Docker (recommended):**
-
-```json
-{
-  "mcpServers": {
-    "vultr": {
-      "command": "docker",
-      "args": ["run", "--rm", "-i", "-e", "VULTR_API_KEY", "vultr/mcp:latest"],
-      "env": {
-        "VULTR_API_KEY": "YOUR_VULTR_API_KEY"
-      }
-    }
-  }
-}
-```
-
-**With PHP:**
-
-```json
-{
-  "mcpServers": {
-    "vultr": {
-      "command": "php",
-      "args": ["/absolute/path/to/vultr-mcp/bin/console", "mcp:stdio"],
-      "env": {
-        "VULTR_API_KEY": "YOUR_VULTR_API_KEY"
-      }
-    }
-  }
-}
-```
-
-### VS Code Copilot
-
-Add to your `.vscode/mcp.json` or VS Code settings:
-
-```json
-{
-  "servers": {
-    "vultr": {
-      "type": "stdio",
-      "command": "docker",
-      "args": ["run", "--rm", "-i", "-e", "VULTR_API_KEY", "vultr/mcp:latest"],
-      "env": {
-        "VULTR_API_KEY": "YOUR_VULTR_API_KEY"
-      }
-    }
-  }
-}
-```
-
-### Cursor
-
-Add to your `.cursor/mcp.json`:
-
-```json
-{
-  "mcpServers": {
-    "vultr": {
-      "command": "docker",
-      "args": ["run", "--rm", "-i", "-e", "VULTR_API_KEY", "vultr/mcp:latest"],
-      "env": {
-        "VULTR_API_KEY": "YOUR_VULTR_API_KEY"
-      }
-    }
-  }
-}
-```
-
-### Remote HTTP Endpoint
-
-For AI clients that support remote MCP endpoints (Streamable HTTP transport):
+The **root endpoint gives every (non-excluded) tool through a single connection** — best when your client only lets you add one or two MCP servers, so you want everything in one slot. Each category also gets its **own endpoint exposing only that category's tools** — for when you have room to add several focused connections and prefer each one scoped:
 
 ```
-URL:  https://vultrmcp.com/
-Auth: X-Vultr-API-Key: YOUR_VULTR_API_KEY
+https://vultrmcp.com/                    # all tools
+https://vultrmcp.com/instances           # VPS instance tools only
+https://vultrmcp.com/kubernetes          # VKE tools only
+https://vultrmcp.com/dns                 # DNS tools only
+https://vultrmcp.com/container-registry  # multi-word tags are slugified
 ```
 
-Or use a category endpoint for fewer tokens:
+Paths are lowercase, dash-separated, and **bare — no trailing slash needed**. Common categories: `instances`, `baremetal`, `kubernetes`, `dns`, `firewall`, `block`, `snapshot`, `ssh`, `iso`, `reserved-ip`, `load-balancer`, `managed-databases`, `container-registry`, `vpcs`, `s3`, `cdns`, `billing`, `account`, `plans`, `region`, `os`.
 
-```
-URL:  https://vultrmcp.com/instances
-Auth: X-Vultr-API-Key: YOUR_VULTR_API_KEY
-```
+Add several category servers to your client to cover what you use without loading everything. Configure which endpoints are mounted with `VULTR_MCP_CATEGORY_ENDPOINTS` (comma-separated slugs; default: all non-excluded).
 
 ---
 
 ## Authentication
 
-### Local (STDIO) Mode
+### Header / API key (works today)
 
-Set `VULTR_API_KEY` in your environment. No additional auth — STDIO is a local pipe.
+Each request carries the user's Vultr API key, which is forwarded to `api.vultr.com`:
 
-```bash
-VULTR_API_KEY=YOUR_KEY php bin/console mcp:stdio
-```
-
-### Remote (HTTP) Mode — Per-User API Keys
-
-When `VULTR_PER_USER_MODE=true` (default), each client provides their own Vultr API key. Three methods are supported:
-
-**1. Header (preferred):**
-```
-X-Vultr-API-Key: YOUR_VULTR_API_KEY
-```
-
-**2. Query parameter (for clients that don't support custom headers, e.g. Hermes):**
-```
-https://vultrmcp.com/instances?api_key=YOUR_VULTR_API_KEY
-```
-
-**3. Bearer token (when `MCP_AUTH_TOKEN` is not set):**
 ```
 Authorization: Bearer YOUR_VULTR_API_KEY
 ```
 
-The key is held in memory only for the duration of the request — never logged, never persisted to disk.
+`X-Vultr-API-Key: YOUR_VULTR_API_KEY` is also accepted when no OAuth layer is active.
 
-### Optional MCP Auth Token Gate
+### OAuth 2.1 / OIDC (zero-config)
 
-Set `MCP_AUTH_TOKEN` in your environment to add a second auth layer. Clients must send both:
+Set `VULTR_OIDC_ENABLED=true` (plus the OAuth app credentials) to front Vultr's OIDC provider with FastMCP's `OAuthProxy`. This gives MCP clients the paste-a-URL experience — Dynamic Client Registration, no client ID/secret entered by the user — while the server holds the one approved client's credentials. A `DualTokenVerifier` accepts **both** OIDC JWTs and raw API keys concurrently, so the header path keeps working with OAuth enabled.
 
+See `k8s/configmap.yaml` and `src/vultr_mcp/auth.py` for the required variables.
+
+### Client config example (Claude Desktop, remote)
+
+Claude Desktop's config supports remote servers via the `mcp-remote` bridge:
+
+```json
+{
+  "mcpServers": {
+    "vultr": {
+      "command": "cmd",
+      "args": ["/c", "npx", "-y", "mcp-remote",
+               "https://vultrmcp.com/instances",
+               "--header", "Authorization: Bearer YOUR_VULTR_API_KEY"]
+    }
+  }
+}
 ```
-Authorization: Bearer <MCP_AUTH_TOKEN>
-X-Vultr-API-Key: <user_vultr_key>
-```
 
-This is useful for deployments where access to the MCP server itself should be restricted, separate from each user's Vultr account.
-
-For production, replace the static token check in `VultrAuth::validateToken()` with JWT verification from an OAuth 2.0 / PKCE provider.
+(On non-Windows, drop the `"/c"` and use `"npx"` as the command.)
 
 ---
 
-## Transport Modes
+## Configuration (environment)
 
-### STDIO (Local)
-
-Default when launched by an MCP client (stdin is a pipe). Reads JSON-RPC from STDIN, writes responses to STDOUT.
-
-- No authentication needed (local pipe, no network)
-- API key from `VULTR_API_KEY` environment variable
-- Used by Claude Desktop, VS Code Copilot, Cursor
-
-### HTTP (Remote / Hosted)
-
-Automatically enabled in the FrankenPHP Docker image. Provides a Streamable HTTP + SSE endpoint on port 8080.
-
-- Per-user API keys via `X-Vultr-API-Key` header
-- Optional `MCP_AUTH_TOKEN` bearer gate
-- Built-in CORS, DNS rebinding protection, protocol version validation (from MCP SDK)
-- Health check at `/healthz`
-- **Path-based tool filtering** — connect to `/instances`, `/kubernetes`, etc. for token-efficient connections
-- Redis-backed session store for multi-replica horizontal scaling
-
-### Auto-Detection
-
-If `VULTR_MCP_TRANSPORT` is not set, the server auto-detects:
-- **STDIN is a pipe** (launched by MCP client) → STDIO mode
-- **STDIN is a TTY / undefined** (interactive / Docker with `-p`) → HTTP mode
+| Variable | Purpose |
+|---|---|
+| `VULTR_MCP_TRANSPORT` | `stdio` (default when launched by a client) or `http` |
+| `VULTR_API_KEY` | credential for STDIO/local mode |
+| `VULTR_API_BASE_URL` | default `https://api.vultr.com/v2` |
+| `SERVER_HOST` / `SERVER_PORT` | HTTP bind (default `0.0.0.0:8080`) |
+| `SSL_VERIFY` | verify upstream TLS (default `true`) |
+| `VULTR_MCP_EXCLUDED_CATEGORIES` | tags to drop (default identity set; empty disables) |
+| `VULTR_MCP_CATEGORY_ENDPOINTS` | category endpoints to mount (default: all non-excluded) |
+| `MCP_RESOURCE_URL` | public URL, used for OAuth + Host allow-list |
+| `MCP_ALLOWED_HOSTS` | extra hosts for DNS-rebinding protection |
+| `VULTR_OIDC_ENABLED` | enable the OAuthProxy (default `false`) |
+| `VULTR_OIDC_PROVIDER_ID` / `VULTR_OAUTH_CLIENT_ID` / `VULTR_OAUTH_CLIENT_SECRET` | approved OAuth app credentials |
+| `REDIS_HOST` / `REDIS_PORT` | Redis for OAuth DCR state (required for multi-replica OAuth) |
 
 ---
 
-## Docker
+## Deployment
 
-The Docker image uses [FrankenPHP](https://frankenphp.dev/) for high-performance PHP serving with built-in Caddy and opcache/JIT.
-
-### Build
+### Docker
 
 ```bash
-docker build -t vultr/mcp:latest .
+docker build -t vultr-mcp-py:latest .
+docker run --rm -p 8080:8080 -e VULTR_MCP_TRANSPORT=http vultr-mcp-py:latest
 ```
 
-> **Note:** Run `composer install` locally before building if you're behind a TLS-intercepting VPN/proxy. The Dockerfile copies `vendor/` from the local directory to avoid package download issues during the build.
+The image runs `python -m vultr_mcp` under uvicorn as a non-root user.
 
-### Run (STDIO)
+### Kubernetes
+
+Manifests are in `k8s/` (deployment, service, configmap, `secret.yaml.example`, redis). Copy `secret.yaml.example` to `secret.yaml` (gitignored), fill in values, then apply:
 
 ```bash
-docker run --rm -i \
-  -e VULTR_API_KEY=*** \
-  vultr/mcp:latest
+cp k8s/secret.yaml.example k8s/secret.yaml   # then edit
+kubectl apply -f k8s/
 ```
 
-### Run (HTTP)
-
-```bash
-docker run --rm -p 8080:8080 \
-  -e VULTR_PER_USER_MODE=true \
-  vultr/mcp:latest
-```
-
-### With MCP Auth Token (HTTP)
-
-```bash
-docker run --rm -p 8080:8080 \
-  -e VULTR_PER_USER_MODE=true \
-  -e MCP_AUTH_TOKEN=*** \
-  vultr/mcp:latest
-```
+Runs 2 replicas behind a round-robin ingress; the server uses **stateless HTTP** so no session affinity is required. OAuth DCR state is shared via Redis.
 
 ---
 
-
----
-
-## Regenerating Tools from the OpenAPI Spec
-
-The tool classes in `src/Tools/` are auto-generated from the Vultr OpenAPI spec. To regenerate:
-
-1. Download the latest spec from https://www.vultr.com/api/ and save it as `openapi.json` in the project root
-2. Run:
+## Development
 
 ```bash
-php bin/console mcp:generate
+uv sync
+uv run pytest            # test suite
+uv run python -m vultr_mcp   # run locally (STDIO)
 ```
 
-This generates one `*Tools.php` class per API tag, with `#[McpTool]` attributes on each method. The generator handles:
-- All 39 API tags (494 tools total)
-- Duplicate `operationId` deduplication
-- Path parameter and query parameter extraction
-- Request body schema generation
-- `VultrClientFactory` injection for per-request API key handling
-
-Tool registration is fully automatic — `Server.php` scans `src/Tools/*Tools.php` via reflection and registers all `#[McpTool]`-attributed methods with the MCP SDK. No manual `addTool()` calls needed.
-
-To add a new API tag, add it to `CLASS_NAMES` and `PATH_PREFIXES` in `src/Generator/OpenApiGenerator.php`, then regenerate.
+Tools regenerate automatically from `openapi.json` on startup — to update the tool surface, replace `openapi.json` with the latest Vultr spec.
