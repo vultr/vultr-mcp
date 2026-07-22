@@ -125,8 +125,8 @@ Claude Desktop's config supports remote servers via the `mcp-remote` bridge:
 ### Docker
 
 ```bash
-docker build -t vultr-mcp-py:latest .
-docker run --rm -p 8080:8080 -e VULTR_MCP_TRANSPORT=http vultr-mcp-py:latest
+docker build -t vultr-mcp:latest .
+docker run --rm -p 8080:8080 -e VULTR_MCP_TRANSPORT=http vultr-mcp:latest
 ```
 
 The image runs `python -m vultr_mcp` under uvicorn as a non-root user.

@@ -89,10 +89,20 @@ def create_http_app(spec: dict | None = None):
     # Derive it from MCP_RESOURCE_URL; extend via MCP_ALLOWED_HOSTS.
     from urllib.parse import urlparse
 
-    resource_host = urlparse(os.environ.get("MCP_RESOURCE_URL", "https://vultrmcp.com")).netloc
+    resource_url = os.environ.get("MCP_RESOURCE_URL", "https://vultrmcp.com")
+    resource_host = urlparse(resource_url).netloc
     allowed_hosts = [h for h in (resource_host, "localhost", "127.0.0.1") if h]
     allowed_hosts += [
         h.strip() for h in os.environ.get("MCP_ALLOWED_HOSTS", "").split(",") if h.strip()
+    ]
+
+    # allowed_origins: the OAuthProxy consent page POSTs to /consent from the
+    # server's own origin. Without the public origin allow-listed, FastMCP's
+    # DNS-rebinding protection 403s that POST ("forbidden origin on the allow
+    # screen"). Allow our own origin plus any configured extras.
+    allowed_origins = [o for o in (resource_url.rstrip("/"),) if o]
+    allowed_origins += [
+        o.strip() for o in os.environ.get("MCP_ALLOWED_ORIGINS", "").split(",") if o.strip()
     ]
 
     # stateless_http: each request is self-contained, so no MCP session lives
@@ -103,7 +113,12 @@ def create_http_app(spec: dict | None = None):
     # path="/" serves each server's MCP endpoint at its mount root, so URLs are
     # clean: root at "/", a category at "/instances" (not "/instances/mcp").
     def _http(server) -> object:
-        return server.http_app(path="/", allowed_hosts=allowed_hosts, stateless_http=True)
+        return server.http_app(
+            path="/",
+            allowed_hosts=allowed_hosts,
+            allowed_origins=allowed_origins,
+            stateless_http=True,
+        )
 
     # Root ("/") serves the full non-excluded tool surface. Each category is
     # mounted at its slug ("/container-registry") and exposes only that

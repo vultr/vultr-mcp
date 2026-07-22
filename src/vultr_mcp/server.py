@@ -53,26 +53,40 @@ class PerRequestVultrAuth(httpx.Auth):
     def auth_flow(self, request: httpx.Request) -> Generator[httpx.Request, httpx.Response, None]:
         token: str | None = None
 
+        # 1. Authenticated AccessToken (OAuth path). With OAuthProxy, the client
+        #    holds a FastMCP-issued token; FastMCP swaps it for the stored
+        #    UPSTREAM Vultr token and validates that via our verifier, exposing
+        #    it here as AccessToken.token. That upstream token is what
+        #    api.vultr.com accepts — NOT the FastMCP token in the raw header
+        #    (forwarding that gave "Invalid API token"). Also covers the
+        #    header-auth path when an auth layer is active.
         try:
-            # include_all=True is REQUIRED: get_http_headers() strips
-            # `authorization` (and x-*, host, content-*) by default, which
-            # silently dropped the user's key and 401'd every call. This is
-            # the documented setting for proxy transports forwarding auth
-            # upstream.
-            incoming = get_http_headers(include_all=True)
-            auth_header = incoming.get("authorization", "")
-            if auth_header:
-                token = auth_header
-            else:
-                # Header-auth parity with the PHP server: a raw Vultr API key
-                # may arrive as X-Vultr-API-Key instead of a Bearer token.
-                api_key = incoming.get("x-vultr-api-key", "")
-                if api_key:
-                    token = f"Bearer {api_key}"
+            from fastmcp.server.dependencies import get_access_token
+
+            access = get_access_token()
+            if access is not None and getattr(access, "token", None):
+                token = f"Bearer {access.token}"
         except Exception:
-            # No request context at all — fall through to env.
             pass
 
+        # 2. No auth layer (OIDC disabled): forward the raw incoming credential.
+        #    include_all=True is REQUIRED — get_http_headers() strips
+        #    `authorization` (and x-*, host, content-*) by default.
+        if not token:
+            try:
+                incoming = get_http_headers(include_all=True)
+                auth_header = incoming.get("authorization", "")
+                if auth_header:
+                    token = auth_header
+                else:
+                    # A raw Vultr API key may arrive as X-Vultr-API-Key.
+                    api_key = incoming.get("x-vultr-api-key", "")
+                    if api_key:
+                        token = f"Bearer {api_key}"
+            except Exception:
+                pass
+
+        # 3. STDIO / local fallback.
         if not token:
             env_key = os.environ.get("VULTR_API_KEY", "")
             if env_key:

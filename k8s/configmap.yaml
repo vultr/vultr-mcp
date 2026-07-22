@@ -11,14 +11,12 @@ data:
   REDIS_PORT: "6379"
 
   # ---- OAuth 2.1 / OIDC via FastMCP OAuthProxy ----
-  # MONDAY: set to "true" (needs VULTR_OAUTH_CLIENT_SECRET in the secret AND
-  # the platform /oauth/authorize fix live). Then OAuth + header auth run side
-  # by side via DualTokenVerifier.
-  # TODAY: "false" so the pod boots without the client secret; header/API-key
-  # auth (Authorization: Bearer <vultr_api_key>) is the active path.
-  VULTR_OIDC_ENABLED: "false"
+  # OAuth + header auth run side by side via DualTokenVerifier. Requires
+  # VULTR_OAUTH_CLIENT_SECRET in the secret and the platform /oauth/authorize
+  # fix live (both in place as of the recreate).
+  VULTR_OIDC_ENABLED: "true"
   VULTR_OIDC_PROVIDER_ID: "d66bf304-1e2b-4b7f-93f7-2a8c3a23df1f"
-  VULTR_OAUTH_CLIENT_ID: "2a522a8f-0a14-46b7-a40b-5b7196a4210e"
+  VULTR_OAUTH_CLIENT_ID: "56377b7e-ffbc-4a65-a704-e215e89f3d44"
   MCP_RESOURCE_URL: "https://vultrmcp.com"
   # aud defaults to VULTR_OAUTH_CLIENT_ID; override only if Vultr changes it.
   # VULTR_OIDC_AUDIENCE: ""
