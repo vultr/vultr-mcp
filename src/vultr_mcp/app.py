@@ -19,10 +19,11 @@ from __future__ import annotations
 import json
 import os
 from contextlib import AsyncExitStack, asynccontextmanager
+from pathlib import Path
 
 from starlette.applications import Starlette
 from starlette.requests import Request
-from starlette.responses import JSONResponse
+from starlette.responses import HTMLResponse, JSONResponse
 from starlette.routing import Mount, Route
 
 from vultr_mcp.server import (
@@ -34,6 +35,42 @@ from vultr_mcp.server import (
 )
 
 VERSION = "2.0.0"
+
+_LANDING_PATH = Path(__file__).resolve().parent / "static" / "index.html"
+
+
+def _load_landing_html() -> str:
+    """Read the human-facing docs page served on browser GETs to ``/``.
+
+    Missing file is non-fatal — a browser just gets a tiny fallback rather
+    than the server failing to boot over a docs asset.
+    """
+    try:
+        return _LANDING_PATH.read_text(encoding="utf-8")
+    except OSError:
+        return "<!doctype html><title>Vultr MCP</title><h1>Vultr MCP Server</h1>"
+
+
+def _wants_landing_page(scope: dict) -> bool:
+    """True for a browser navigation to ``/``, false for MCP protocol traffic.
+
+    MCP Streamable HTTP uses POST for JSON-RPC and a GET carrying
+    ``Accept: text/event-stream`` to open the SSE stream. A browser sends GET
+    with ``Accept: text/html``. Keying off event-stream keeps the docs page
+    from ever shadowing a real MCP GET, even outside stateless mode.
+    """
+    if scope.get("type") != "http" or scope.get("method") != "GET":
+        return False
+    if scope.get("path") != "/":
+        return False
+    accept = ""
+    for name, value in scope.get("headers") or []:
+        if name == b"accept":
+            accept = value.decode("latin-1").lower()
+            break
+    if "text/event-stream" in accept:
+        return False
+    return "text/html" in accept or accept in ("", "*/*")
 
 
 def _resolve_exclusions() -> set[str]:
@@ -163,7 +200,14 @@ def create_http_app(spec: dict | None = None):
     # happens and nobody has to remember the slash. Root ("/") already has one.
     bare_paths = {f"/{name}" for name, _ in mounted}
 
+    landing_html = _load_landing_html()
+
     async def app_with_bare_paths(scope, receive, send):
+        # Browser hitting the root gets human docs; MCP clients (POST, or GET
+        # for the SSE stream) fall through to the protocol app at "/".
+        if _wants_landing_page(scope):
+            await HTMLResponse(landing_html)(scope, receive, send)
+            return
         if scope["type"] == "http" and scope.get("path") in bare_paths:
             fixed = scope["path"] + "/"
             scope = {**scope, "path": fixed, "raw_path": fixed.encode()}

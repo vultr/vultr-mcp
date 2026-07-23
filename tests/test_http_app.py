@@ -47,6 +47,64 @@ async def _names(port, path):
         return [t.name for t in await client.list_tools()]
 
 
+async def test_root_serves_landing_page_to_browsers(monkeypatch, spec):
+    monkeypatch.setenv("VULTR_MCP_CATEGORY_ENDPOINTS", "instances")
+    app = create_http_app(spec)
+    port = _free_port()
+    server, task = await _serve(app, port)
+    try:
+        import httpx
+
+        async with httpx.AsyncClient() as hc:
+            # Browser navigation: GET / with an HTML Accept header.
+            page = await hc.get(
+                f"http://127.0.0.1:{port}/",
+                headers={"Accept": "text/html,application/xhtml+xml,*/*;q=0.8"},
+            )
+            assert page.status_code == 200
+            assert page.headers["content-type"].startswith("text/html")
+            body = page.text
+            assert "Vultr MCP Server" in body
+            # The harness setup sections must be present.
+            for marker in ("opencode", "Hermes", "OpenClaw"):
+                assert marker in body, f"landing page missing {marker!r}"
+            # The OAuth connection walkthrough + flow diagram must be present.
+            assert "Connecting with OAuth" in body
+            assert "<svg" in body
+
+            # MCP SSE probe: GET / asking for an event-stream must NOT get docs.
+            sse = await hc.get(
+                f"http://127.0.0.1:{port}/",
+                headers={"Accept": "text/event-stream"},
+            )
+            assert "Vultr MCP Server" not in sse.text
+    finally:
+        server.should_exit = True
+        task.cancel()
+        try:
+            await task
+        except (asyncio.CancelledError, Exception):
+            pass
+
+
+async def test_root_still_serves_mcp_over_post(monkeypatch, spec):
+    # The docs page must not shadow the MCP protocol at "/".
+    monkeypatch.setenv("VULTR_MCP_CATEGORY_ENDPOINTS", "instances")
+    app = create_http_app(spec)
+    port = _free_port()
+    server, task = await _serve(app, port)
+    try:
+        root_names = await _names(port, "/")
+        assert any("instance" in n.lower() for n in root_names)
+    finally:
+        server.should_exit = True
+        task.cancel()
+        try:
+            await task
+        except (asyncio.CancelledError, Exception):
+            pass
+
+
 async def test_healthz_and_category_scoping(monkeypatch, spec):
     # Mount only 'instances' and 'dns' endpoints so the test boots quickly.
     monkeypatch.setenv("VULTR_MCP_CATEGORY_ENDPOINTS", "instances,dns")

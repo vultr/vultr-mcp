@@ -1,0 +1,379 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vultr MCP Server — Docs</title>
+<meta name="description" content="How to authorize and consume the Vultr MCP server at vultrmcp.com, with setup for opencode, Hermes Agent, OpenClaw, and other MCP clients.">
+<style>
+  :root {
+    --bg: #ffffff;
+    --fg: #1a1f29;
+    --muted: #5b6572;
+    --border: #e4e8ee;
+    --card: #f7f9fc;
+    --code-bg: #f2f5f9;
+    --accept: #0f6fde;
+    --accent-fg: #ffffff;
+    --pill: #e8f1fd;
+    --pill-fg: #0f5bb5;
+    --warn-bg: #fff7e6;
+    --warn-border: #f0d38a;
+    --warn-fg: #8a6100;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0e1420;
+      --fg: #e6ebf2;
+      --muted: #9aa6b4;
+      --border: #232c3a;
+      --card: #151d2b;
+      --code-bg: #111826;
+      --accept: #3b8ef0;
+      --pill: #14263c;
+      --pill-fg: #7db6f5;
+      --warn-bg: #2a2410;
+      --warn-border: #5c4d1c;
+      --warn-fg: #e3c775;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--sans);
+    line-height: 1.6;
+    font-size: 16px;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 0 20px 96px; }
+  header.hero {
+    padding: 56px 0 32px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 8px;
+  }
+  .eyebrow {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--pill-fg);
+    background: var(--pill);
+    padding: 4px 10px;
+    border-radius: 999px;
+    margin-bottom: 16px;
+  }
+  h1 { font-size: 2.15rem; line-height: 1.15; margin: 0 0 12px; letter-spacing: -.02em; }
+  .lede { font-size: 1.12rem; color: var(--muted); margin: 0; max-width: 62ch; }
+  h2 {
+    font-size: 1.4rem; margin: 48px 0 12px; letter-spacing: -.01em;
+    padding-top: 8px;
+  }
+  h3 { font-size: 1.08rem; margin: 28px 0 8px; }
+  p { margin: 10px 0; }
+  a { color: var(--accept); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code {
+    font-family: var(--mono);
+    font-size: .875em;
+    background: var(--code-bg);
+    padding: .12em .4em;
+    border-radius: 5px;
+    border: 1px solid var(--border);
+  }
+  pre {
+    position: relative;
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    overflow-x: auto;
+    margin: 14px 0;
+  }
+  pre code { background: none; border: none; padding: 0; font-size: .85rem; line-height: 1.55; }
+  .copy {
+    position: absolute; top: 8px; right: 8px;
+    font-family: var(--sans); font-size: 11px; font-weight: 600;
+    color: var(--muted); background: var(--bg);
+    border: 1px solid var(--border); border-radius: 6px;
+    padding: 4px 8px; cursor: pointer; opacity: 0; transition: opacity .12s;
+  }
+  pre:hover .copy { opacity: 1; }
+  .copy.done { color: var(--pill-fg); }
+  ul, ol { margin: 10px 0; padding-left: 22px; }
+  li { margin: 4px 0; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+  @media (max-width: 620px) { .grid { grid-template-columns: 1fr; } }
+  .card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 10px; padding: 16px 18px;
+  }
+  .card h3 { margin-top: 0; }
+  .note {
+    background: var(--warn-bg); border: 1px solid var(--warn-border);
+    color: var(--warn-fg); border-radius: 10px; padding: 12px 16px; margin: 16px 0;
+    font-size: .95rem;
+  }
+  .note strong { color: var(--warn-fg); }
+  table { border-collapse: collapse; width: 100%; margin: 14px 0; font-size: .93rem; display: block; overflow-x: auto; }
+  th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { font-weight: 600; }
+  .toc { display: flex; flex-wrap: wrap; gap: 8px; margin: 24px 0 0; }
+  .toc a {
+    font-size: .85rem; color: var(--muted); border: 1px solid var(--border);
+    padding: 5px 11px; border-radius: 999px;
+  }
+  .toc a:hover { color: var(--fg); text-decoration: none; border-color: var(--accept); }
+  footer { margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--border); color: var(--muted); font-size: .88rem; }
+  .muted { color: var(--muted); }
+  hr.soft { border: none; border-top: 1px solid var(--border); margin: 40px 0; }
+  figure svg text { font-family: var(--sans); }
+  figure { margin-inline: 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <span class="eyebrow">Model Context Protocol</span>
+    <h1>Vultr MCP Server</h1>
+    <p class="lede">Manage your Vultr cloud — instances, Kubernetes, DNS, databases, storage and more — from any MCP-compatible AI agent, in natural language. This page is for humans; AI clients connect to the same URL over the MCP protocol.</p>
+    <nav class="toc">
+      <a href="#endpoints">Endpoints</a>
+      <a href="#auth">Authorization</a>
+      <a href="#oauth">OAuth connect</a>
+      <a href="#consume">Consuming it</a>
+      <a href="#harnesses">Harness setup</a>
+      <a href="#caveats">Caveats</a>
+    </nav>
+  </header>
+
+  <section id="endpoints">
+    <h2>Endpoints</h2>
+    <p>The base URL is <code>https://vultrmcp.com/</code>. The <strong>root</strong> exposes the full tool surface through one connection. Each category also gets its own endpoint exposing only that category's tools — useful when your client has limited connection slots or you want a smaller, cheaper tool set.</p>
+    <pre><code>https://vultrmcp.com/                    # all tools (one connection)
+https://vultrmcp.com/instances           # VPS instance tools only
+https://vultrmcp.com/kubernetes          # VKE tools only
+https://vultrmcp.com/dns                 # DNS tools only
+https://vultrmcp.com/container-registry  # multi-word categories are slugified</code></pre>
+    <p class="muted">Common categories: <code>instances</code>, <code>baremetal</code>, <code>kubernetes</code>, <code>dns</code>, <code>firewall</code>, <code>block</code>, <code>snapshot</code>, <code>load-balancer</code>, <code>managed-databases</code>, <code>container-registry</code>, <code>vpcs</code>, <code>object-storage</code>, <code>billing</code>, <code>account</code>. Paths are bare — no trailing slash needed.</p>
+  </section>
+
+  <section id="auth">
+    <h2>Authorization</h2>
+    <p>Two ways to authenticate. Both end up talking to <code>api.vultr.com</code> as you.</p>
+
+    <h3>1. OAuth (zero-config)</h3>
+    <p>Point your MCP client at <code>https://vultrmcp.com/</code> and start the connection. You'll be redirected to Vultr to sign in and consent — no client ID or secret to paste, no API key to manage. Your client stores the resulting token and reuses it. This is the smoothest path for GUI clients with a browser handy (e.g. Claude).</p>
+
+    <h3>2. API key (header)</h3>
+    <p>Send your Vultr API key as a Bearer token on every request:</p>
+    <pre><code>Authorization: Bearer YOUR_VULTR_API_KEY</code></pre>
+    <p>Get a key from the <a href="https://my.vultr.com/settings/#settingsapi">Vultr console → Account → API</a>. This is the most reliable path for headless/terminal agents and the only way to <strong>deterministically pick which organization</strong> you act on (see caveats).</p>
+
+    <div class="note">
+      <strong>Header name matters.</strong> Because the OAuth layer is active, a raw API key must arrive as <code>Authorization: Bearer &lt;key&gt;</code>. The alternate <code>X-Vultr-API-Key</code> header only works on a deployment with no OAuth layer.
+    </div>
+  </section>
+
+  <section id="oauth">
+    <h2>Connecting with OAuth</h2>
+    <p>These clients support the zero-config OAuth flow: point them at the root URL with OAuth enabled and finish sign-in in your browser. No client ID, secret, or API key to manage — the server registers itself and stores the token for you.</p>
+
+    <figure style="margin:20px 0;">
+      <div style="overflow-x:auto;">
+        <svg viewBox="0 0 760 360" role="img" aria-label="OAuth connection flow: your MCP client connects to vultrmcp.com, which redirects you to Vultr to sign in and consent; Vultr issues a token and the client is connected." style="width:100%; min-width:640px; height:auto;">
+          <defs>
+            <marker id="ah" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+              <path d="M0,0 L7,3 L0,6 Z" fill="var(--accept)"></path>
+            </marker>
+          </defs>
+          <g font-size="13" font-weight="600" text-anchor="middle" fill="var(--fg)">
+            <rect x="40" y="14" width="150" height="40" rx="9" fill="var(--card)" stroke="var(--border)"></rect>
+            <text x="115" y="39">Your MCP client</text>
+            <rect x="305" y="14" width="150" height="40" rx="9" fill="var(--card)" stroke="var(--border)"></rect>
+            <text x="380" y="39">vultrmcp.com</text>
+            <rect x="570" y="14" width="150" height="40" rx="9" fill="var(--card)" stroke="var(--border)"></rect>
+            <text x="645" y="39">Vultr sign-in</text>
+          </g>
+          <g stroke="var(--border)" stroke-width="1.5" stroke-dasharray="4 5">
+            <line x1="115" y1="54" x2="115" y2="338"></line>
+            <line x1="380" y1="54" x2="380" y2="338"></line>
+            <line x1="645" y1="54" x2="645" y2="338"></line>
+          </g>
+          <g stroke="var(--accept)" stroke-width="2" marker-end="url(#ah)" fill="none">
+            <line x1="115" y1="98" x2="373" y2="98"></line>
+            <line x1="380" y1="152" x2="638" y2="152"></line>
+            <path d="M645,190 h42 v26 h-42"></path>
+            <line x1="645" y1="262" x2="387" y2="262"></line>
+            <line x1="380" y1="312" x2="122" y2="312"></line>
+          </g>
+          <g font-size="12.5" fill="var(--fg)" text-anchor="middle">
+            <text x="247" y="90">1 · Connect (no secret)</text>
+            <text x="512" y="144">2 · Redirect to sign-in</text>
+            <text x="645" y="182">3 · Sign in + consent</text>
+            <text x="512" y="254">4 · Issue token</text>
+            <text x="247" y="304">5 · Connected — tools ready</text>
+          </g>
+        </svg>
+      </div>
+      <figcaption class="muted" style="font-size:.85rem; text-align:center; margin-top:6px;">The OAuth handshake. Steps 2–3 happen in your browser; the client never sees your Vultr password.</figcaption>
+    </figure>
+
+    <div class="grid">
+      <div class="card">
+        <h3>Claude.ai</h3>
+        <ol>
+          <li>Settings → <strong>Connectors</strong> → <em>Add custom connector</em>.</li>
+          <li>Paste <code>https://vultrmcp.com/</code> and click <strong>Connect</strong>.</li>
+          <li>A Vultr sign-in tab opens — sign in and approve.</li>
+          <li>The connector flips to <em>Connected</em>; tools appear in chat.</li>
+        </ol>
+      </div>
+      <div class="card">
+        <h3>opencode</h3>
+        <p class="muted" style="margin-top:0;">Add the remote server with no header (OAuth is auto for remote servers):</p>
+        <pre><code>{
+  "mcp": {
+    "vultr": {
+      "type": "remote",
+      "url": "https://vultrmcp.com/",
+      "enabled": true
+    }
+  }
+}</code></pre>
+        <p class="muted">First use opens the browser to authorize.</p>
+      </div>
+      <div class="card">
+        <h3>Hermes Agent</h3>
+        <p class="muted" style="margin-top:0;">In <code>~/.hermes/config.yaml</code>, use <code>auth: oauth</code> instead of a header:</p>
+        <pre><code>mcp_servers:
+  vultr:
+    url: "https://vultrmcp.com/"
+    auth: oauth</code></pre>
+        <p class="muted">Start Hermes (or <code>/reload-mcp</code>) and complete sign-in in the browser.</p>
+      </div>
+      <div class="card">
+        <h3>OpenClaw</h3>
+        <p class="muted" style="margin-top:0;">Add with <code>--auth oauth</code>, then log in:</p>
+        <pre><code>openclaw mcp add vultr \
+  --url https://vultrmcp.com \
+  --transport streamable-http \
+  --auth oauth
+openclaw mcp login vultr</code></pre>
+        <p class="muted"><code>login</code> opens the browser flow and caches the token.</p>
+      </div>
+      <div class="card">
+        <h3>Claude Desktop (bridge)</h3>
+        <p class="muted" style="margin-top:0;">Builds without native remote MCP use <code>mcp-remote</code> with no header — it runs the OAuth flow on first launch and caches the token under <code>~/.mcp-auth</code>:</p>
+        <pre><code>npx -y mcp-remote https://vultrmcp.com/</code></pre>
+      </div>
+      <div class="card">
+        <h3>Any MCP client</h3>
+        <p class="muted" style="margin-top:0;">If it advertises OAuth support for remote (Streamable HTTP) servers, give it <code>https://vultrmcp.com/</code> and leave credentials blank. The server drives the rest of the flow shown above.</p>
+      </div>
+    </div>
+
+    <div class="note">
+      <strong>Which organization?</strong> The consent screen has no org picker — the token binds to whichever org your Vultr session is in at sign-in (usually your owner/primary org). If you need a <em>specific</em> org, use API-key mode instead. See <a href="#caveats">Caveats</a>.
+    </div>
+  </section>
+
+  <section id="consume">
+    <h2>Consuming it</h2>
+    <p>Any client that speaks Streamable HTTP MCP can connect natively — give it the URL and (for API-key mode) an <code>Authorization</code> header. Clients that only support local <em>stdio</em> servers can bridge to the remote URL with <code>mcp-remote</code>:</p>
+    <pre><code>npx -y mcp-remote https://vultrmcp.com/ --header "Authorization: Bearer YOUR_VULTR_API_KEY"</code></pre>
+    <p>Swap the root URL for a category endpoint (e.g. <code>https://vultrmcp.com/instances</code>) to load a smaller tool set.</p>
+  </section>
+
+  <section id="harnesses">
+    <h2>Setup per code harness</h2>
+    <p>Config shown for API-key mode (most portable). For OAuth, drop the <code>headers</code>/token and use each tool's OAuth switch, noted per harness.</p>
+
+    <h3>opencode</h3>
+    <p>Add to <code>opencode.json</code> (project root) or <code>~/.config/opencode/opencode.json</code>:</p>
+    <pre><code>{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "vultr": {
+      "type": "remote",
+      "url": "https://vultrmcp.com/",
+      "enabled": true,
+      "headers": { "Authorization": "Bearer YOUR_VULTR_API_KEY" }
+    }
+  }
+}</code></pre>
+    <p class="muted">opencode auto-attempts OAuth for remote servers. To force API-key mode and skip OAuth, add <code>"oauth": false</code> alongside the header.</p>
+
+    <h3>Hermes Agent</h3>
+    <p>Add under <code>mcp_servers</code> in <code>~/.hermes/config.yaml</code>, then <code>/reload-mcp</code> (or restart):</p>
+    <pre><code>mcp_servers:
+  vultr:
+    url: "https://vultrmcp.com/"
+    headers:
+      Authorization: "Bearer YOUR_VULTR_API_KEY"</code></pre>
+    <p class="muted">For OAuth instead of a header, replace the <code>headers</code> block with <code>auth: oauth</code>.</p>
+
+    <h3>OpenClaw</h3>
+    <p>Add via the CLI (writes to <code>~/.openclaw/openclaw.json</code> under <code>mcp.servers</code>):</p>
+    <pre><code># API-key mode — set the header in openclaw.json after adding, or:
+openclaw mcp add vultr --url https://vultrmcp.com --transport streamable-http
+
+# OAuth mode
+openclaw mcp add vultr --url https://vultrmcp.com --transport streamable-http --auth oauth
+openclaw mcp login vultr</code></pre>
+    <p class="muted">Use <code>--transport streamable-http</code> (not SSE). For a static key, add a <code>headers</code> object to the server entry in <code>openclaw.json</code> rather than committing it to the CLI history.</p>
+
+    <h3>Claude Desktop / Claude.ai</h3>
+    <p>Claude.ai: add a custom connector with the URL and complete the OAuth flow. Claude Desktop builds that don't support remote URLs natively use the <code>mcp-remote</code> bridge shown above under a <code>vultr</code> entry in <code>claude_desktop_config.json</code>.</p>
+  </section>
+
+  <section id="caveats">
+    <h2>Caveats &amp; gotchas</h2>
+
+    <h3>Multiple organizations</h3>
+    <p>Every Vultr credential is scoped to exactly one organization — the API resolves the org from the credential itself, and there is no per-request org switch. To use two orgs, add <strong>two connections</strong>, each with that org's own API key. This is the only way to target a specific org deterministically.</p>
+
+    <div class="note">
+      <strong>OAuth binds to your active org — with no picker.</strong> The consent flow has no organization selector; the token silently binds to whichever org your Vultr console session is in when you click <em>Authorize</em> (in practice, your owner/primary org). If you need a specific org, use API-key mode. Double-check the intended org before consenting.
+    </div>
+
+    <h3>OAuth support varies by client</h3>
+    <p>Zero-config OAuth relies on the client supporting the MCP OAuth flow (authorization code + PKCE + dynamic client registration). GUI clients with a browser handle this best. On a headless server or a harness with immature OAuth support, prefer API-key mode — it always works.</p>
+
+    <h3>Corporate VPN / TLS interception</h3>
+    <p>If your network does TLS interception, node-based bridges (<code>mcp-remote</code>) may reject the certificate. Point Node at your VPN's CA with <code>NODE_EXTRA_CA_CERTS=/path/to/ca.pem</code> rather than disabling TLS verification.</p>
+
+    <h3>Identity tools are excluded</h3>
+    <p>API-key, user, IAM, SCIM, organization and OIDC management tools are intentionally not exposed, so an agent can't rotate credentials or alter identity. Manage those in the Vultr console.</p>
+  </section>
+
+  <footer>
+    <p>Vultr MCP Server · v2 (Python / FastMCP). Tools are generated from Vultr's OpenAPI spec. This is an unofficial community project and is not affiliated with or endorsed by Vultr.</p>
+  </footer>
+
+</div>
+
+<script>
+  document.querySelectorAll('pre').forEach(function (pre) {
+    var btn = document.createElement('button');
+    btn.className = 'copy';
+    btn.type = 'button';
+    btn.textContent = 'Copy';
+    btn.addEventListener('click', function () {
+      var code = pre.querySelector('code');
+      navigator.clipboard.writeText((code ? code.innerText : pre.innerText).trim()).then(function () {
+        btn.textContent = 'Copied';
+        btn.classList.add('done');
+        setTimeout(function () { btn.textContent = 'Copy'; btn.classList.remove('done'); }, 1400);
+      });
+    });
+    pre.appendChild(btn);
+  });
+</script>
+</body>
+</html>

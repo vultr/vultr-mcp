@@ -101,6 +101,46 @@ Claude Desktop's config supports remote servers via the `mcp-remote` bridge:
 
 ---
 
+## Using multiple organizations
+
+**Every Vultr credential is scoped to exactly one organization.** The Vultr API resolves the org from the credential itself — an API key belongs to one account, and an OAuth access token carries the org as a fixed `acctid` claim. There is no per-request "act as org X" parameter and no in-session org switch. So connecting a second org always means a **second credential**, presented as a second MCP connection.
+
+### API key mode (recommended for multi-org)
+
+Each org issues its own API key. Add the server twice with different names and different keys — you get two independent tool namespaces, one per org:
+
+```json
+{
+  "mcpServers": {
+    "vultr-org-a": {
+      "command": "cmd",
+      "args": ["/c", "npx", "-y", "mcp-remote", "https://vultrmcp.com/",
+               "--header", "Authorization: Bearer ORG_A_API_KEY"]
+    },
+    "vultr-org-b": {
+      "command": "cmd",
+      "args": ["/c", "npx", "-y", "mcp-remote", "https://vultrmcp.com/",
+               "--header", "Authorization: Bearer ORG_B_API_KEY"]
+    }
+  }
+}
+```
+
+No server or platform changes required — this works today.
+
+### OAuth mode
+
+With OAuth there is **no org picker in the flow**. The org is captured implicitly from whichever account your Vultr console session is in at the moment you click **Authorize** — that session's `ACCTID` is frozen into the consent record and every token (including refreshes) minted from it.
+
+To select an org: switch the Vultr console to the desired org **first**, then authorize.
+
+Two limitations follow:
+
+- **One org per connector.** Clients such as claude.ai key connectors by URL, so re-authorizing the same connector under a different org just overwrites the first binding — you can't hold both at once. A second org needs a second connector on a distinct URL (e.g. a `org-b.vultrmcp.com` ingress alias pointing at the same deployment), or simply use API-key mode above.
+- **No confirmation of which org you granted.** Because selection is implicit in the console session, authorizing while in the *wrong* org silently connects that org's resources with no prompt naming it. Double-check your active org in the Vultr console before consenting.
+
+---
+
 ## Configuration (environment)
 
 | Variable | Purpose |
@@ -112,8 +152,9 @@ Claude Desktop's config supports remote servers via the `mcp-remote` bridge:
 | `SSL_VERIFY` | verify upstream TLS (default `true`) |
 | `VULTR_MCP_EXCLUDED_CATEGORIES` | tags to drop (default identity set; empty disables) |
 | `VULTR_MCP_CATEGORY_ENDPOINTS` | category endpoints to mount (default: all non-excluded) |
-| `MCP_RESOURCE_URL` | public URL, used for OAuth + Host allow-list |
+| `MCP_RESOURCE_URL` | public URL, used for OAuth + Host allow-list (default `https://vultrmcp.com`) |
 | `MCP_ALLOWED_HOSTS` | extra hosts for DNS-rebinding protection |
+| `MCP_ALLOWED_ORIGINS` | extra allowed `Origin` values for the OAuth consent/browser flow |
 | `VULTR_OIDC_ENABLED` | enable the OAuthProxy (default `false`) |
 | `VULTR_OIDC_PROVIDER_ID` / `VULTR_OAUTH_CLIENT_ID` / `VULTR_OAUTH_CLIENT_SECRET` | approved OAuth app credentials |
 | `REDIS_HOST` / `REDIS_PORT` | Redis for OAuth DCR state (required for multi-replica OAuth) |
