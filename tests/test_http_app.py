@@ -65,12 +65,35 @@ async def test_root_serves_landing_page_to_browsers(monkeypatch, spec):
             assert page.headers["content-type"].startswith("text/html")
             body = page.text
             assert "Vultr MCP Server" in body
-            # The harness setup sections must be present.
-            for marker in ("opencode", "Hermes", "OpenClaw"):
-                assert marker in body, f"landing page missing {marker!r}"
-            # The OAuth connection walkthrough + flow diagram must be present.
-            assert "Connecting with OAuth" in body
+            # The single consolidated client-setup section + flow diagram.
+            assert "Connect your client" in body
             assert "<svg" in body
+            # Every documented client must appear in that one section.
+            for client in (
+                "Claude.ai",
+                "Cursor",
+                "VS Code",
+                "Codex CLI",
+                "opencode",
+                "Hermes",
+                "OpenClaw",
+            ):
+                assert client in body, f"client section missing {client!r}"
+
+            # Every default-mounted category endpoint must be documented, so the
+            # page can't drift from the real surface as the spec grows. Compute
+            # the full default set directly (the env override above only trims
+            # what this test process boots, not what the page should list).
+            from vultr_mcp.app import slugify
+            from vultr_mcp.server import DEFAULT_EXCLUDED_CATEGORIES, all_categories
+
+            excluded = set(DEFAULT_EXCLUDED_CATEGORIES)
+            for slug in sorted(slugify(t) for t in all_categories(spec) - excluded):
+                assert f"/{slug}" in body, f"landing page missing endpoint /{slug}"
+
+            # The expandable tool lists must carry real tool names, not just slugs.
+            for tool_name in ("list_instances", "create_dns_domain", "list_kubernetes_clusters"):
+                assert tool_name in body, f"endpoint accordion missing tool {tool_name!r}"
 
             # MCP SSE probe: GET / asking for an event-stream must NOT get docs.
             sse = await hc.get(

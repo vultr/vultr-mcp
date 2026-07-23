@@ -1,0 +1,9 @@
+{
+	"servers": {
+		"Vultr": {
+			"url": "https://vultrmcp.com",
+			"type": "http"
+		}
+	},
+	"inputs": []
+}

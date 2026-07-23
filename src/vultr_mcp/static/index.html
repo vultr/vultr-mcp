@@ -133,6 +133,58 @@
   hr.soft { border: none; border-top: 1px solid var(--border); margin: 40px 0; }
   figure svg text { font-family: var(--sans); }
   figure { margin-inline: 0; }
+  .ep-controls { display: flex; align-items: center; gap: 12px; margin: 12px 0 10px; }
+  #ep-toggle {
+    font-family: var(--sans); font-size: .82rem; font-weight: 600;
+    color: var(--pill-fg); background: var(--pill);
+    border: 1px solid var(--border); border-radius: 7px;
+    padding: 5px 12px; cursor: pointer;
+  }
+  details.ep {
+    border: 1px solid var(--border); border-radius: 9px;
+    background: var(--card); margin: 8px 0; overflow: hidden;
+  }
+  details.ep summary {
+    cursor: pointer; list-style: none; display: flex; align-items: center; gap: 11px;
+    padding: 11px 15px; font-family: var(--mono); font-size: .9rem;
+  }
+  details.ep summary::-webkit-details-marker { display: none; }
+  details.ep summary::before {
+    content: "\25B8"; color: var(--muted); font-size: .8em;
+    transition: transform .15s ease; display: inline-block;
+  }
+  details.ep[open] summary::before { transform: rotate(90deg); }
+  .ep-path { font-weight: 600; color: var(--fg); }
+  .ep-count {
+    margin-left: auto; font-family: var(--sans); font-size: .72rem;
+    color: var(--pill-fg); background: var(--pill);
+    padding: 2px 9px; border-radius: 999px; white-space: nowrap;
+  }
+  .ep-tools {
+    display: flex; flex-wrap: wrap; gap: 6px;
+    padding: 4px 15px 14px; border-top: 1px solid var(--border);
+  }
+  .ep-tools code { font-size: .78rem; }
+  details.ep-browse {
+    border: 1px solid var(--border); border-radius: 10px;
+    background: var(--card); margin: 14px 0 4px;
+  }
+  details.ep-browse > summary {
+    cursor: pointer; list-style: none; display: flex; align-items: center; gap: 10px;
+    padding: 13px 16px; font-weight: 600; font-size: .96rem;
+  }
+  details.ep-browse > summary::-webkit-details-marker { display: none; }
+  details.ep-browse > summary::before {
+    content: "\25B8"; color: var(--muted); font-size: .85em;
+    transition: transform .15s ease; display: inline-block;
+  }
+  details.ep-browse[open] > summary::before { transform: rotate(90deg); }
+  details.ep-browse .ep-controls { padding: 0 16px; margin: 12px 0 6px; }
+  .ep-scroll {
+    max-height: 440px; overflow-y: auto;
+    padding: 2px 16px 14px; border-top: 1px solid var(--border);
+  }
+  .ep-scroll details.ep:first-child { margin-top: 10px; }
 </style>
 </head>
 <body>
@@ -145,9 +197,7 @@
     <nav class="toc">
       <a href="#endpoints">Endpoints</a>
       <a href="#auth">Authorization</a>
-      <a href="#oauth">OAuth connect</a>
-      <a href="#consume">Consuming it</a>
-      <a href="#harnesses">Harness setup</a>
+      <a href="#clients">Connect a client</a>
       <a href="#caveats">Caveats</a>
     </nav>
   </header>
@@ -160,7 +210,598 @@ https://vultrmcp.com/instances           # VPS instance tools only
 https://vultrmcp.com/kubernetes          # VKE tools only
 https://vultrmcp.com/dns                 # DNS tools only
 https://vultrmcp.com/container-registry  # multi-word categories are slugified</code></pre>
-    <p class="muted">Common categories: <code>instances</code>, <code>baremetal</code>, <code>kubernetes</code>, <code>dns</code>, <code>firewall</code>, <code>block</code>, <code>snapshot</code>, <code>load-balancer</code>, <code>managed-databases</code>, <code>container-registry</code>, <code>vpcs</code>, <code>object-storage</code>, <code>billing</code>, <code>account</code>. Paths are bare — no trailing slash needed.</p>
+        <p class="muted" style="margin-bottom:4px;">The root serves all of these combined; each endpoint below serves only its own tools. Click one to see the tools it exposes. Append the path to the base URL — e.g. <code>https://vultrmcp.com/load-balancer</code>.</p>
+    <details class="ep-browse">
+      <summary>Browse all endpoints<span class="ep-count">35 endpoints · 409 tools</span></summary>
+      <div class="ep-controls"><button type="button" id="ep-toggle">Expand all</button></div>
+          <div class="ep-scroll">
+      <details class="ep">
+            <summary><span class="ep-path">/account</span><span class="ep-count">6 tools</span></summary>
+            <div class="ep-tools">
+            <code>create_account_bgp_prefixes</code>
+            <code>create_account_bgp_setup</code>
+            <code>get_account</code>
+            <code>get_account_bandwidth</code>
+            <code>get_account_bgp</code>
+            <code>list_custom_subscriptions</code>
+            </div>
+          </details>
+          <details class="ep">
+            <summary><span class="ep-path">/application</span><span class="ep-count">1 tool</span></summary>
+            <div class="ep-tools">
+            <code>list_applications</code>
+            </div>
+          </details>
+          <details class="ep">
+            <summary><span class="ep-path">/backup</span><span class="ep-count">2 tools</span></summary>
+            <div class="ep-tools">
+            <code>get_backup</code>
+            <code>list_backups</code>
+            </div>
+          </details>
+          <details class="ep">
+            <summary><span class="ep-path">/baremetal</span><span class="ep-count">28 tools</span></summary>
+            <div class="ep-tools">
+            <code>attach_baremetals_vpc2</code>
+            <code>attach_baremetals_vpcs</code>
+            <code>create_baremetal</code>
+            <code>create_baremetal_reverse_ipv4</code>
+            <code>create_baremetal_reverse_ipv6</code>
+            <code>delete_baremetal</code>
+            <code>delete_baremetal_reverse_ipv6</code>
+            <code>detach_baremetal_vpc2</code>
+            <code>detach_baremetal_vpcs</code>
+            <code>get_bandwidth_baremetal</code>
+            <code>get_bare_metal_userdata</code>
+            <code>get_bare_metal_vnc</code>
+            <code>get_bare_metals_upgrades</code>
+            <code>get_baremetal</code>
+            <code>get_ipv4_baremetal</code>
+            <code>get_ipv6_baremetal</code>
+            <code>halt_baremetal</code>
+            <code>halt_baremetals</code>
+            <code>list_baremetal_vpc2</code>
+            <code>list_baremetal_vpcs</code>
+            <code>list_baremetals</code>
+            <code>post_baremetal_instance_id_ipv4_reverse_default</code>
+            <code>reboot_bare_metals</code>
+            <code>reboot_baremetal</code>
+            <code>reinstall_baremetal</code>
+            <code>start_bare_metals</code>
+            <code>start_baremetal</code>
+            <code>update_baremetal</code>
+            </div>
+          </details>
+          <details class="ep">
+            <summary><span class="ep-path">/billing</span><span class="ep-count">6 tools</span></summary>
+            <div class="ep-tools">
+            <code>get_invoice</code>
+            <code>get_invoice_items</code>
+            <code>list_billing_history</code>
+            <code>list_invoices</code>
+            <code>pending_charges</code>
+            <code>pending_charges_csv</code>
+            </div>
+          </details>
+          <details class="ep">
+            <summary><span class="ep-path">/block</span><span class="ep-count">12 tools</span></summary>
+            <div class="ep-tools">
+            <code>attach_block</code>
+            <code>create_block</code>
+            <code>create_block_snapshot</code>
+            <code>delete_block</code>
+            <code>delete_block_snapshot</code>
+            <code>detach_block</code>
+            <code>get_block</code>
+            <code>get_block_snapshot</code>
+            <code>list_block_snapshots</code>
+            <code>list_blocks</code>
+            <code>update_block</code>
+            <code>update_block_snapshot</code>
+            </div>
+          </details>
+          <details class="ep">
+            <summary><span class="ep-path">/cdns</span><span class="ep-count">15 tools</span></summary>
+            <div class="ep-tools">
+            <code>create_pullzone</code>
+            <code>create_pushzone</code>
+            <code>create_pushzone_upload</code>
+            <code>delete_pullzone</code>
+            <code>delete_pushzone</code>
+            <code>delete_pushzone_file</code>
+            <code>get_pullzone</code>
+            <code>get_pushzone</code>
+            <code>get_pushzone_2</code>
+            <code>get_pushzone_files</code>
+            <code>list_pullzones</code>
+            <code>list_pushzones</code>
+            <code>purge_pullzone</code>
+            <code>update_pullzone</code>
+            <code>update_pushzone</code>
+            </div>
+          </details>
+          <details class="ep">
+            <summary><span class="ep-path">/clusters</span><span class="ep-count">9 tools</span></summary>
+            <div class="ep-tools">
+            <code>create_cluster</code>
+            <code>delete_cluster</code>
+            <code>get_cluster</code>
+            <code>get_cluster_availability</code>
+            <code>get_cluster_metrics</code>
+            <code>list_clusters</code>
+            <code>mass_update_cluster_instances</code>
+            <code>update_cluster</code>
+            <code>update_cluster_instance</code>
+            </div>
+          </details>
+          <details class="ep">
+            <summary><span class="ep-path">/container-registry</span><span class="ep-count">32 tools</span></summary>
+            <div class="ep-tools">
+            <code>Delete_Artifact</code>
+            <code>Read_Artifact</code>
+            <code>Read_Robot</code>
+            <code>create_registry</code>
+            <code>create_registry_docker_credentials</code>
+            <code>create_registry_kubernetes_docker_credentials</code>
+            <code>create_replication</code>
+            <code>create_retention_rule</code>
+            <code>delete_registry</code>
+            <code>delete_replication</code>
+            <code>delete_repository</code>
+            <code>delete_retention_rule</code>
+            <code>delete_robot</code>
+            <code>execute_retention_policy</code>
+            <code>list_registries</code>
+            <code>list_registry_plans</code>
+            <code>list_registry_regions</code>
+            <code>list_registry_repositories</code>
+            <code>list_registry_repository_artifacts</code>
+            <code>list_registry_robots</code>
+            <code>list_replications</code>
+            <code>list_retention_rules</code>
+            <code>read_registry</code>
+            <code>read_registry_repository</code>
+            <code>read_replication</code>
+            <code>read_retention_rule</code>
+            <code>update_container_registry_password</code>
+            <code>update_registry</code>
+            <code>update_repository</code>
+            <code>update_retention_rule</code>
+            <code>update_retention_schedule</code>
+            <code>update_robot</code>
+            </div>
+          </details>
+          <details class="ep">
+            <summary><span class="ep-path">/dns</span><span class="ep-count">13 tools</span></summary>
+            <div class="ep-tools">
+            <code>create_dns_domain</code>
+            <code>create_dns_domain_record</code>
+            <code>delete_dns_domain</code>
+            <code>delete_dns_domain_record</code>
+            <code>get_dns_domain</code>
+            <code>get_dns_domain_dnssec</code>
+            <code>get_dns_domain_record</code>
+            <code>get_dns_domain_soa</code>
+            <code>list_dns_domain_records</code>
+            <code>list_dns_domains</code>
+            <code>update_dns_domain</code>
+            <code>update_dns_domain_record</code>
+            <code>update_dns_domain_soa</code>
+            </div>
+          </details>
+          <details class="ep">
+            <summary><span class="ep-path">/firewall</span><span class="ep-count">9 tools</span></summary>
+            <div class="ep-tools">
+            <code>create_firewall_group</code>
+            <code>delete_firewall_group</code>
+            <code>delete_firewall_group_rule</code>
+            <code>get_firewall_group</code>
+            <code>get_firewall_group_rule</code>
+            <code>list_firewall_group_rules</code>
+            <code>list_firewall_groups</code>
+            <code>post_firewalls_firewall_group_id_rules</code>
+            <code>update_firewall_group</code>
+            </div>
+          </details>
+          <details class="ep">
+            <summary><span class="ep-path">/instance-templates</span><span class="ep-count">5 tools</span></summary>
+            <div class="ep-tools">
+            <code>create_instance_template</code>
+            <code>delete_instance_template</code>
+            <code>get_instance_template</code>
+            <code>list_instance_templates</code>
+            <code>update_instance_template</code>
+            </div>
+          </details>
+          <details class="ep">
+            <summary><span class="ep-path">/instances</span><span class="ep-count">41 tools</span></summary>
+            <div class="ep-tools">
+            <code>attach_instance_iso</code>
+            <code>attach_instance_network</code>
+            <code>attach_instance_vpc</code>
+            <code>attach_instance_vpc2</code>
+            <code>create_instance</code>
+            <code>create_instance_backup_schedule</code>
+            <code>create_instance_ipv4</code>
+            <code>create_instance_reverse_ipv4</code>
+            <code>create_instance_reverse_ipv6</code>
+            <code>delete_instance</code>
+            <code>delete_instance_ipv4</code>
+            <code>delete_instance_reverse_ipv6</code>
+            <code>detach_instance_iso</code>
+            <code>detach_instance_network</code>
+            <code>detach_instance_vpc</code>
+            <code>detach_instance_vpc2</code>
+            <code>get_instance</code>
+            <code>get_instance_backup_schedule</code>
+            <code>get_instance_bandwidth</code>
+            <code>get_instance_ipv4</code>
+            <code>get_instance_ipv6</code>
+            <code>get_instance_iso_status</code>
+            <code>get_instance_job</code>
+            <code>get_instance_neighbors</code>
+            <code>get_instance_upgrades</code>
+            <code>get_instance_userdata</code>
+            <code>halt_instance</code>
+            <code>halt_instances</code>
+            <code>list_instance_ipv6_reverse</code>
+            <code>list_instance_private_networks</code>
+            <code>list_instance_vpc2</code>
+            <code>list_instance_vpcs</code>
+            <code>list_instances</code>
+            <code>post_instances_instance_id_ipv4_reverse_default</code>
+            <code>reboot_instance</code>
+            <code>reboot_instances</code>
+            <code>reinstall_instance</code>
+            <code>restore_instance</code>
+            <code>start_instance</code>
+            <code>start_instances</code>
+            <code>update_instance</code>
+            </div>
+          </details>
+          <details class="ep">
+            <summary><span class="ep-path">/iso</span><span class="ep-count">6 tools</span></summary>
+            <div class="ep-tools">
+            <code>create_iso</code>
+            <code>delete_iso</code>
+            <code>iso_edit</code>
+            <code>iso_get</code>
+            <code>list_isos</code>
+            <code>list_public_isos</code>
+            </div>
+          </details>
+          <details class="ep">
+            <summary><span class="ep-path">/kubernetes</span><span class="ep-count">26 tools</span></summary>
+            <div class="ep-tools">
+            <code>create_kubernetes_cluster</code>
+            <code>create_nodepool_label</code>
+            <code>create_nodepool_taint</code>
+            <code>create_nodepools</code>
+            <code>delete_kubernetes_cluster</code>
+            <code>delete_kubernetes_cluster_vke_id_delete_with_linked_reso</code>
+            <code>delete_nodepool</code>
+            <code>delete_nodepool_instance</code>
+            <code>delete_nodepool_label</code>
+            <code>delete_nodepool_taint</code>
+            <code>get_kubernetes_available_upgrades</code>
+            <code>get_kubernetes_clusters</code>
+            <code>get_kubernetes_clusters_config</code>
+            <code>get_kubernetes_resources</code>
+            <code>get_kubernetes_versions</code>
+            <code>get_nodepool</code>
+            <code>get_nodepools</code>
+            <code>list_kubernetes_clusters</code>
+            <code>list_nodepool_labels</code>
+            <code>list_nodepool_taints</code>
+            <code>read_nodepool_label</code>
+            <code>read_nodepool_taint</code>
+            <code>recycle_nodepool_instance</code>
+            <code>start_kubernetes_cluster_upgrade</code>
+            <code>update_kubernetes_cluster</code>
+            <code>update_nodepool</code>
+            </div>
+          </details>
+          <details class="ep">
+            <summary><span class="ep-path">/load-balancer</span><span class="ep-count">19 tools</span></summary>
+            <div class="ep-tools">
+            <code>create_load_balancer</code>
+            <code>create_load_balancer_forwarding_rules</code>
+            <code>create_load_balancer_reverse_dns_ipv4</code>
+            <code>create_load_balancer_reverse_dns_ipv6</code>
+            <code>create_loadbalancer_firewall_rules</code>
+            <code>delete_load_balancer</code>
+            <code>delete_load_balancer_auto_ssl</code>
+            <code>delete_load_balancer_forwarding_rule</code>
+            <code>delete_load_balancer_reverse_dns</code>
+            <code>delete_load_balancer_ssl</code>
+            <code>delete_loadbalancer_firewall_rule</code>
+            <code>get_load_balancer</code>
+            <code>get_load_balancer_forwarding_rule</code>
+            <code>get_load_balancer_reverse_dns</code>
+            <code>get_loadbalancer_firewall_rule</code>
+            <code>list_load_balancer_forwarding_rules</code>
+            <code>list_load_balancers</code>
+            <code>list_loadbalancer_firewall_rules</code>
+            <code>update_load_balancer</code>
+            </div>
+          </details>
+          <details class="ep">
+            <summary><span class="ep-path">/logs</span><span class="ep-count">1 tool</span></summary>
+            <div class="ep-tools">
+            <code>list_logs</code>
+            </div>
+          </details>
+          <details class="ep">
+            <summary><span class="ep-path">/managed-databases</span><span class="ep-count">66 tools</span></summary>
+            <div class="ep-tools">
+            <code>available_services</code>
+            <code>create_connection_pool</code>
+            <code>create_database</code>
+            <code>create_database_connector</code>
+            <code>create_database_db</code>
+            <code>create_database_quota</code>
+            <code>create_database_topic</code>
+            <code>create_database_user</code>
+            <code>database_add_read_replica</code>
+            <code>database_detach_migration</code>
+            <code>database_fork</code>
+            <code>database_promote_read_replica</code>
+            <code>database_restore_from_backup</code>
+            <code>database_start_migration</code>
+            <code>delete_connection_pool</code>
+            <code>delete_database</code>
+            <code>delete_database_connector</code>
+            <code>delete_database_db</code>
+            <code>delete_database_quota</code>
+            <code>delete_database_topic</code>
+            <code>delete_database_user</code>
+            <code>get_backup_information</code>
+            <code>get_connection_pool</code>
+            <code>get_database</code>
+            <code>get_database_connector</code>
+            <code>get_database_connector_configuration_schema</code>
+            <code>get_database_connector_status</code>
+            <code>get_database_db</code>
+            <code>get_database_quota</code>
+            <code>get_database_topic</code>
+            <code>get_database_usage</code>
+            <code>get_database_user</code>
+            <code>list_advanced_options</code>
+            <code>list_advanced_options_kafka_connect</code>
+            <code>list_advanced_options_kafka_rest</code>
+            <code>list_advanced_options_schema_registry</code>
+            <code>list_available_versions</code>
+            <code>list_connection_pools</code>
+            <code>list_database_available_connectors</code>
+            <code>list_database_connectors</code>
+            <code>list_database_dbs</code>
+            <code>list_database_plans</code>
+            <code>list_database_quotas</code>
+            <code>list_database_topics</code>
+            <code>list_database_users</code>
+            <code>list_databases</code>
+            <code>list_maintenance_updates</code>
+            <code>list_service_alerts</code>
+            <code>pause_database_connector</code>
+            <code>restart_database_connector</code>
+            <code>restart_database_connector_task</code>
+            <code>resume_database_connector</code>
+            <code>set_database_user_acl</code>
+            <code>start_maintenance_updates</code>
+            <code>start_version_upgrade</code>
+            <code>update_advanced_options</code>
+            <code>update_advanced_options_kafka_connect</code>
+            <code>update_advanced_options_kafka_rest</code>
+            <code>update_advanced_options_schema_registry</code>
+            <code>update_connection_pool</code>
+            <code>update_database</code>
+            <code>update_database_connector</code>
+            <code>update_database_quota</code>
+            <code>update_database_topic</code>
+            <code>update_database_user</code>
+            <code>view_migration_status</code>
+            </div>
+          </details>
+          <details class="ep">
+            <summary><span class="ep-path">/marketplace</span><span class="ep-count">2 tools</span></summary>
+            <div class="ep-tools">
+            <code>list_marketplace_app_variables</code>
+            <code>list_marketplace_apps</code>
+            </div>
+          </details>
+          <details class="ep">
+            <summary><span class="ep-path">/os</span><span class="ep-count">1 tool</span></summary>
+            <div class="ep-tools">
+            <code>list_os</code>
+            </div>
+          </details>
+          <details class="ep">
+            <summary><span class="ep-path">/plans</span><span class="ep-count">2 tools</span></summary>
+            <div class="ep-tools">
+            <code>list_metal_plans</code>
+            <code>list_plans</code>
+            </div>
+          </details>
+          <details class="ep">
+            <summary><span class="ep-path">/private-networks</span><span class="ep-count">5 tools</span></summary>
+            <div class="ep-tools">
+            <code>create_network</code>
+            <code>delete_network</code>
+            <code>get_network</code>
+            <code>list_networks</code>
+            <code>update_network</code>
+            </div>
+          </details>
+          <details class="ep">
+            <summary><span class="ep-path">/region</span><span class="ep-count">2 tools</span></summary>
+            <div class="ep-tools">
+            <code>list_available_plans_region</code>
+            <code>list_regions</code>
+            </div>
+          </details>
+          <details class="ep">
+            <summary><span class="ep-path">/reserved-ip</span><span class="ep-count">8 tools</span></summary>
+            <div class="ep-tools">
+            <code>attach_reserved_ip</code>
+            <code>convert_reserved_ip</code>
+            <code>create_reserved_ip</code>
+            <code>delete_reserved_ip</code>
+            <code>detach_reserved_ip</code>
+            <code>get_reserved_ip</code>
+            <code>list_reserved_ips</code>
+            <code>patch_reserved_ips_reserved_ip</code>
+            </div>
+          </details>
+          <details class="ep">
+            <summary><span class="ep-path">/s3</span><span class="ep-count">14 tools</span></summary>
+            <div class="ep-tools">
+            <code>create_object_storage</code>
+            <code>create_object_storage_bucket</code>
+            <code>delete_object_storage</code>
+            <code>delete_object_storage_bucket</code>
+            <code>delete_object_storage_bucket_lifecycle_policy</code>
+            <code>get_object_storage</code>
+            <code>list_object_storage_cluster_tiers</code>
+            <code>list_object_storage_clusters</code>
+            <code>list_object_storage_tiers</code>
+            <code>list_object_storages</code>
+            <code>regenerate_object_storage_keys</code>
+            <code>set_object_storage_bucket_archival</code>
+            <code>set_object_storage_bucket_lifecycle</code>
+            <code>update_object_storage</code>
+            </div>
+          </details>
+          <details class="ep">
+            <summary><span class="ep-path">/serverless-inference</span><span class="ep-count">6 tools</span></summary>
+            <div class="ep-tools">
+            <code>create_inference</code>
+            <code>delete_inference</code>
+            <code>get_inference</code>
+            <code>get_inference_usage</code>
+            <code>list_inference</code>
+            <code>update_inference</code>
+            </div>
+          </details>
+          <details class="ep">
+            <summary><span class="ep-path">/snapshot</span><span class="ep-count">6 tools</span></summary>
+            <div class="ep-tools">
+            <code>create_snapshot</code>
+            <code>create_snapshot_create_from_url</code>
+            <code>delete_snapshot</code>
+            <code>get_snapshot</code>
+            <code>list_snapshots</code>
+            <code>put_snapshots_snapshot_id</code>
+            </div>
+          </details>
+          <details class="ep">
+            <summary><span class="ep-path">/ssh</span><span class="ep-count">5 tools</span></summary>
+            <div class="ep-tools">
+            <code>create_ssh_key</code>
+            <code>delete_ssh_key</code>
+            <code>get_ssh_key</code>
+            <code>list_ssh_keys</code>
+            <code>update_ssh_key</code>
+            </div>
+          </details>
+          <details class="ep">
+            <summary><span class="ep-path">/startup</span><span class="ep-count">5 tools</span></summary>
+            <div class="ep-tools">
+            <code>create_startup_script</code>
+            <code>delete_startup_script</code>
+            <code>get_startup_script</code>
+            <code>list_startup_scripts</code>
+            <code>update_startup_script</code>
+            </div>
+          </details>
+          <details class="ep">
+            <summary><span class="ep-path">/storage-gateways</span><span class="ep-count">7 tools</span></summary>
+            <div class="ep-tools">
+            <code>add_storage_gateway_export</code>
+            <code>create_storage_gateway</code>
+            <code>delete_storage_gateway</code>
+            <code>delete_storage_gateway_export</code>
+            <code>get_storage_gateway</code>
+            <code>list_storage_gateways</code>
+            <code>update_storage_gateway</code>
+            </div>
+          </details>
+          <details class="ep">
+            <summary><span class="ep-path">/subaccount</span><span class="ep-count">2 tools</span></summary>
+            <div class="ep-tools">
+            <code>create_subaccount</code>
+            <code>list_subaccounts</code>
+            </div>
+          </details>
+          <details class="ep">
+            <summary><span class="ep-path">/tickets</span><span class="ep-count">8 tools</span></summary>
+            <div class="ep-tools">
+            <code>close_ticket</code>
+            <code>create_reply</code>
+            <code>create_ticket</code>
+            <code>get_ticket</code>
+            <code>get_ticket_reply_attachment</code>
+            <code>list_ticket_replies</code>
+            <code>list_tickets</code>
+            <code>review_ticket_reply</code>
+            </div>
+          </details>
+          <details class="ep">
+            <summary><span class="ep-path">/vfs</span><span class="ep-count">10 tools</span></summary>
+            <div class="ep-tools">
+            <code>createVFS</code>
+            <code>createVFSAttachment</code>
+            <code>deleteVFS</code>
+            <code>deleteVFSAttachment</code>
+            <code>getVFS</code>
+            <code>getVFSAttachment</code>
+            <code>listRegions</code>
+            <code>listVFS</code>
+            <code>listVFSAttachments</code>
+            <code>updateVFS</code>
+            </div>
+          </details>
+          <details class="ep">
+            <summary><span class="ep-path">/vpc2</span><span class="ep-count">8 tools</span></summary>
+            <div class="ep-tools">
+            <code>attach_vpc2_nodes</code>
+            <code>create_vpc2</code>
+            <code>delete_vpc2</code>
+            <code>detach_vpc2_nodes</code>
+            <code>get_vpc2</code>
+            <code>list_vpc2</code>
+            <code>list_vpc2_nodes</code>
+            <code>update_vpc2</code>
+            </div>
+          </details>
+          <details class="ep">
+            <summary><span class="ep-path">/vpcs</span><span class="ep-count">21 tools</span></summary>
+            <div class="ep-tools">
+            <code>create_nat_gateway</code>
+            <code>create_nat_gateway_firewall_rule</code>
+            <code>create_nat_gateway_port_forwarding_rule</code>
+            <code>create_vpc</code>
+            <code>delete_nat_gateway</code>
+            <code>delete_nat_gateway_firewall_rule</code>
+            <code>delete_nat_gateway_port_forwarding_rule</code>
+            <code>delete_vpc</code>
+            <code>get_nat_gateway</code>
+            <code>get_nat_gateway_firewall_rule</code>
+            <code>get_nat_gateway_port_forwarding_rule</code>
+            <code>get_vpc</code>
+            <code>list_nat_gateway_firewall_rules</code>
+            <code>list_nat_gateway_port_forwarding_rules</code>
+            <code>list_nat_gateways</code>
+            <code>list_vpc_attachments</code>
+            <code>list_vpcs</code>
+            <code>update_nat_gateway</code>
+            <code>update_nat_gateway_firewall_rule</code>
+            <code>update_nat_gateway_port_forwarding_rule</code>
+            <code>update_vpc</code>
+            </div>
+          </details>
+    </div>
+    </details>
+    <p class="muted" style="margin-top:10px;">Paths are bare — no trailing slash needed.</p>
   </section>
 
   <section id="auth">
@@ -180,9 +821,9 @@ https://vultrmcp.com/container-registry  # multi-word categories are slugified</
     </div>
   </section>
 
-  <section id="oauth">
-    <h2>Connecting with OAuth</h2>
-    <p>These clients support the zero-config OAuth flow: point them at the root URL with OAuth enabled and finish sign-in in your browser. No client ID, secret, or API key to manage — the server registers itself and stores the token for you.</p>
+  <section id="clients">
+    <h2>Connect your client</h2>
+    <p>Point any MCP client at the root URL — or a <a href="#endpoints">category endpoint</a> for a smaller tool set — and authenticate one of two ways: zero-config <strong>OAuth</strong> (sign in through the browser, nothing to paste) or an <strong>API-key</strong> Bearer header. Both are shown per client below. The OAuth handshake looks like this:</p>
 
     <figure style="margin:20px 0;">
       <div style="overflow-x:auto;">
@@ -224,6 +865,11 @@ https://vultrmcp.com/container-registry  # multi-word categories are slugified</
       <figcaption class="muted" style="font-size:.85rem; text-align:center; margin-top:6px;">The OAuth handshake. Steps 2–3 happen in your browser; the client never sees your Vultr password.</figcaption>
     </figure>
 
+    <div class="note">
+      <strong>Which organization?</strong> The OAuth consent screen has no org picker — the token binds to whichever org your Vultr session is in at sign-in (usually your owner/primary org). To target a <em>specific</em> org, use API-key mode. See <a href="#caveats">Caveats</a>.
+    </div>
+
+    <p class="muted" style="margin:18px 0 2px;">Steps reflect current UIs (mid-2026); vendor labels shift, so treat them as a guide.</p>
     <div class="grid">
       <div class="card">
         <h3>Claude.ai</h3>
@@ -235,8 +881,37 @@ https://vultrmcp.com/container-registry  # multi-word categories are slugified</
         </ol>
       </div>
       <div class="card">
+        <h3>Cursor</h3>
+        <ol>
+          <li>Settings → Cursor Settings → <strong>Tools &amp; MCP</strong>.</li>
+          <li><strong>Add custom MCP</strong> → in <code>mcp.json</code> set <code>"type": "http"</code>, <code>"url": "https://vultrmcp.com/"</code>.</li>
+          <li>Save → <strong>Needs login</strong> opens the browser OAuth flow (or add an <code>Authorization: Bearer</code> header for API-key mode).</li>
+          <li>Tools appear under <strong>Available Tools</strong>.</li>
+        </ol>
+      </div>
+      <div class="card">
+        <h3>VS Code (Copilot)</h3>
+        <ol>
+          <li>Command Palette → <strong>MCP: Add Server</strong>.</li>
+          <li>Choose <strong>HTTP</strong> → paste <code>https://vultrmcp.com/</code>.</li>
+          <li>Name it (e.g. <code>vultr</code>) → pick workspace (<code>.vscode/mcp.json</code>) or user scope.</li>
+          <li>Open Chat in <strong>Agent</strong> mode; on an auth challenge click <strong>Sign In</strong>. Manage via <strong>MCP: List Servers</strong>.</li>
+        </ol>
+      </div>
+      <div class="card">
+        <h3>Codex CLI</h3>
+        <ol>
+          <li><code>codex mcp add vultr --url https://vultrmcp.com/</code></li>
+          <li>OAuth: <code>codex mcp login vultr</code> opens the browser.</li>
+        </ol>
+        <p class="muted" style="margin-bottom:6px;">API-key / headless — in <code>~/.codex/config.toml</code>:</p>
+        <pre><code>[mcp_servers.vultr]
+url = "https://vultrmcp.com/"
+bearer_token_env_var = "VULTR_API_KEY"</code></pre>
+      </div>
+      <div class="card">
         <h3>opencode</h3>
-        <p class="muted" style="margin-top:0;">Add the remote server with no header (OAuth is auto for remote servers):</p>
+        <p class="muted" style="margin-top:0;">In <code>opencode.json</code> — omit <code>headers</code> for auto-OAuth, or add one for API-key mode:</p>
         <pre><code>{
   "mcp": {
     "vultr": {
@@ -246,20 +921,17 @@ https://vultrmcp.com/container-registry  # multi-word categories are slugified</
     }
   }
 }</code></pre>
-        <p class="muted">First use opens the browser to authorize.</p>
       </div>
       <div class="card">
         <h3>Hermes Agent</h3>
-        <p class="muted" style="margin-top:0;">In <code>~/.hermes/config.yaml</code>, use <code>auth: oauth</code> instead of a header:</p>
+        <p class="muted" style="margin-top:0;">In <code>~/.hermes/config.yaml</code> — <code>auth: oauth</code>, or a <code>headers</code> block for API-key mode:</p>
         <pre><code>mcp_servers:
   vultr:
     url: "https://vultrmcp.com/"
     auth: oauth</code></pre>
-        <p class="muted">Start Hermes (or <code>/reload-mcp</code>) and complete sign-in in the browser.</p>
       </div>
       <div class="card">
         <h3>OpenClaw</h3>
-        <p class="muted" style="margin-top:0;">Add with <code>--auth oauth</code>, then log in:</p>
         <pre><code>openclaw mcp add vultr \
   --url https://vultrmcp.com \
   --transport streamable-http \
@@ -268,68 +940,15 @@ openclaw mcp login vultr</code></pre>
         <p class="muted"><code>login</code> opens the browser flow and caches the token.</p>
       </div>
       <div class="card">
-        <h3>Claude Desktop (bridge)</h3>
-        <p class="muted" style="margin-top:0;">Builds without native remote MCP use <code>mcp-remote</code> with no header — it runs the OAuth flow on first launch and caches the token under <code>~/.mcp-auth</code>:</p>
+        <h3>Claude Desktop &amp; stdio-only clients</h3>
+        <p class="muted" style="margin-top:0;">Clients without native remote MCP (older Claude Desktop, Zed, others) bridge via <code>mcp-remote</code> — OAuth runs on first launch; add <code>--header</code> for API-key mode:</p>
         <pre><code>npx -y mcp-remote https://vultrmcp.com/</code></pre>
       </div>
       <div class="card">
         <h3>Any MCP client</h3>
-        <p class="muted" style="margin-top:0;">If it advertises OAuth support for remote (Streamable HTTP) servers, give it <code>https://vultrmcp.com/</code> and leave credentials blank. The server drives the rest of the flow shown above.</p>
+        <p class="muted" style="margin-top:0;">Native remote (Streamable HTTP): give it <code>https://vultrmcp.com/</code> and either leave credentials blank for OAuth or set <code>Authorization: Bearer YOUR_VULTR_API_KEY</code>. stdio-only: use the <code>mcp-remote</code> bridge above.</p>
       </div>
     </div>
-
-    <div class="note">
-      <strong>Which organization?</strong> The consent screen has no org picker — the token binds to whichever org your Vultr session is in at sign-in (usually your owner/primary org). If you need a <em>specific</em> org, use API-key mode instead. See <a href="#caveats">Caveats</a>.
-    </div>
-  </section>
-
-  <section id="consume">
-    <h2>Consuming it</h2>
-    <p>Any client that speaks Streamable HTTP MCP can connect natively — give it the URL and (for API-key mode) an <code>Authorization</code> header. Clients that only support local <em>stdio</em> servers can bridge to the remote URL with <code>mcp-remote</code>:</p>
-    <pre><code>npx -y mcp-remote https://vultrmcp.com/ --header "Authorization: Bearer YOUR_VULTR_API_KEY"</code></pre>
-    <p>Swap the root URL for a category endpoint (e.g. <code>https://vultrmcp.com/instances</code>) to load a smaller tool set.</p>
-  </section>
-
-  <section id="harnesses">
-    <h2>Setup per code harness</h2>
-    <p>Config shown for API-key mode (most portable). For OAuth, drop the <code>headers</code>/token and use each tool's OAuth switch, noted per harness.</p>
-
-    <h3>opencode</h3>
-    <p>Add to <code>opencode.json</code> (project root) or <code>~/.config/opencode/opencode.json</code>:</p>
-    <pre><code>{
-  "$schema": "https://opencode.ai/config.json",
-  "mcp": {
-    "vultr": {
-      "type": "remote",
-      "url": "https://vultrmcp.com/",
-      "enabled": true,
-      "headers": { "Authorization": "Bearer YOUR_VULTR_API_KEY" }
-    }
-  }
-}</code></pre>
-    <p class="muted">opencode auto-attempts OAuth for remote servers. To force API-key mode and skip OAuth, add <code>"oauth": false</code> alongside the header.</p>
-
-    <h3>Hermes Agent</h3>
-    <p>Add under <code>mcp_servers</code> in <code>~/.hermes/config.yaml</code>, then <code>/reload-mcp</code> (or restart):</p>
-    <pre><code>mcp_servers:
-  vultr:
-    url: "https://vultrmcp.com/"
-    headers:
-      Authorization: "Bearer YOUR_VULTR_API_KEY"</code></pre>
-    <p class="muted">For OAuth instead of a header, replace the <code>headers</code> block with <code>auth: oauth</code>.</p>
-
-    <h3>OpenClaw</h3>
-    <p>Add via the CLI (writes to <code>~/.openclaw/openclaw.json</code> under <code>mcp.servers</code>):</p>
-    <pre><code># API-key mode — set the header in openclaw.json after adding, or:
-openclaw mcp add vultr --url https://vultrmcp.com --transport streamable-http
-
-# OAuth mode
-openclaw mcp add vultr --url https://vultrmcp.com --transport streamable-http --auth oauth
-openclaw mcp login vultr</code></pre>
-    <p class="muted">Use <code>--transport streamable-http</code> (not SSE). For a static key, add a <code>headers</code> object to the server entry in <code>openclaw.json</code> rather than committing it to the CLI history.</p>
-
-    <h3>Claude Desktop / Claude.ai</h3>
-    <p>Claude.ai: add a custom connector with the URL and complete the OAuth flow. Claude Desktop builds that don't support remote URLs natively use the <code>mcp-remote</code> bridge shown above under a <code>vultr</code> entry in <code>claude_desktop_config.json</code>.</p>
   </section>
 
   <section id="caveats">
@@ -353,12 +972,22 @@ openclaw mcp login vultr</code></pre>
   </section>
 
   <footer>
-    <p>Vultr MCP Server · v2 (Python / FastMCP). Tools are generated from Vultr's OpenAPI spec. This is an unofficial community project and is not affiliated with or endorsed by Vultr.</p>
+    <p>Vultr MCP Server · v2 (Python / FastMCP). Tools are generated from Vultr's OpenAPI spec. An official Vultr resource.</p>
   </footer>
 
 </div>
 
 <script>
+  var epToggle = document.getElementById('ep-toggle');
+  if (epToggle) {
+    epToggle.addEventListener('click', function () {
+      var eps = document.querySelectorAll('details.ep');
+      var anyClosed = Array.prototype.some.call(eps, function (d) { return !d.open; });
+      eps.forEach(function (d) { d.open = anyClosed; });
+      epToggle.textContent = anyClosed ? 'Collapse all' : 'Expand all';
+    });
+  }
+
   document.querySelectorAll('pre').forEach(function (pre) {
     var btn = document.createElement('button');
     btn.className = 'copy';
