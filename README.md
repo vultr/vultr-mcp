@@ -2,7 +2,7 @@
 
 A **Python MCP (Model Context Protocol) server** for the [Vultr](https://www.vultr.com/) cloud platform, built on [FastMCP](https://gofastmcp.com).
 
-Tools are generated directly from the Vultr OpenAPI spec, so AI agents (Claude, Cursor, VS Code Copilot, etc.) can provision and manage Vultr infrastructure in natural language. Supports **local (STDIO)** and **remote (HTTP)** transports, per-request auth, identity-tool exclusions, and token-efficient category endpoints.
+Tools are generated directly from the Vultr OpenAPI spec, so AI agents (Claude, Cursor, VS Code, Codex, etc.) can provision and manage Vultr infrastructure in natural language. Supports **local (STDIO)** and **remote (HTTP)** transports, per-request auth, identity-tool exclusions, and token-efficient category endpoints.
 
 > **v2** is a ground-up rewrite in Python/FastMCP. The original PHP server lives in this repo's git history.
 
@@ -64,7 +64,7 @@ Add several category servers to your client to cover what you use without loadin
 
 ## Authentication
 
-### Header / API key (works today)
+### Header / API key
 
 Each request carries the user's Vultr API key, which is forwarded to `api.vultr.com`:
 
@@ -80,24 +80,26 @@ Set `VULTR_OIDC_ENABLED=true` (plus the OAuth app credentials) to front Vultr's 
 
 See `k8s/configmap.yaml` and `src/vultr_mcp/auth.py` for the required variables.
 
-### Client config example (Claude Desktop, remote)
+---
 
-Claude Desktop's config supports remote servers via the `mcp-remote` bridge:
+## Connecting a client
 
-```json
-{
-  "mcpServers": {
-    "vultr": {
-      "command": "cmd",
-      "args": ["/c", "npx", "-y", "mcp-remote",
-               "https://vultrmcp.com/instances",
-               "--header", "Authorization: Bearer YOUR_VULTR_API_KEY"]
-    }
-  }
-}
-```
+The hosted server is **`https://vultrmcp.com/`** (mind the trailing slash — see the note below). Point any MCP client at it and authenticate with **OAuth** (browser sign-in, nothing to paste) or an **API-key** `Authorization: Bearer` header. The table shows the quickest path per client; drop the header and use the tool's OAuth switch for OAuth.
 
-(On non-Windows, drop the `"/c"` and use `"npx"` as the command.)
+| Client | How to add |
+|---|---|
+| **Claude.ai** | Settings → Connectors → Add custom connector → `https://vultrmcp.com/` → Connect → sign in. |
+| **Claude Desktop / stdio-only (Zed, …)** | `npx -y mcp-remote https://vultrmcp.com/` (add `--header "Authorization: Bearer KEY"` for API-key mode). |
+| **Cursor** | Settings → Tools & MCP → Add custom MCP → `mcp.json`: `"type":"http"`, `"url":"https://vultrmcp.com/"`. |
+| **VS Code** | MCP Servers panel → **+** (or edit `mcp.json`): HTTP server, URL `https://vultrmcp.com/`. |
+| **Codex CLI** | `codex mcp add vultr --url https://vultrmcp.com/`, then `codex mcp login vultr` (OAuth). |
+| **opencode** | `opencode.json` → `mcp.vultr` = `{ "type":"remote", "url":"https://vultrmcp.com/" }` (omit headers for auto-OAuth). |
+| **Hermes Agent** | `~/.hermes/config.yaml` → `mcp_servers.vultr` with `url` + `auth: oauth` (or a `headers` block). |
+| **OpenClaw** | `openclaw mcp add vultr --url https://vultrmcp.com --transport streamable-http --auth oauth`, then `openclaw mcp login vultr`. |
+
+The server's root doubles as a **human docs page**: open <https://vultrmcp.com/> in a browser for a full walkthrough (OAuth flow diagram, per-client steps, and every endpoint's tools). MCP clients hitting the same URL get the protocol, not the page.
+
+> **Both `https://vultrmcp.com` and `https://vultrmcp.com/` connect.** The root serves the human docs page *only* to genuine top-level browser navigations (`Sec-Fetch-Mode: navigate`); everything else — including browser-based agent UIs that connect via `fetch`/XHR (`Sec-Fetch-Mode: cors`) — reaches the MCP protocol at the same URL, so the missing trailing slash no longer breaks the connection. The trailing-slash form is still the canonical one to configure.
 
 ---
 

@@ -101,6 +101,38 @@ async def test_root_serves_landing_page_to_browsers(monkeypatch, spec):
                 headers={"Accept": "text/event-stream"},
             )
             assert "Vultr MCP Server" not in sse.text
+
+            # An MCP client that opens the bare host with a generic Accept must
+            # NOT get the docs page — it has to fall through to the MCP app so it
+            # can connect (regression guard for the vultrmcp.com-vs-/ bug).
+            for probe_accept in ("*/*", "application/json"):
+                probe = await hc.get(
+                    f"http://127.0.0.1:{port}/",
+                    headers={"Accept": probe_accept},
+                )
+                assert "Vultr MCP Server" not in probe.text, (
+                    f"docs page leaked to an MCP-style GET (Accept: {probe_accept})"
+                )
+
+            # A browser-based MCP client (fetch/XHR) sends Sec-Fetch-Mode: cors
+            # and may still send text/html — it must reach the MCP app, not docs.
+            xhr = await hc.get(
+                f"http://127.0.0.1:{port}/",
+                headers={"Accept": "text/html", "Sec-Fetch-Mode": "cors"},
+            )
+            assert "Vultr MCP Server" not in xhr.text, (
+                "docs page leaked to a browser fetch/XHR MCP client"
+            )
+
+            # A genuine top-level navigation (Sec-Fetch-Mode: navigate) gets docs.
+            nav = await hc.get(
+                f"http://127.0.0.1:{port}/",
+                headers={
+                    "Accept": "text/html,application/xhtml+xml",
+                    "Sec-Fetch-Mode": "navigate",
+                },
+            )
+            assert "Vultr MCP Server" in nav.text
     finally:
         server.should_exit = True
         task.cancel()

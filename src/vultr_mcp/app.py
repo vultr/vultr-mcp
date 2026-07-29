@@ -52,25 +52,42 @@ def _load_landing_html() -> str:
 
 
 def _wants_landing_page(scope: dict) -> bool:
-    """True for a browser navigation to ``/``, false for MCP protocol traffic.
+    """True only for a genuine top-level browser navigation to ``/``.
 
-    MCP Streamable HTTP uses POST for JSON-RPC and a GET carrying
-    ``Accept: text/event-stream`` to open the SSE stream. A browser sends GET
-    with ``Accept: text/html``. Keying off event-stream keeps the docs page
-    from ever shadowing a real MCP GET, even outside stateless mode.
+    The docs page and the MCP endpoint share the root URL, and the server can't
+    see whether the client was configured with ``vultrmcp.com`` or
+    ``vultrmcp.com/`` — both arrive as path ``/``. So we distinguish a *human
+    opening the page* from a *client connecting* by request shape:
+
+    * MCP Streamable HTTP uses POST (JSON-RPC) and a GET with
+      ``Accept: text/event-stream`` (SSE) — never the docs.
+    * A real browser navigation sets ``Sec-Fetch-Mode: navigate``. A
+      browser-based MCP client (e.g. a hosted agent web UI) connects with
+      ``fetch``/XHR, which sets ``Sec-Fetch-Mode: cors``/``no-cors`` — so it
+      falls through to the protocol even though it runs in a browser, which is
+      what makes the bare host work for those clients without a trailing slash.
+    * When ``Sec-Fetch-*`` is absent (older browsers, header-stripping proxies,
+      curl), fall back to an explicit ``Accept: text/html`` and never ``*/*``.
     """
     if scope.get("type") != "http" or scope.get("method") != "GET":
         return False
     if scope.get("path") != "/":
         return False
     accept = ""
+    sec_fetch_mode = ""
     for name, value in scope.get("headers") or []:
         if name == b"accept":
             accept = value.decode("latin-1").lower()
-            break
+        elif name == b"sec-fetch-mode":
+            sec_fetch_mode = value.decode("latin-1").lower()
     if "text/event-stream" in accept:
         return False
-    return "text/html" in accept or accept in ("", "*/*")
+    if sec_fetch_mode:
+        # Only a top-level navigation is a human opening the page; a fetch/XHR
+        # connection (cors/no-cors) is a client and must reach the MCP app.
+        return sec_fetch_mode == "navigate"
+    # No Sec-Fetch metadata: fall back to an explicit browser Accept.
+    return "text/html" in accept
 
 
 def _resolve_exclusions() -> set[str]:

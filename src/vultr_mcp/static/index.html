@@ -205,6 +205,7 @@
   <section id="endpoints">
     <h2>Endpoints</h2>
     <p>The base URL is <code>https://vultrmcp.com/</code>. The <strong>root</strong> exposes the full tool surface through one connection. Each category also gets its own endpoint exposing only that category's tools — useful when your client has limited connection slots or you want a smaller, cheaper tool set.</p>
+    <p class="muted" style="margin-top:6px;">The root doubles as this page: only a top-level browser navigation gets the docs, so MCP clients — including browser-based agent UIs — reach the protocol at the same URL. Both <code>https://vultrmcp.com</code> and <code>https://vultrmcp.com/</code> work; the trailing-slash form is canonical.</p>
     <pre><code>https://vultrmcp.com/                    # all tools (one connection)
 https://vultrmcp.com/instances           # VPS instance tools only
 https://vultrmcp.com/kubernetes          # VKE tools only
