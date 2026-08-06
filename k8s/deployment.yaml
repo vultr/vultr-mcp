@@ -22,7 +22,7 @@ spec:
         - name: vcr-creds
       containers:
         - name: vultr-mcp
-          image: atl.vultrcr.com/vrnd/vultr-mcp:latest
+          image: atl.vultrcr.com/vrnd/vultr-mcp:2.0.1
           imagePullPolicy: Always
           ports:
             - containerPort: 8080
@@ -39,11 +39,25 @@ spec:
             limits:
               cpu: "1"
               memory: 512Mi
+          # Boot builds a FastMCP server per category endpoint (~36) over the
+          # 1.6MB OpenAPI spec, which on a busy node takes well past the 10s the
+          # liveness probe used to allow — the container was SIGKILLed mid-start
+          # and crash-looped (exit 137). startupProbe gives it up to 150s to come
+          # up and suppresses liveness until it does; liveness then guards the
+          # steady state as before.
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            periodSeconds: 5
+            failureThreshold: 30
           livenessProbe:
             httpGet:
               path: /healthz
               port: 8080
-            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
           readinessProbe:
             httpGet:
               path: /healthz

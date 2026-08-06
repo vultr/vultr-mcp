@@ -181,6 +181,35 @@ def excluded_categories_from_env() -> set[str] | None:
     return {tag.strip() for tag in raw.split(",") if tag.strip()}
 
 
+def _strip_output_schema(route, component) -> None:
+    """Drop the generated ``outputSchema`` from every tool.
+
+    FastMCP derives an ``outputSchema`` from each operation's OpenAPI *response*
+    schema. Those are the single largest thing in the tool listing — 64% of the
+    root endpoint's bytes (480KB of 750KB across 279 of 409 tools) — because a
+    response schema describes every field of every nested object, while an agent
+    only needs the *input* schema to make a call.
+
+    That size is why the root endpoint fails in practice: ~187k tokens of tool
+    definitions, which clients reject (VS Code caps at 128 tools; others truncate
+    or blow their context budget) even though the server answers correctly.
+    Dropping it takes the root listing to ~66k tokens with no tools removed and
+    no change to tool *results* — responses still come back in full, they are
+    just no longer accompanied by a schema describing their shape.
+
+    Note: ``FastMCP.from_openapi(validate_output=False)`` looks like the lever
+    for this but is not — it disables output *validation* while still
+    advertising the schema on the wire.
+
+    Set VULTR_MCP_OUTPUT_SCHEMAS=true to keep them.
+    """
+    component.output_schema = None
+
+
+def _output_schemas_enabled() -> bool:
+    return os.environ.get("VULTR_MCP_OUTPUT_SCHEMAS", "false").lower() in ("1", "true", "yes")
+
+
 def _build_route_maps(exclude_tags: set[str]) -> list[RouteMap]:
     """One EXCLUDE RouteMap per excluded tag.
 
@@ -238,6 +267,7 @@ def create_server(
         client=client,
         name="Vultr MCP Server",
         route_maps=_build_route_maps(exclude_tags),
+        mcp_component_fn=None if _output_schemas_enabled() else _strip_output_schema,
         auth=auth,
     )
 

@@ -46,7 +46,7 @@ Override with `VULTR_MCP_EXCLUDED_CATEGORIES` (comma-separated tags; empty strin
 
 ### Category endpoints (token-efficient)
 
-The **root endpoint gives every (non-excluded) tool through a single connection** — best when your client only lets you add one or two MCP servers, so you want everything in one slot. Each category also gets its **own endpoint exposing only that category's tools** — for when you have room to add several focused connections and prefer each one scoped:
+The **root endpoint gives every (non-excluded) tool through a single connection** — best when your client only lets you add one or two MCP servers, so you want everything in one slot. It is still a large listing (409 tools, ~66k tokens); clients with a hard tool cap (VS Code allows 128) need the category endpoints below. Each category also gets its **own endpoint exposing only that category's tools** — for when you have room to add several focused connections and prefer each one scoped:
 
 ```
 https://vultrmcp.com/                    # all tools
@@ -154,6 +154,7 @@ Two limitations follow:
 | `SSL_VERIFY` | verify upstream TLS (default `true`) |
 | `VULTR_MCP_EXCLUDED_CATEGORIES` | tags to drop (default identity set; empty disables) |
 | `VULTR_MCP_CATEGORY_ENDPOINTS` | category endpoints to mount (default: all non-excluded) |
+| `VULTR_MCP_OUTPUT_SCHEMAS` | advertise generated `outputSchema` on tools (default `false` — they tripled the tool-listing size without helping agents) |
 | `MCP_RESOURCE_URL` | public URL, used for OAuth + Host allow-list (default `https://vultrmcp.com`) |
 | `MCP_ALLOWED_HOSTS` | extra hosts for DNS-rebinding protection |
 | `MCP_ALLOWED_ORIGINS` | extra allowed `Origin` values for the OAuth consent/browser flow |

@@ -34,7 +34,7 @@ from vultr_mcp.server import (
     load_spec,
 )
 
-VERSION = "2.0.0"
+VERSION = "2.0.1"
 
 _LANDING_PATH = Path(__file__).resolve().parent / "static" / "index.html"
 
