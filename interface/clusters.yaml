@@ -1,0 +1,101 @@
+product_area: clusters
+
+tools:
+  - name: vultr_compute_clusters_search
+    access: read
+    enabled: true
+
+    description: |
+      Searches for Vultr Compute Clusters in the active Vultr organization.
+
+      Use this tool to list, find, count, or select Compute Clusters, including
+      GPU and fabric-connected clusters. Results can be filtered by label,
+      region, plan, status, state, or cluster type.
+
+      Do not use this tool for Vultr Kubernetes Engine clusters or Object
+      Storage clusters.
+
+    operation: list-clusters
+
+    input:
+      type: object
+      properties:
+        label:
+          type: string
+          description: Case-insensitive text contained in the cluster label.
+          filter:
+            field: label
+            match: contains_ci
+
+        region:
+          type: string
+          description: Vultr region ID, such as ewr.
+          filter:
+            field: region
+            match: equals
+
+        plan:
+          type: string
+          description: Vultr plan ID used by the cluster.
+          filter:
+            field: plan
+            match: equals
+
+        status:
+          type: string
+          description: Cluster subscription or provisioning status.
+          filter:
+            field: status
+            match: equals
+
+        state:
+          type: string
+          description: Cluster operational state.
+          filter:
+            field: state
+            match: equals
+
+        cluster_type:
+          type: string
+          description: Type of Vultr Compute Cluster.
+          enum:
+            - vps
+            - bare-metal
+            - gpu-fabric
+          filter:
+            field: cluster_type
+            match: equals
+
+        page_size:
+          type: integer
+          description: Maximum number of results to request from the API.
+          default: 100
+          minimum: 1
+          maximum: 500
+          maps_to: per_page
+
+        cursor:
+          type: string
+          description: Cursor returned by a previous request for the next page.
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - label
+        - region
+        - plan
+        - type
+        - status
+        - state
+        - min_pool_count
+        - desired_pool_count
+        - instances
+        - date_created
+        - meta
+
+    computed:
+      instance_count:
+        type: integer
+        description: Number of instances associated with the cluster.
+        from: length(instances)

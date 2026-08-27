@@ -11,6 +11,9 @@ Credential resolution, per tool call:
      ``Bearer`` credentials).
   2. STDIO / local mode (no HTTP context): falls back to the ``VULTR_API_KEY``
      environment variable, mirroring the PHP server's behaviour.
+
+The surface is **read-only by default**: state-changing operations are dropped
+unless ``VULTR_MCP_WRITES_ENABLED`` is set. See ``WRITE_METHODS``.
 """
 
 from __future__ import annotations
@@ -38,6 +41,31 @@ VULTR_API_BASE = os.environ.get("VULTR_API_BASE_URL", "https://api.vultr.com/v2"
 # VULTR_MCP_EXCLUDED_CATEGORIES (comma-separated tags; empty string disables).
 DEFAULT_EXCLUDED_CATEGORIES = frozenset(
     {"api-keys", "users", "iam", "scim", "organizations", "oidc"}
+)
+
+# Read-only mode (the default) exposes only operations that cannot change
+# state. Everything that is not a GET mutates something — including the two
+# OPTIONS routes, which mint container-registry Docker credentials despite the
+# verb — so the rule is "GET, plus an explicit allowlist".
+#
+# Write access is opt-in via VULTR_MCP_WRITES_ENABLED. The hosted deployment
+# leaves it off; local STDIO users who want the full surface set it to true.
+WRITE_METHODS: tuple[str, ...] = (
+    "POST",
+    "PUT",
+    "PATCH",
+    "DELETE",
+    "OPTIONS",
+    "HEAD",
+    "TRACE",
+)
+
+# Non-GET operations that only *read* state, kept in read-only mode.
+# Vultr models this one as a POST because its filter arrives in a request body,
+# but it creates nothing — it lists a managed database's existing alerts.
+# (method, anchored path regex) — the path is the OpenAPI template.
+READ_ONLY_METHOD_OVERRIDES: tuple[tuple[str, str], ...] = (
+    ("POST", r"^/databases/\{database-id\}/alerts$"),
 )
 
 
@@ -210,14 +238,39 @@ def _output_schemas_enabled() -> bool:
     return os.environ.get("VULTR_MCP_OUTPUT_SCHEMAS", "false").lower() in ("1", "true", "yes")
 
 
-def _build_route_maps(exclude_tags: set[str]) -> list[RouteMap]:
-    """One EXCLUDE RouteMap per excluded tag.
+def read_only_from_env() -> bool:
+    """Whether the tool surface is read-only. Default: yes.
 
-    Each operation carries exactly one category tag, so a single RouteMap with
-    a multi-tag set would never match (RouteMap requires all its tags to be
-    present on the route). Hence one map per tag.
+    Writes are opt-in (VULTR_MCP_WRITES_ENABLED), not opt-out, so a deployment
+    that forgets to set anything ships the safe surface.
     """
-    return [RouteMap(tags={tag}, mcp_type=MCPType.EXCLUDE) for tag in sorted(exclude_tags)]
+    return os.environ.get("VULTR_MCP_WRITES_ENABLED", "false").lower() not in (
+        "1",
+        "true",
+        "yes",
+    )
+
+
+def _build_route_maps(exclude_tags: set[str], read_only: bool) -> list[RouteMap]:
+    """RouteMaps applied in order — first match wins, default is TOOL.
+
+    1. One EXCLUDE per excluded tag. Each operation carries exactly one
+       category tag, so a single RouteMap with a multi-tag set would never
+       match (RouteMap requires all its tags to be present on the route);
+       hence one map per tag. These come first so an identity exclusion can
+       never be undone by a later map.
+    2. In read-only mode, the read-only overrides are re-admitted as TOOLs...
+    3. ...and every remaining write method is excluded. GETs match no map and
+       fall through to the default TOOL.
+    """
+    maps = [RouteMap(tags={tag}, mcp_type=MCPType.EXCLUDE) for tag in sorted(exclude_tags)]
+    if read_only:
+        maps += [
+            RouteMap(methods=[method], pattern=pattern, mcp_type=MCPType.TOOL)
+            for method, pattern in READ_ONLY_METHOD_OVERRIDES
+        ]
+        maps.append(RouteMap(methods=list(WRITE_METHODS), mcp_type=MCPType.EXCLUDE))
+    return maps
 
 
 def create_server(
@@ -225,6 +278,7 @@ def create_server(
     *,
     exclude_categories: set[str] | None = None,
     only_categories: set[str] | None = None,
+    read_only: bool | None = None,
     auth=None,
 ) -> FastMCP:
     """Build a FastMCP server over the Vultr tool surface.
@@ -238,9 +292,15 @@ def create_server(
         model from the PHP server, e.g. an /instances-only connection). The
         default identity exclusions still apply on top, so a category
         endpoint can never resurface an excluded identity tool.
+    read_only:
+        Drop every state-changing operation. Defaults to the env value
+        (read-only unless VULTR_MCP_WRITES_ENABLED opts in).
     """
     if spec is None:
         spec = load_spec()
+
+    if read_only is None:
+        read_only = read_only_from_env()
 
     if exclude_categories is None:
         exclude_categories = excluded_categories_from_env()
@@ -266,7 +326,7 @@ def create_server(
         openapi_spec=spec,
         client=client,
         name="Vultr MCP Server",
-        route_maps=_build_route_maps(exclude_tags),
+        route_maps=_build_route_maps(exclude_tags, read_only),
         mcp_component_fn=None if _output_schemas_enabled() else _strip_output_schema,
         auth=auth,
     )

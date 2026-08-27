@@ -193,7 +193,8 @@
   <header class="hero">
     <span class="eyebrow">Model Context Protocol</span>
     <h1>Vultr MCP Server</h1>
-    <p class="lede">Manage your Vultr cloud — instances, Kubernetes, DNS, databases, storage and more — from any MCP-compatible AI agent, in natural language. This page is for humans; AI clients connect to the same URL over the MCP protocol.</p>
+    <p class="lede">Inspect your Vultr cloud — instances, Kubernetes, DNS, databases, storage and more — from any MCP-compatible AI agent, in natural language. This page is for humans; AI clients connect to the same URL over the MCP protocol.</p>
+    <div class="note"><strong>Read-only.</strong> Every tool on this server reads — listing, describing, and reporting on your Vultr resources. Nothing creates, changes, or deletes infrastructure, so an agent connected here cannot spend money or break a running service. Write access is coming as an opt-in you enable per user in the Vultr console.</div>
     <nav class="toc">
       <a href="#endpoints">Endpoints</a>
       <a href="#auth">Authorization</a>
@@ -204,7 +205,7 @@
 
   <section id="endpoints">
     <h2>Endpoints</h2>
-    <p>The base URL is <code>https://vultrmcp.com/</code>. The <strong>root</strong> exposes the full tool surface through one connection. Each category also gets its own endpoint exposing only that category's tools — useful when your client has limited connection slots or you want a smaller, cheaper tool set.</p>
+    <p>The base URL is <code>https://vultrmcp.com/</code>. The <strong>root</strong> exposes the full read-only tool surface through one connection. Each category also gets its own endpoint exposing only that category's tools — useful when your client has limited connection slots or you want a smaller, cheaper tool set.</p>
     <p class="muted" style="margin-top:6px;">The root doubles as this page: only a top-level browser navigation gets the docs, so MCP clients — including browser-based agent UIs — reach the protocol at the same URL. Both <code>https://vultrmcp.com</code> and <code>https://vultrmcp.com/</code> work; the trailing-slash form is canonical.</p>
     <pre><code>https://vultrmcp.com/                    # all tools (one connection)
 https://vultrmcp.com/instances           # VPS instance tools only
@@ -213,14 +214,12 @@ https://vultrmcp.com/dns                 # DNS tools only
 https://vultrmcp.com/container-registry  # multi-word categories are slugified</code></pre>
         <p class="muted" style="margin-bottom:4px;">The root serves all of these combined; each endpoint below serves only its own tools. Click one to see the tools it exposes. Append the path to the base URL — e.g. <code>https://vultrmcp.com/load-balancer</code>.</p>
     <details class="ep-browse">
-      <summary>Browse all endpoints<span class="ep-count">35 endpoints · 409 tools</span></summary>
+      <summary>Browse all endpoints<span class="ep-count">35 endpoints · 180 tools</span></summary>
       <div class="ep-controls"><button type="button" id="ep-toggle">Expand all</button></div>
           <div class="ep-scroll">
       <details class="ep">
-            <summary><span class="ep-path">/account</span><span class="ep-count">6 tools</span></summary>
+            <summary><span class="ep-path">/account</span><span class="ep-count">4 tools</span></summary>
             <div class="ep-tools">
-            <code>create_account_bgp_prefixes</code>
-            <code>create_account_bgp_setup</code>
             <code>get_account</code>
             <code>get_account_bandwidth</code>
             <code>get_account_bgp</code>
@@ -241,17 +240,8 @@ https://vultrmcp.com/container-registry  # multi-word categories are slugified</
             </div>
           </details>
           <details class="ep">
-            <summary><span class="ep-path">/baremetal</span><span class="ep-count">28 tools</span></summary>
+            <summary><span class="ep-path">/baremetal</span><span class="ep-count">10 tools</span></summary>
             <div class="ep-tools">
-            <code>attach_baremetals_vpc2</code>
-            <code>attach_baremetals_vpcs</code>
-            <code>create_baremetal</code>
-            <code>create_baremetal_reverse_ipv4</code>
-            <code>create_baremetal_reverse_ipv6</code>
-            <code>delete_baremetal</code>
-            <code>delete_baremetal_reverse_ipv6</code>
-            <code>detach_baremetal_vpc2</code>
-            <code>detach_baremetal_vpcs</code>
             <code>get_bandwidth_baremetal</code>
             <code>get_bare_metal_userdata</code>
             <code>get_bare_metal_vnc</code>
@@ -259,18 +249,9 @@ https://vultrmcp.com/container-registry  # multi-word categories are slugified</
             <code>get_baremetal</code>
             <code>get_ipv4_baremetal</code>
             <code>get_ipv6_baremetal</code>
-            <code>halt_baremetal</code>
-            <code>halt_baremetals</code>
             <code>list_baremetal_vpc2</code>
             <code>list_baremetal_vpcs</code>
             <code>list_baremetals</code>
-            <code>post_baremetal_instance_id_ipv4_reverse_default</code>
-            <code>reboot_bare_metals</code>
-            <code>reboot_baremetal</code>
-            <code>reinstall_baremetal</code>
-            <code>start_bare_metals</code>
-            <code>start_baremetal</code>
-            <code>update_baremetal</code>
             </div>
           </details>
           <details class="ep">
@@ -285,31 +266,17 @@ https://vultrmcp.com/container-registry  # multi-word categories are slugified</
             </div>
           </details>
           <details class="ep">
-            <summary><span class="ep-path">/block</span><span class="ep-count">12 tools</span></summary>
+            <summary><span class="ep-path">/block</span><span class="ep-count">4 tools</span></summary>
             <div class="ep-tools">
-            <code>attach_block</code>
-            <code>create_block</code>
-            <code>create_block_snapshot</code>
-            <code>delete_block</code>
-            <code>delete_block_snapshot</code>
-            <code>detach_block</code>
             <code>get_block</code>
             <code>get_block_snapshot</code>
             <code>list_block_snapshots</code>
             <code>list_blocks</code>
-            <code>update_block</code>
-            <code>update_block_snapshot</code>
             </div>
           </details>
           <details class="ep">
-            <summary><span class="ep-path">/cdns</span><span class="ep-count">15 tools</span></summary>
+            <summary><span class="ep-path">/cdns</span><span class="ep-count">7 tools</span></summary>
             <div class="ep-tools">
-            <code>create_pullzone</code>
-            <code>create_pushzone</code>
-            <code>create_pushzone_upload</code>
-            <code>delete_pullzone</code>
-            <code>delete_pushzone</code>
-            <code>delete_pushzone_file</code>
             <code>get_pullzone</code>
             <code>get_pushzone</code>
             <code>get_pushzone_2</code>
@@ -317,41 +284,22 @@ https://vultrmcp.com/container-registry  # multi-word categories are slugified</
             <code>list_pullzones</code>
             <code>list_pushzones</code>
             <code>purge_pullzone</code>
-            <code>update_pullzone</code>
-            <code>update_pushzone</code>
             </div>
           </details>
           <details class="ep">
-            <summary><span class="ep-path">/clusters</span><span class="ep-count">9 tools</span></summary>
+            <summary><span class="ep-path">/clusters</span><span class="ep-count">4 tools</span></summary>
             <div class="ep-tools">
-            <code>create_cluster</code>
-            <code>delete_cluster</code>
             <code>get_cluster</code>
             <code>get_cluster_availability</code>
             <code>get_cluster_metrics</code>
             <code>list_clusters</code>
-            <code>mass_update_cluster_instances</code>
-            <code>update_cluster</code>
-            <code>update_cluster_instance</code>
             </div>
           </details>
           <details class="ep">
-            <summary><span class="ep-path">/container-registry</span><span class="ep-count">32 tools</span></summary>
+            <summary><span class="ep-path">/container-registry</span><span class="ep-count">14 tools</span></summary>
             <div class="ep-tools">
-            <code>Delete_Artifact</code>
             <code>Read_Artifact</code>
             <code>Read_Robot</code>
-            <code>create_registry</code>
-            <code>create_registry_docker_credentials</code>
-            <code>create_registry_kubernetes_docker_credentials</code>
-            <code>create_replication</code>
-            <code>create_retention_rule</code>
-            <code>delete_registry</code>
-            <code>delete_replication</code>
-            <code>delete_repository</code>
-            <code>delete_retention_rule</code>
-            <code>delete_robot</code>
-            <code>execute_retention_policy</code>
             <code>list_registries</code>
             <code>list_registry_plans</code>
             <code>list_registry_regions</code>
@@ -364,75 +312,38 @@ https://vultrmcp.com/container-registry  # multi-word categories are slugified</
             <code>read_registry_repository</code>
             <code>read_replication</code>
             <code>read_retention_rule</code>
-            <code>update_container_registry_password</code>
-            <code>update_registry</code>
-            <code>update_repository</code>
-            <code>update_retention_rule</code>
-            <code>update_retention_schedule</code>
-            <code>update_robot</code>
             </div>
           </details>
           <details class="ep">
-            <summary><span class="ep-path">/dns</span><span class="ep-count">13 tools</span></summary>
+            <summary><span class="ep-path">/dns</span><span class="ep-count">6 tools</span></summary>
             <div class="ep-tools">
-            <code>create_dns_domain</code>
-            <code>create_dns_domain_record</code>
-            <code>delete_dns_domain</code>
-            <code>delete_dns_domain_record</code>
             <code>get_dns_domain</code>
             <code>get_dns_domain_dnssec</code>
             <code>get_dns_domain_record</code>
             <code>get_dns_domain_soa</code>
             <code>list_dns_domain_records</code>
             <code>list_dns_domains</code>
-            <code>update_dns_domain</code>
-            <code>update_dns_domain_record</code>
-            <code>update_dns_domain_soa</code>
             </div>
           </details>
           <details class="ep">
-            <summary><span class="ep-path">/firewall</span><span class="ep-count">9 tools</span></summary>
+            <summary><span class="ep-path">/firewall</span><span class="ep-count">4 tools</span></summary>
             <div class="ep-tools">
-            <code>create_firewall_group</code>
-            <code>delete_firewall_group</code>
-            <code>delete_firewall_group_rule</code>
             <code>get_firewall_group</code>
             <code>get_firewall_group_rule</code>
             <code>list_firewall_group_rules</code>
             <code>list_firewall_groups</code>
-            <code>post_firewalls_firewall_group_id_rules</code>
-            <code>update_firewall_group</code>
             </div>
           </details>
           <details class="ep">
-            <summary><span class="ep-path">/instance-templates</span><span class="ep-count">5 tools</span></summary>
+            <summary><span class="ep-path">/instance-templates</span><span class="ep-count">2 tools</span></summary>
             <div class="ep-tools">
-            <code>create_instance_template</code>
-            <code>delete_instance_template</code>
             <code>get_instance_template</code>
             <code>list_instance_templates</code>
-            <code>update_instance_template</code>
             </div>
           </details>
           <details class="ep">
-            <summary><span class="ep-path">/instances</span><span class="ep-count">41 tools</span></summary>
+            <summary><span class="ep-path">/instances</span><span class="ep-count">15 tools</span></summary>
             <div class="ep-tools">
-            <code>attach_instance_iso</code>
-            <code>attach_instance_network</code>
-            <code>attach_instance_vpc</code>
-            <code>attach_instance_vpc2</code>
-            <code>create_instance</code>
-            <code>create_instance_backup_schedule</code>
-            <code>create_instance_ipv4</code>
-            <code>create_instance_reverse_ipv4</code>
-            <code>create_instance_reverse_ipv6</code>
-            <code>delete_instance</code>
-            <code>delete_instance_ipv4</code>
-            <code>delete_instance_reverse_ipv6</code>
-            <code>detach_instance_iso</code>
-            <code>detach_instance_network</code>
-            <code>detach_instance_vpc</code>
-            <code>detach_instance_vpc2</code>
             <code>get_instance</code>
             <code>get_instance_backup_schedule</code>
             <code>get_instance_bandwidth</code>
@@ -443,47 +354,24 @@ https://vultrmcp.com/container-registry  # multi-word categories are slugified</
             <code>get_instance_neighbors</code>
             <code>get_instance_upgrades</code>
             <code>get_instance_userdata</code>
-            <code>halt_instance</code>
-            <code>halt_instances</code>
             <code>list_instance_ipv6_reverse</code>
             <code>list_instance_private_networks</code>
             <code>list_instance_vpc2</code>
             <code>list_instance_vpcs</code>
             <code>list_instances</code>
-            <code>post_instances_instance_id_ipv4_reverse_default</code>
-            <code>reboot_instance</code>
-            <code>reboot_instances</code>
-            <code>reinstall_instance</code>
-            <code>restore_instance</code>
-            <code>start_instance</code>
-            <code>start_instances</code>
-            <code>update_instance</code>
             </div>
           </details>
           <details class="ep">
-            <summary><span class="ep-path">/iso</span><span class="ep-count">6 tools</span></summary>
+            <summary><span class="ep-path">/iso</span><span class="ep-count">3 tools</span></summary>
             <div class="ep-tools">
-            <code>create_iso</code>
-            <code>delete_iso</code>
-            <code>iso_edit</code>
             <code>iso_get</code>
             <code>list_isos</code>
             <code>list_public_isos</code>
             </div>
           </details>
           <details class="ep">
-            <summary><span class="ep-path">/kubernetes</span><span class="ep-count">26 tools</span></summary>
+            <summary><span class="ep-path">/kubernetes</span><span class="ep-count">12 tools</span></summary>
             <div class="ep-tools">
-            <code>create_kubernetes_cluster</code>
-            <code>create_nodepool_label</code>
-            <code>create_nodepool_taint</code>
-            <code>create_nodepools</code>
-            <code>delete_kubernetes_cluster</code>
-            <code>delete_kubernetes_cluster_vke_id_delete_with_linked_reso</code>
-            <code>delete_nodepool</code>
-            <code>delete_nodepool_instance</code>
-            <code>delete_nodepool_label</code>
-            <code>delete_nodepool_taint</code>
             <code>get_kubernetes_available_upgrades</code>
             <code>get_kubernetes_clusters</code>
             <code>get_kubernetes_clusters_config</code>
@@ -496,26 +384,11 @@ https://vultrmcp.com/container-registry  # multi-word categories are slugified</
             <code>list_nodepool_taints</code>
             <code>read_nodepool_label</code>
             <code>read_nodepool_taint</code>
-            <code>recycle_nodepool_instance</code>
-            <code>start_kubernetes_cluster_upgrade</code>
-            <code>update_kubernetes_cluster</code>
-            <code>update_nodepool</code>
             </div>
           </details>
           <details class="ep">
-            <summary><span class="ep-path">/load-balancer</span><span class="ep-count">19 tools</span></summary>
+            <summary><span class="ep-path">/load-balancer</span><span class="ep-count">7 tools</span></summary>
             <div class="ep-tools">
-            <code>create_load_balancer</code>
-            <code>create_load_balancer_forwarding_rules</code>
-            <code>create_load_balancer_reverse_dns_ipv4</code>
-            <code>create_load_balancer_reverse_dns_ipv6</code>
-            <code>create_loadbalancer_firewall_rules</code>
-            <code>delete_load_balancer</code>
-            <code>delete_load_balancer_auto_ssl</code>
-            <code>delete_load_balancer_forwarding_rule</code>
-            <code>delete_load_balancer_reverse_dns</code>
-            <code>delete_load_balancer_ssl</code>
-            <code>delete_loadbalancer_firewall_rule</code>
             <code>get_load_balancer</code>
             <code>get_load_balancer_forwarding_rule</code>
             <code>get_load_balancer_reverse_dns</code>
@@ -523,7 +396,6 @@ https://vultrmcp.com/container-registry  # multi-word categories are slugified</
             <code>list_load_balancer_forwarding_rules</code>
             <code>list_load_balancers</code>
             <code>list_loadbalancer_firewall_rules</code>
-            <code>update_load_balancer</code>
             </div>
           </details>
           <details class="ep">
@@ -533,29 +405,9 @@ https://vultrmcp.com/container-registry  # multi-word categories are slugified</
             </div>
           </details>
           <details class="ep">
-            <summary><span class="ep-path">/managed-databases</span><span class="ep-count">66 tools</span></summary>
+            <summary><span class="ep-path">/managed-databases</span><span class="ep-count">29 tools</span></summary>
             <div class="ep-tools">
             <code>available_services</code>
-            <code>create_connection_pool</code>
-            <code>create_database</code>
-            <code>create_database_connector</code>
-            <code>create_database_db</code>
-            <code>create_database_quota</code>
-            <code>create_database_topic</code>
-            <code>create_database_user</code>
-            <code>database_add_read_replica</code>
-            <code>database_detach_migration</code>
-            <code>database_fork</code>
-            <code>database_promote_read_replica</code>
-            <code>database_restore_from_backup</code>
-            <code>database_start_migration</code>
-            <code>delete_connection_pool</code>
-            <code>delete_database</code>
-            <code>delete_database_connector</code>
-            <code>delete_database_db</code>
-            <code>delete_database_quota</code>
-            <code>delete_database_topic</code>
-            <code>delete_database_user</code>
             <code>get_backup_information</code>
             <code>get_connection_pool</code>
             <code>get_database</code>
@@ -583,23 +435,6 @@ https://vultrmcp.com/container-registry  # multi-word categories are slugified</
             <code>list_databases</code>
             <code>list_maintenance_updates</code>
             <code>list_service_alerts</code>
-            <code>pause_database_connector</code>
-            <code>restart_database_connector</code>
-            <code>restart_database_connector_task</code>
-            <code>resume_database_connector</code>
-            <code>set_database_user_acl</code>
-            <code>start_maintenance_updates</code>
-            <code>start_version_upgrade</code>
-            <code>update_advanced_options</code>
-            <code>update_advanced_options_kafka_connect</code>
-            <code>update_advanced_options_kafka_rest</code>
-            <code>update_advanced_options_schema_registry</code>
-            <code>update_connection_pool</code>
-            <code>update_database</code>
-            <code>update_database_connector</code>
-            <code>update_database_quota</code>
-            <code>update_database_topic</code>
-            <code>update_database_user</code>
             <code>view_migration_status</code>
             </div>
           </details>
@@ -624,13 +459,10 @@ https://vultrmcp.com/container-registry  # multi-word categories are slugified</
             </div>
           </details>
           <details class="ep">
-            <summary><span class="ep-path">/private-networks</span><span class="ep-count">5 tools</span></summary>
+            <summary><span class="ep-path">/private-networks</span><span class="ep-count">2 tools</span></summary>
             <div class="ep-tools">
-            <code>create_network</code>
-            <code>delete_network</code>
             <code>get_network</code>
             <code>list_networks</code>
-            <code>update_network</code>
             </div>
           </details>
           <details class="ep">
@@ -641,150 +473,94 @@ https://vultrmcp.com/container-registry  # multi-word categories are slugified</
             </div>
           </details>
           <details class="ep">
-            <summary><span class="ep-path">/reserved-ip</span><span class="ep-count">8 tools</span></summary>
+            <summary><span class="ep-path">/reserved-ip</span><span class="ep-count">2 tools</span></summary>
             <div class="ep-tools">
-            <code>attach_reserved_ip</code>
-            <code>convert_reserved_ip</code>
-            <code>create_reserved_ip</code>
-            <code>delete_reserved_ip</code>
-            <code>detach_reserved_ip</code>
             <code>get_reserved_ip</code>
             <code>list_reserved_ips</code>
-            <code>patch_reserved_ips_reserved_ip</code>
             </div>
           </details>
           <details class="ep">
-            <summary><span class="ep-path">/s3</span><span class="ep-count">14 tools</span></summary>
+            <summary><span class="ep-path">/s3</span><span class="ep-count">5 tools</span></summary>
             <div class="ep-tools">
-            <code>create_object_storage</code>
-            <code>create_object_storage_bucket</code>
-            <code>delete_object_storage</code>
-            <code>delete_object_storage_bucket</code>
-            <code>delete_object_storage_bucket_lifecycle_policy</code>
             <code>get_object_storage</code>
             <code>list_object_storage_cluster_tiers</code>
             <code>list_object_storage_clusters</code>
             <code>list_object_storage_tiers</code>
             <code>list_object_storages</code>
-            <code>regenerate_object_storage_keys</code>
-            <code>set_object_storage_bucket_archival</code>
-            <code>set_object_storage_bucket_lifecycle</code>
-            <code>update_object_storage</code>
             </div>
           </details>
           <details class="ep">
-            <summary><span class="ep-path">/serverless-inference</span><span class="ep-count">6 tools</span></summary>
+            <summary><span class="ep-path">/serverless-inference</span><span class="ep-count">3 tools</span></summary>
             <div class="ep-tools">
-            <code>create_inference</code>
-            <code>delete_inference</code>
             <code>get_inference</code>
             <code>get_inference_usage</code>
             <code>list_inference</code>
-            <code>update_inference</code>
             </div>
           </details>
           <details class="ep">
-            <summary><span class="ep-path">/snapshot</span><span class="ep-count">6 tools</span></summary>
+            <summary><span class="ep-path">/snapshot</span><span class="ep-count">2 tools</span></summary>
             <div class="ep-tools">
-            <code>create_snapshot</code>
-            <code>create_snapshot_create_from_url</code>
-            <code>delete_snapshot</code>
             <code>get_snapshot</code>
             <code>list_snapshots</code>
-            <code>put_snapshots_snapshot_id</code>
             </div>
           </details>
           <details class="ep">
-            <summary><span class="ep-path">/ssh</span><span class="ep-count">5 tools</span></summary>
+            <summary><span class="ep-path">/ssh</span><span class="ep-count">2 tools</span></summary>
             <div class="ep-tools">
-            <code>create_ssh_key</code>
-            <code>delete_ssh_key</code>
             <code>get_ssh_key</code>
             <code>list_ssh_keys</code>
-            <code>update_ssh_key</code>
             </div>
           </details>
           <details class="ep">
-            <summary><span class="ep-path">/startup</span><span class="ep-count">5 tools</span></summary>
+            <summary><span class="ep-path">/startup</span><span class="ep-count">2 tools</span></summary>
             <div class="ep-tools">
-            <code>create_startup_script</code>
-            <code>delete_startup_script</code>
             <code>get_startup_script</code>
             <code>list_startup_scripts</code>
-            <code>update_startup_script</code>
             </div>
           </details>
           <details class="ep">
-            <summary><span class="ep-path">/storage-gateways</span><span class="ep-count">7 tools</span></summary>
+            <summary><span class="ep-path">/storage-gateways</span><span class="ep-count">2 tools</span></summary>
             <div class="ep-tools">
-            <code>add_storage_gateway_export</code>
-            <code>create_storage_gateway</code>
-            <code>delete_storage_gateway</code>
-            <code>delete_storage_gateway_export</code>
             <code>get_storage_gateway</code>
             <code>list_storage_gateways</code>
-            <code>update_storage_gateway</code>
             </div>
           </details>
           <details class="ep">
-            <summary><span class="ep-path">/subaccount</span><span class="ep-count">2 tools</span></summary>
+            <summary><span class="ep-path">/subaccount</span><span class="ep-count">1 tool</span></summary>
             <div class="ep-tools">
-            <code>create_subaccount</code>
             <code>list_subaccounts</code>
             </div>
           </details>
           <details class="ep">
-            <summary><span class="ep-path">/tickets</span><span class="ep-count">8 tools</span></summary>
+            <summary><span class="ep-path">/tickets</span><span class="ep-count">4 tools</span></summary>
             <div class="ep-tools">
-            <code>close_ticket</code>
-            <code>create_reply</code>
-            <code>create_ticket</code>
             <code>get_ticket</code>
             <code>get_ticket_reply_attachment</code>
             <code>list_ticket_replies</code>
             <code>list_tickets</code>
-            <code>review_ticket_reply</code>
             </div>
           </details>
           <details class="ep">
-            <summary><span class="ep-path">/vfs</span><span class="ep-count">10 tools</span></summary>
+            <summary><span class="ep-path">/vfs</span><span class="ep-count">5 tools</span></summary>
             <div class="ep-tools">
-            <code>createVFS</code>
-            <code>createVFSAttachment</code>
-            <code>deleteVFS</code>
-            <code>deleteVFSAttachment</code>
             <code>getVFS</code>
             <code>getVFSAttachment</code>
             <code>listRegions</code>
             <code>listVFS</code>
             <code>listVFSAttachments</code>
-            <code>updateVFS</code>
             </div>
           </details>
           <details class="ep">
-            <summary><span class="ep-path">/vpc2</span><span class="ep-count">8 tools</span></summary>
+            <summary><span class="ep-path">/vpc2</span><span class="ep-count">3 tools</span></summary>
             <div class="ep-tools">
-            <code>attach_vpc2_nodes</code>
-            <code>create_vpc2</code>
-            <code>delete_vpc2</code>
-            <code>detach_vpc2_nodes</code>
             <code>get_vpc2</code>
             <code>list_vpc2</code>
             <code>list_vpc2_nodes</code>
-            <code>update_vpc2</code>
             </div>
           </details>
           <details class="ep">
-            <summary><span class="ep-path">/vpcs</span><span class="ep-count">21 tools</span></summary>
+            <summary><span class="ep-path">/vpcs</span><span class="ep-count">9 tools</span></summary>
             <div class="ep-tools">
-            <code>create_nat_gateway</code>
-            <code>create_nat_gateway_firewall_rule</code>
-            <code>create_nat_gateway_port_forwarding_rule</code>
-            <code>create_vpc</code>
-            <code>delete_nat_gateway</code>
-            <code>delete_nat_gateway_firewall_rule</code>
-            <code>delete_nat_gateway_port_forwarding_rule</code>
-            <code>delete_vpc</code>
             <code>get_nat_gateway</code>
             <code>get_nat_gateway_firewall_rule</code>
             <code>get_nat_gateway_port_forwarding_rule</code>
@@ -794,10 +570,6 @@ https://vultrmcp.com/container-registry  # multi-word categories are slugified</
             <code>list_nat_gateways</code>
             <code>list_vpc_attachments</code>
             <code>list_vpcs</code>
-            <code>update_nat_gateway</code>
-            <code>update_nat_gateway_firewall_rule</code>
-            <code>update_nat_gateway_port_forwarding_rule</code>
-            <code>update_vpc</code>
             </div>
           </details>
     </div>
@@ -970,6 +742,9 @@ openclaw mcp login vultr</code></pre>
 
     <h3>Identity tools are excluded</h3>
     <p>API-key, user, IAM, SCIM, organization and OIDC management tools are intentionally not exposed, so an agent can't rotate credentials or alter identity. Manage those in the Vultr console.</p>
+
+    <h3>No write tools yet</h3>
+    <p>The server currently exposes reads only, so an agent can report on your infrastructure but not change it — ask it to create, resize, or delete something and it will tell you it has no tool for that. Provisioning stays in the Vultr console or the API for now. Write tools will arrive as an opt-in you turn on per user within your organization, so the safe surface stays the default for everyone who doesn't.</p>
   </section>
 
   <footer>

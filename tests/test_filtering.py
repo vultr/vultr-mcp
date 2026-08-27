@@ -36,8 +36,9 @@ async def test_default_exclusions_drop_identity_tools():
 
 
 async def test_exclusions_disabled_restores_full_surface():
-    full = await _tool_names(create_server(exclude_categories=set()))
-    trimmed = await _tool_names(create_server())
+    # read_only pinned on both sides so this measures the category gap only.
+    full = await _tool_names(create_server(exclude_categories=set(), read_only=False))
+    trimmed = await _tool_names(create_server(read_only=False))
     assert len(full) > len(trimmed), "disabling exclusions should add tools back"
 
     # ~110-ish identity tools in the excluded categories; sanity-check the gap.

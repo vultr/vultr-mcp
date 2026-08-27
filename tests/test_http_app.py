@@ -92,8 +92,14 @@ async def test_root_serves_landing_page_to_browsers(monkeypatch, spec):
                 assert f"/{slug}" in body, f"landing page missing endpoint /{slug}"
 
             # The expandable tool lists must carry real tool names, not just slugs.
-            for tool_name in ("list_instances", "create_dns_domain", "list_kubernetes_clusters"):
+            for tool_name in ("list_instances", "list_dns_domains", "list_kubernetes_clusters"):
                 assert tool_name in body, f"endpoint accordion missing tool {tool_name!r}"
+
+            # The page must not advertise tools the read-only server won't serve.
+            for write_tool in ("create_dns_domain", "delete_instance", "create_kubernetes_cluster"):
+                assert write_tool not in body, (
+                    f"landing page still lists write tool {write_tool!r}"
+                )
 
             # MCP SSE probe: GET / asking for an event-stream must NOT get docs.
             sse = await hc.get(
@@ -173,6 +179,8 @@ async def test_healthz_and_category_scoping(monkeypatch, spec):
             health = await hc.get(f"http://127.0.0.1:{port}/healthz")
         assert health.status_code == 200
         assert health.json()["service"] == "vultr-mcp-server"
+        # The public deploy must report its write posture, and default to safe.
+        assert health.json()["read_only"] is True
 
         root_names = await _names(port, "/")
         instances_names = await _names(port, "/instances")

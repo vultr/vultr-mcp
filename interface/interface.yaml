@@ -1,0 +1,13 @@
+# Top-level manifest for the Vultr MCP interface layer.
+#
+# The version is what the eval framework pins and reports against, so bump it
+# whenever a definition changes in a way that could move tool-selection scores.
+# openapi.json stays the source of truth for the REST API; this layer only
+# controls what the agent sees.
+
+version: 2026.08.1
+
+schema: schema/interface.schema.json
+
+product_areas:
+  clusters: clusters.yaml

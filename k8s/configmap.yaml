@@ -22,6 +22,10 @@ data:
   # VULTR_OIDC_AUDIENCE: ""
 
   # ---- Tool surface ----
+  # Read-only. Stated explicitly rather than left to the default so the write
+  # posture of this deployment is visible in the manifest, not just in code.
+  # Verify on a live pod with: curl -s https://vultrmcp.com/healthz
+  VULTR_MCP_WRITES_ENABLED: "false"
   # Identity categories excluded by default; empty string disables exclusions.
   # VULTR_MCP_EXCLUDED_CATEGORIES: "api-keys,users,iam,scim,organizations,oidc"
   # Category endpoints to expose (default: all non-excluded). Trim to reduce

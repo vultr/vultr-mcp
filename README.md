@@ -2,7 +2,9 @@
 
 A **Python MCP (Model Context Protocol) server** for the [Vultr](https://www.vultr.com/) cloud platform, built on [FastMCP](https://gofastmcp.com).
 
-Tools are generated directly from the Vultr OpenAPI spec, so AI agents (Claude, Cursor, VS Code, Codex, etc.) can provision and manage Vultr infrastructure in natural language. Supports **local (STDIO)** and **remote (HTTP)** transports, per-request auth, identity-tool exclusions, and token-efficient category endpoints.
+Tools are generated directly from the Vultr OpenAPI spec, so AI agents (Claude, Cursor, VS Code, Codex, etc.) can query Vultr infrastructure in natural language. Supports **local (STDIO)** and **remote (HTTP)** transports, per-request auth, identity-tool exclusions, and token-efficient category endpoints.
+
+> **The tool surface is read-only.** State-changing operations are excluded unless writes are explicitly enabled — see [Read-only by default](#read-only-by-default).
 
 > **v2** is a ground-up rewrite in Python/FastMCP. The original PHP server lives in this repo's git history.
 
@@ -38,6 +40,24 @@ Serves Streamable HTTP on port 8080 (configurable via `SERVER_PORT`), plus `/hea
 
 Tools are generated from `openapi.json` via `FastMCP.from_openapi()` — no hand-written tool code.
 
+### Read-only by default
+
+**The server exposes read operations only.** Every state-changing operation is dropped, so a connected agent can inspect and report on infrastructure but cannot provision, modify, or destroy it — and cannot spend money. That is the posture the hosted server ships with, and it is the *default*, not a setting: writes are opt-in via `VULTR_MCP_WRITES_ENABLED=true`, so a deployment that configures nothing gets the safe surface.
+
+The rule is "GET, plus an explicit allowlist". Everything else is excluded — including Vultr's two `OPTIONS` routes, which mint container-registry Docker credentials despite the verb. The allowlist (`READ_ONLY_METHOD_OVERRIDES` in `server.py`) currently holds one entry: `POST /databases/{database-id}/alerts`, which only lists a database's existing alerts but takes its filter in a request body.
+
+This cuts the root listing from 409 tools / ~265KB to **180 tools / ~75KB** (~19k tokens), which comfortably fits clients that previously choked on the full surface.
+
+Enable writes for local use:
+
+```bash
+VULTR_MCP_WRITES_ENABLED=true uv run python -m vultr_mcp
+```
+
+`GET /healthz` reports the live posture as `"read_only": true|false`, so a deployment's write behaviour is verifiable without listing tools.
+
+> Per-user, per-org write access — a toggle in the Vultr console that promotes a specific user to the write surface — is the planned next step. The env flag is the mechanism it will drive.
+
 ### Excluded categories
 
 Identity and credential-management categories are **excluded by default** so they stay out of agent reach (the same posture as the GitHub/Stripe/DigitalOcean MCPs): `api-keys`, `users`, `iam`, `scim`, `organizations`, `oidc`. Enforcement of these permissions belongs in the IAM policy attached to the OAuth client app; excluding the tools is UX-layer hygiene.
@@ -46,7 +66,7 @@ Override with `VULTR_MCP_EXCLUDED_CATEGORIES` (comma-separated tags; empty strin
 
 ### Category endpoints (token-efficient)
 
-The **root endpoint gives every (non-excluded) tool through a single connection** — best when your client only lets you add one or two MCP servers, so you want everything in one slot. It is still a large listing (409 tools, ~66k tokens); clients with a hard tool cap (VS Code allows 128) need the category endpoints below. Each category also gets its **own endpoint exposing only that category's tools** — for when you have room to add several focused connections and prefer each one scoped:
+The **root endpoint gives every (non-excluded) tool through a single connection** — best when your client only lets you add one or two MCP servers, so you want everything in one slot. At 180 read-only tools (~19k tokens) it now fits most clients, though those with a hard tool cap (VS Code allows 128) still need the category endpoints below. Each category also gets its **own endpoint exposing only that category's tools** — for when you have room to add several focused connections and prefer each one scoped:
 
 ```
 https://vultrmcp.com/                    # all tools
@@ -152,6 +172,7 @@ Two limitations follow:
 | `VULTR_API_BASE_URL` | default `https://api.vultr.com/v2` |
 | `SERVER_HOST` / `SERVER_PORT` | HTTP bind (default `0.0.0.0:8080`) |
 | `SSL_VERIFY` | verify upstream TLS (default `true`) |
+| `VULTR_MCP_WRITES_ENABLED` | expose state-changing tools (default `false` — the surface is read-only) |
 | `VULTR_MCP_EXCLUDED_CATEGORIES` | tags to drop (default identity set; empty disables) |
 | `VULTR_MCP_CATEGORY_ENDPOINTS` | category endpoints to mount (default: all non-excluded) |
 | `VULTR_MCP_OUTPUT_SCHEMAS` | advertise generated `outputSchema` on tools (default `false` — they tripled the tool-listing size without helping agents) |

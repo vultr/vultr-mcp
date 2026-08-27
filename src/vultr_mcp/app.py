@@ -5,9 +5,10 @@ Mirrors the PHP server's path-based tool filtering. A client connects to:
   * ``/`` or ``/mcp``  -> the full (default-excluded) tool surface
   * ``/instances``     -> only the ``instances`` category, etc.
 
-Category endpoints are token-efficient: a client that only manages VPS
-instances loads ~40 tools instead of ~400. The identity exclusions always
-apply on top, so a category endpoint can never expose an excluded tool.
+Category endpoints are token-efficient: a client that only cares about VPS
+instances loads ~15 tools instead of ~180. The identity exclusions and the
+read-only gate always apply on top, so a category endpoint can never expose an
+excluded or state-changing tool.
 
 Build cost is a one-time ~0.1s per mounted category at boot; each app is
 created eagerly so its MCP session-manager lifespan runs at startup (lazy
@@ -32,6 +33,7 @@ from vultr_mcp.server import (
     create_server,
     excluded_categories_from_env,
     load_spec,
+    read_only_from_env,
 )
 
 VERSION = "2.0.1"
@@ -132,6 +134,10 @@ def create_http_app(spec: dict | None = None):
 
     excluded = _resolve_exclusions()
 
+    # Resolved once so every mount — root and categories — shares one posture,
+    # and so /healthz reports the same value the servers were built with.
+    read_only = read_only_from_env()
+
     # OAuthProxy (Phase 4) — built once, shared across root + category servers
     # so every endpoint validates the same Vultr token. None when OIDC is off.
     from vultr_mcp.auth import build_auth
@@ -177,13 +183,19 @@ def create_http_app(spec: dict | None = None):
     # Root ("/") serves the full non-excluded tool surface. Each category is
     # mounted at its slug ("/container-registry") and exposes only that
     # category's tools — for clients with limited MCP slots.
-    root_server = create_server(spec, exclude_categories=excluded, auth=auth)
+    root_server = create_server(
+        spec, exclude_categories=excluded, read_only=read_only, auth=auth
+    )
     root_app = _http(root_server)
 
     mounted: list[tuple[str, object]] = []
     for slug, tag in _category_endpoints(spec, excluded):
         server = create_server(
-            spec, exclude_categories=excluded, only_categories={tag}, auth=auth
+            spec,
+            exclude_categories=excluded,
+            only_categories={tag},
+            read_only=read_only,
+            auth=auth,
         )
         mounted.append((slug, _http(server)))
 
@@ -198,7 +210,15 @@ def create_http_app(spec: dict | None = None):
 
     async def healthz(_request: Request) -> JSONResponse:
         return JSONResponse(
-            {"status": "ok", "service": "vultr-mcp-server", "version": VERSION}
+            {
+                "status": "ok",
+                "service": "vultr-mcp-server",
+                "version": VERSION,
+                # Surfaced so a deploy's write posture is verifiable without
+                # listing tools — the one thing worth catching a misconfigured
+                # VULTR_MCP_WRITES_ENABLED on.
+                "read_only": read_only,
+            }
         )
 
     # Route order matters: health + specific category mounts before the
