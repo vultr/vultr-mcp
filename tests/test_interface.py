@@ -109,7 +109,10 @@ def _scratch_interface(tmp_path: Path, tool: dict) -> Path:
         encoding="utf-8",
     )
     (tmp_path / "clusters.yaml").write_text(
-        yaml.safe_dump({"product_area": "clusters", "tools": [tool]}), encoding="utf-8"
+        yaml.safe_dump(
+            {"product_area": "clusters", "family": "compute", "tools": [tool]}
+        ),
+        encoding="utf-8",
     )
     return tmp_path
 
@@ -242,6 +245,28 @@ def test_required_api_parameter_with_no_input_fails(tmp_path, spec):
     }
     problems = _problems(tmp_path, tool, spec)
     assert any("which no input supplies" in p for p in problems)
+
+
+def test_name_must_carry_the_declared_family(tmp_path, definition, spec):
+    """The family prefix is what stops a name being mistakable for another product.
+
+    vultr_clusters_search reads fine on its own and loses the distinction from
+    VKE clusters, so the file's declared family is enforced rather than trusted.
+    """
+    definition["name"] = "vultr_clusters_search"
+    problems = _problems(tmp_path, definition, spec)
+    assert any("must start with 'vultr_compute_'" in p for p in problems)
+
+
+def test_declared_family_is_required(tmp_path, definition, spec):
+    from vultr_mcp.interface.validator import validate_manifest
+
+    directory = _scratch_interface(tmp_path, definition)
+    document = yaml.safe_load((directory / "clusters.yaml").read_text(encoding="utf-8"))
+    del document["family"]
+    (directory / "clusters.yaml").write_text(yaml.safe_dump(document), encoding="utf-8")
+
+    assert [str(p) for p in validate_manifest(directory, spec)]
 
 
 def test_compile_refuses_an_invalid_layer(tmp_path, definition, spec):

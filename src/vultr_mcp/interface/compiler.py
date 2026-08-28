@@ -109,6 +109,7 @@ class CompiledTool:
     path_template: str
     tags: frozenset[str]
     product_area: str
+    family: str
     input_schema: dict[str, Any]
     parameters: tuple[ParameterPlan, ...] = ()
     filters: tuple[FilterPlan, ...] = ()
@@ -152,7 +153,7 @@ def _input_schema(definition: dict[str, Any]) -> dict[str, Any]:
 
 
 def compile_tool(
-    definition: dict[str, Any], product_area: str, index: SpecIndex
+    definition: dict[str, Any], product_area: str, family: str, index: SpecIndex
 ) -> CompiledTool:
     """Compile one validated tool definition. Assumes validation passed."""
     operation = index.get(definition["operation"])
@@ -235,6 +236,7 @@ def compile_tool(
         path_template=operation.path,
         tags=frozenset(operation.tags),
         product_area=product_area,
+        family=family,
         input_schema=_input_schema(definition),
         parameters=tuple(parameters),
         filters=tuple(filters),
@@ -267,6 +269,6 @@ def compile_interface(
         for definition in document.get("tools", []) or []:
             if not definition.get("enabled", True):
                 continue
-            tools.append(compile_tool(definition, area, index))
+            tools.append(compile_tool(definition, area, document["family"], index))
 
     return CompiledInterface(version=str(manifest["version"]), tools=tuple(tools))

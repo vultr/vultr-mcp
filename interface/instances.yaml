@@ -1,4 +1,5 @@
 product_area: instances
+family: compute
 
 # Vultr calls these "instances"; users call them VPS, servers, VMs, or cloud
 # compute. The generated descriptions ("List all VPS instances in your account.")

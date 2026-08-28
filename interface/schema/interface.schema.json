@@ -4,7 +4,11 @@
   "title": "Vultr MCP product area definition",
   "description": "Format for a product area file such as clusters.yaml. Each file declares the agent-facing tools for one product area. openapi.json stays the source of truth for the HTTP call; this layer controls what the agent sees.",
   "type": "object",
-  "required": ["product_area", "tools"],
+  "required": [
+    "product_area",
+    "family",
+    "tools"
+  ],
   "additionalProperties": false,
   "properties": {
     "product_area": {
@@ -12,17 +16,32 @@
       "description": "Product area slug. Must match the key used in interface.yaml.",
       "pattern": "^[a-z][a-z0-9_]*$"
     },
+    "family": {
+      "type": "string",
+      "description": "Product family this area belongs to, and the second segment of every tool name in the file (family 'compute' means every tool here is named vultr_compute_*). Families group products the way a person thinks about them -- compute covers instances, bare metal, and Compute Clusters -- which is what lets an agent tell vultr_compute_clusters_search from vultr_kubernetes_clusters_search by name alone. It is a human taxonomy: nothing in openapi.json supplies it.",
+      "pattern": "^[a-z][a-z0-9]*$",
+      "maxLength": 24
+    },
     "tools": {
       "type": "array",
       "description": "Every tool this product area exposes. Order is not significant.",
       "minItems": 1,
-      "items": { "$ref": "#/$defs/tool" }
+      "items": {
+        "$ref": "#/$defs/tool"
+      }
     }
   },
   "$defs": {
     "tool": {
       "type": "object",
-      "required": ["name", "access", "enabled", "description", "operation", "input"],
+      "required": [
+        "name",
+        "access",
+        "enabled",
+        "description",
+        "operation",
+        "input"
+      ],
       "additionalProperties": false,
       "properties": {
         "name": {
@@ -32,7 +51,10 @@
           "maxLength": 64
         },
         "access": {
-          "enum": ["read", "write"],
+          "enum": [
+            "read",
+            "write"
+          ],
           "description": "Read/write classification. The server drops write tools unless writes are enabled. This is a declaration, not the enforcement point: the compiler cross-checks it against the operation's HTTP method and fails on a mismatch."
         },
         "enabled": {
@@ -50,59 +72,105 @@
           "description": "operationId from openapi.json. Exactly one per tool.",
           "minLength": 1
         },
-        "input": { "$ref": "#/$defs/input" },
-        "output": { "$ref": "#/$defs/output" },
+        "input": {
+          "$ref": "#/$defs/input"
+        },
+        "output": {
+          "$ref": "#/$defs/output"
+        },
         "computed": {
           "type": "object",
           "description": "Fields added to each result item that the API does not return.",
           "minProperties": 1,
-          "additionalProperties": { "$ref": "#/$defs/computed_field" },
-          "propertyNames": { "pattern": "^[a-z][a-z0-9_]*$" }
+          "additionalProperties": {
+            "$ref": "#/$defs/computed_field"
+          },
+          "propertyNames": {
+            "pattern": "^[a-z][a-z0-9_]*$"
+          }
         }
       }
     },
-
     "input": {
       "type": "object",
       "description": "Agent-facing input schema. A parameter is either passed to the API or applied by the server as a filter; the compiler decides which by checking the operation's declared parameters, and rejects anything it cannot place.",
-      "required": ["type", "properties"],
+      "required": [
+        "type",
+        "properties"
+      ],
       "additionalProperties": false,
       "properties": {
-        "type": { "const": "object" },
+        "type": {
+          "const": "object"
+        },
         "required": {
           "type": "array",
-          "items": { "type": "string" },
+          "items": {
+            "type": "string"
+          },
           "uniqueItems": true
         },
         "properties": {
           "type": "object",
           "minProperties": 1,
-          "additionalProperties": { "$ref": "#/$defs/input_property" },
-          "propertyNames": { "pattern": "^[a-z][a-z0-9_]*$" }
+          "additionalProperties": {
+            "$ref": "#/$defs/input_property"
+          },
+          "propertyNames": {
+            "pattern": "^[a-z][a-z0-9_]*$"
+          }
         }
       }
     },
-
     "input_property": {
       "type": "object",
-      "required": ["type", "description"],
+      "required": [
+        "type",
+        "description"
+      ],
       "additionalProperties": false,
       "properties": {
-        "type": { "enum": ["string", "integer", "number", "boolean", "array"] },
-        "description": { "type": "string", "minLength": 1 },
+        "type": {
+          "enum": [
+            "string",
+            "integer",
+            "number",
+            "boolean",
+            "array"
+          ]
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
         "enum": {
           "type": "array",
           "minItems": 1,
           "uniqueItems": true
         },
         "default": {},
-        "minimum": { "type": "number" },
-        "maximum": { "type": "number" },
+        "minimum": {
+          "type": "number"
+        },
+        "maximum": {
+          "type": "number"
+        },
         "items": {
           "type": "object",
           "description": "Element schema, required when type is array.",
-          "properties": { "type": { "enum": ["string", "integer", "number", "boolean"] } },
-          "required": ["type"],
+          "properties": {
+            "type": {
+              "enum": [
+                "string",
+                "integer",
+                "number",
+                "boolean"
+              ]
+            }
+          },
+          "required": [
+            "type"
+          ],
           "additionalProperties": false
         },
         "maps_to": {
@@ -110,14 +178,18 @@
           "description": "API parameter name when it differs from the agent-facing name, e.g. page_size maps_to per_page. Omit when the names match.",
           "minLength": 1
         },
-        "filter": { "$ref": "#/$defs/filter" }
+        "filter": {
+          "$ref": "#/$defs/filter"
+        }
       }
     },
-
     "filter": {
       "type": "object",
       "description": "Marks a parameter the API cannot accept, applied by the server to the response instead. Filtering happens after the API call, so it interacts with pagination: see the fetch policy in the compiler docs.",
-      "required": ["field", "match"],
+      "required": [
+        "field",
+        "match"
+      ],
       "additionalProperties": false,
       "properties": {
         "field": {
@@ -126,16 +198,22 @@
           "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$"
         },
         "match": {
-          "enum": ["equals", "contains", "contains_ci", "one_of"],
+          "enum": [
+            "equals",
+            "contains",
+            "contains_ci",
+            "one_of"
+          ],
           "description": "equals is exact. contains_ci is case-insensitive substring, the right choice for free-text label search. one_of expects an array input."
         }
       }
     },
-
     "output": {
       "type": "object",
       "description": "Response shaping. Dropping fields the agent does not need is the main lever on token cost.",
-      "required": ["from_openapi"],
+      "required": [
+        "from_openapi"
+      ],
       "additionalProperties": false,
       "properties": {
         "from_openapi": {
@@ -147,18 +225,34 @@
           "description": "Allowlist of fields to keep. Envelope-level keys such as meta are matched at the top level; everything else is matched on each result item. Omit to keep everything.",
           "minItems": 1,
           "uniqueItems": true,
-          "items": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" }
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$"
+          }
         }
       }
     },
-
     "computed_field": {
       "type": "object",
-      "required": ["type", "description", "from"],
+      "required": [
+        "type",
+        "description",
+        "from"
+      ],
       "additionalProperties": false,
       "properties": {
-        "type": { "enum": ["string", "integer", "number", "boolean"] },
-        "description": { "type": "string", "minLength": 1 },
+        "type": {
+          "enum": [
+            "string",
+            "integer",
+            "number",
+            "boolean"
+          ]
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
         "from": {
           "type": "string",
           "description": "How the value is derived, in a deliberately tiny closed grammar so the compiler can validate it exhaustively and reject anything invented. Supported forms: a dotted path (instances), length(<path>), sum(<path>.<field>), any(<path>), coalesce(<path>, <path>). Unknown functions fail the build.",

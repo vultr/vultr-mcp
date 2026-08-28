@@ -1,4 +1,5 @@
 product_area: clusters
+family: compute
 
 tools:
   - name: vultr_compute_clusters_search

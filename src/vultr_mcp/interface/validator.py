@@ -255,6 +255,7 @@ def validate_product_area(
     if problems:
         return problems
 
+    family = document["family"]
     seen: set[str] = set()
     for position, tool in enumerate(document["tools"]):
         name = tool["name"]
@@ -262,6 +263,18 @@ def validate_product_area(
         if name in seen:
             problems.append(Problem(location, "duplicate tool name in this file"))
         seen.add(name)
+
+        # The family prefix is the agent's first signal, and the reason
+        # vultr_compute_clusters_search cannot be mistaken for a VKE tool. A
+        # name that drops it looks fine in isolation and quietly costs that
+        # distinction, so the file's declared family is enforced rather than
+        # trusted.
+        prefix = f"vultr_{family}_"
+        if not name.startswith(prefix):
+            problems.append(
+                Problem(location, f"name must start with '{prefix}' (family: {family})")
+            )
+
         problems.extend(validate_tool(tool, index, location))
 
     return problems
