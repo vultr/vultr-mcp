@@ -305,6 +305,58 @@ def test_the_same_problem_is_fatal_once_the_tool_is_enabled(tmp_path, definition
         compile_interface(directory, spec)
 
 
+async def test_declining_an_operation_does_not_hide_its_generated_tool():
+    """Declining is bookkeeping for drift reports, not suppression.
+
+    interface/instances.yaml declines the ipv4/ipv6 operations because
+    vultr_compute_instances_get already answers them. That decision must not
+    quietly remove capability from the served surface.
+    """
+    names = await _tool_names(create_server())
+    assert "get_instance_ipv4" in names
+    assert "get_instance_ipv6" in names
+
+
+def test_declined_operations_are_compiled_with_their_reasons(compiled):
+    declined = {entry.operation_id: entry for entry in compiled.declined}
+    assert "get-instance-ipv4" in declined
+    assert declined["get-instance-ipv4"].product_area == "instances"
+    # The reason is for whoever revisits the decision, so it has to say why.
+    assert "instances_get" in declined["get-instance-ipv4"].reason
+
+
+def test_a_stale_decline_warns_without_failing(tmp_path, definition, spec):
+    from vultr_mcp.interface.validator import validate_manifest
+
+    directory = _scratch_interface(tmp_path, definition)
+    document = yaml.safe_load((directory / "clusters.yaml").read_text(encoding="utf-8"))
+    document["declined"] = {
+        "get-cluster-that-was-removed": {
+            "reason": "Recorded before the operation disappeared from the spec."
+        }
+    }
+    (directory / "clusters.yaml").write_text(yaml.safe_dump(document), encoding="utf-8")
+
+    problems = validate_manifest(directory, spec)
+    assert any("the decision is stale" in str(p) for p in problems)
+    assert not [p for p in problems if p.is_error]
+
+
+def test_declining_an_operation_that_also_has_a_tool_fails(tmp_path, definition, spec):
+    from vultr_mcp.interface.validator import validate_manifest
+
+    directory = _scratch_interface(tmp_path, definition)
+    document = yaml.safe_load((directory / "clusters.yaml").read_text(encoding="utf-8"))
+    document["declined"] = {
+        "list-clusters": {"reason": "Contradicts the tool defined in this same file."}
+    }
+    (directory / "clusters.yaml").write_text(yaml.safe_dump(document), encoding="utf-8")
+
+    problems = validate_manifest(directory, spec)
+    assert any("also has a tool" in str(p) for p in problems)
+    assert [p for p in problems if p.is_error]
+
+
 def test_compile_refuses_an_invalid_layer(tmp_path, definition, spec):
     definition["operation"] = "list-clusters-v2"
     directory = _scratch_interface(tmp_path, definition)

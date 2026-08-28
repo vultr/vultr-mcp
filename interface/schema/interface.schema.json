@@ -29,6 +29,17 @@
       "items": {
         "$ref": "#/$defs/tool"
       }
+    },
+    "declined": {
+      "type": "object",
+      "description": "Operations in this product area that were reviewed and deliberately left without a hand-authored tool, keyed by operationId. Declining is bookkeeping, not suppression: the generated tool stays exposed. Its purpose is to let drift detection tell 'we looked and said no' apart from 'nobody has looked yet', so a report of new endpoints stays small enough to be read.",
+      "minProperties": 1,
+      "additionalProperties": {
+        "$ref": "#/$defs/declined_operation"
+      },
+      "propertyNames": {
+        "pattern": "^[a-zA-Z0-9._-]+$"
+      }
     }
   },
   "$defs": {
@@ -257,6 +268,20 @@
           "type": "string",
           "description": "How the value is derived, in a deliberately tiny closed grammar so the compiler can validate it exhaustively and reject anything invented. Supported forms: a dotted path (instances), length(<path>), sum(<path>.<field>), any(<path>), coalesce(<path>, <path>). Unknown functions fail the build.",
           "pattern": "^(length|sum|any|coalesce)\\([a-z][a-z0-9_.]*(\\s*,\\s*[a-z][a-z0-9_.]*)*\\)$|^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$"
+        }
+      }
+    },
+    "declined_operation": {
+      "type": "object",
+      "required": [
+        "reason"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "reason": {
+          "type": "string",
+          "description": "Why this operation does not need a tool of its own. Written for whoever revisits the decision, so 'the get tool already returns these fields' rather than 'not needed'.",
+          "minLength": 20
         }
       }
     }

@@ -277,6 +277,40 @@ def validate_product_area(
         return problems
 
     family = document["family"]
+    product_area = document["product_area"]
+    declined = document.get("declined") or {}
+    tool_operations = {tool["operation"] for tool in document["tools"]}
+
+    # Declined operations are reviewed decisions, not served tools, so a stale
+    # one cannot mislead an agent -- it can only mislead the next person, and
+    # skew a drift report. Warnings, except where it contradicts a live tool.
+    for operation_id in declined:
+        location = f"{where}.declined.{operation_id}"
+        operation = index.get(operation_id)
+        if operation is None:
+            problems.append(
+                Problem(
+                    location,
+                    f"'{operation_id}' is not in openapi.json; the decision is stale",
+                    "warning",
+                )
+            )
+            continue
+        if operation_id in tool_operations:
+            problems.append(
+                Problem(location, "is declined but also has a tool in this file")
+            )
+        if product_area not in operation.tags:
+            problems.append(
+                Problem(
+                    location,
+                    f"is tagged {', '.join(operation.tags) or '(untagged)'} in "
+                    f"openapi.json, not '{product_area}'; declining it here leaves "
+                    "it unreviewed where it actually belongs",
+                    "warning",
+                )
+            )
+
     seen: set[str] = set()
     for position, tool in enumerate(document["tools"]):
         name = tool["name"]

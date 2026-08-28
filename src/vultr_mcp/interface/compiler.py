@@ -137,11 +137,27 @@ class CompiledTool:
 
 
 @dataclass(frozen=True)
+class DeclinedOperation:
+    """An operation reviewed and deliberately left without a tool.
+
+    Declining changes nothing about the served surface -- the generated tool
+    stays. It exists so that drift detection can tell an operation nobody has
+    looked at from one somebody decided about, which is the difference between
+    a report worth reading and a list of thirteen intentional omissions.
+    """
+
+    operation_id: str
+    product_area: str
+    reason: str
+
+
+@dataclass(frozen=True)
 class CompiledInterface:
     """The whole layer: its version, its tools, and what they replace."""
 
     version: str
     tools: tuple[CompiledTool, ...] = ()
+    declined: tuple[DeclinedOperation, ...] = ()
 
 
 def _input_schema(definition: dict[str, Any]) -> dict[str, Any]:
@@ -271,11 +287,24 @@ def compile_interface(
     index = SpecIndex.load(spec)
 
     tools: list[CompiledTool] = []
+    declined: list[DeclinedOperation] = []
     for area, filename in (manifest.get("product_areas") or {}).items():
         document = yaml.safe_load((interface_dir / filename).read_text(encoding="utf-8"))
         for definition in document.get("tools", []) or []:
             if not definition.get("enabled", True):
                 continue
             tools.append(compile_tool(definition, area, document["family"], index))
+        for operation_id, entry in (document.get("declined") or {}).items():
+            declined.append(
+                DeclinedOperation(
+                    operation_id=operation_id,
+                    product_area=area,
+                    reason=entry["reason"].strip(),
+                )
+            )
 
-    return CompiledInterface(version=str(manifest["version"]), tools=tuple(tools))
+    return CompiledInterface(
+        version=str(manifest["version"]),
+        tools=tuple(tools),
+        declined=tuple(declined),
+    )

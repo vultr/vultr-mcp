@@ -13,6 +13,27 @@ family: compute
 # tools. Neither is needed to answer a question about infrastructure, and an
 # agent that reads one can be induced to repeat it.
 
+# Reviewed and left to the generated surface. Declining does not hide anything:
+# get_instance_ipv4 and friends are still exposed. It records that somebody
+# looked, so a report of new endpoints in this area is one line rather than a
+# dozen decisions repeated back. The remaining read operations here --
+# bandwidth, upgrades, backup-schedule, vpcs, user-data, neighbors, jobs --
+# are deliberately absent from this list: they are candidates nobody has
+# assessed yet, which is a different thing from a decision.
+declined:
+  get-instance-ipv4:
+    reason: >-
+      vultr_compute_instances_get already returns main_ip, netmask_v4, and
+      gateway_v4, which is the whole of what this operation adds for an agent.
+  get-instance-ipv6:
+    reason: >-
+      vultr_compute_instances_get already returns v6_networks, so a separate
+      tool would be a second name for the same answer.
+  list-instance-ipv6-reverse:
+    reason: >-
+      Reverse DNS entries are a DNS concern rather than an instance one, and
+      belong with the dns product area if they are ever worth a tool.
+
 tools:
   - name: vultr_compute_instances_search
     access: read
