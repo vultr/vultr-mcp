@@ -51,10 +51,34 @@ def _scaffold(args) -> int:
             file=sys.stderr,
         )
     print(
-        "every tool is enabled: false and every description is a stub — review "
+        "every tool is enabled: false and every description is a stub; review "
         "before enabling",
         file=sys.stderr,
     )
+    return 0
+
+
+def _drift(args) -> int:
+    """Report unreviewed operations in covered areas.
+
+    A new endpoint appearing upstream is news, not a failure -- breaking the
+    build over someone else's release is how a check like this gets switched
+    off. Stale references are different: those mean the layer is pointing at
+    something that no longer exists. CI that wants the strict gate can ask for
+    it with --fail-on-unreviewed.
+    """
+    import json
+
+    from vultr_mcp.interface.drift import detect_drift, format_report
+
+    spec = json.loads(args.spec.read_text(encoding="utf-8"))
+    report = detect_drift(args.interface_dir, spec)
+    print(format_report(report, show_writes=args.writes))
+
+    if report.stale:
+        return 1
+    if args.fail_on_unreviewed and not report.is_clean:
+        return 1
     return 0
 
 
@@ -80,10 +104,24 @@ def main(argv: list[str] | None = None) -> int:
         "--family", default="compute",
         help="product family for scaffolded tool names (default: compute)",
     )
+    parser.add_argument(
+        "--drift", action="store_true",
+        help="report operations in covered product areas that nobody has reviewed",
+    )
+    parser.add_argument(
+        "--writes", action="store_true",
+        help="with --drift, list unreviewed write operations too",
+    )
+    parser.add_argument(
+        "--fail-on-unreviewed", action="store_true",
+        help="with --drift, exit non-zero when anything is unreviewed (for CI)",
+    )
     args = parser.parse_args(argv)
 
     if args.scaffold:
         return _scaffold(args)
+    if args.drift:
+        return _drift(args)
 
     problems = validate_manifest(args.interface_dir, args.spec)
     fatal = [problem for problem in problems if problem.is_error]

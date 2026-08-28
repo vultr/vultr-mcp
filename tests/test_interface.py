@@ -788,6 +788,110 @@ def test_descriptions_with_yaml_metacharacters_survive(index):
 
 
 # --------------------------------------------------------------------------
+# Drift: what the spec grew that nobody has looked at.
+# --------------------------------------------------------------------------
+
+
+def test_drift_reports_only_covered_areas(spec):
+    """A report over the whole spec would say 519 uncovered, which is noise."""
+    from vultr_mcp.interface.drift import detect_drift
+
+    report = detect_drift(INTERFACE_DIR, spec)
+    assert {area.product_area for area in report.areas} == {"clusters", "instances"}
+
+
+def test_declined_operations_are_not_reported_as_unreviewed(spec):
+    """The whole reason the declined marker exists.
+
+    instances has 15 read operations, 2 served and 3 declined. A report that
+    listed all 13 remaining would bury anything genuinely new.
+    """
+    from vultr_mcp.interface.drift import detect_drift
+
+    report = detect_drift(INTERFACE_DIR, spec)
+    instances = next(a for a in report.areas if a.product_area == "instances")
+
+    unreviewed = {ref.operation_id for ref in instances.unreviewed_reads}
+    assert instances.declined == 3
+    assert len(unreviewed) == 10
+    for declined in ("get-instance-ipv4", "get-instance-ipv6", "list-instance-ipv6-reverse"):
+        assert declined not in unreviewed
+
+
+def test_a_new_operation_in_a_covered_area_is_reported(tmp_path, definition, spec):
+    from vultr_mcp.interface.drift import detect_drift
+
+    directory = _scratch_interface(tmp_path, definition)
+    report = detect_drift(directory, spec)
+    clusters = next(a for a in report.areas if a.product_area == "clusters")
+
+    assert clusters.served == 1
+    # Everything else carrying the clusters tag is unreviewed, by definition.
+    assert {ref.operation_id for ref in clusters.unreviewed_reads} == {
+        "get-cluster",
+        "get-cluster-availability",
+        "get-cluster-metrics",
+    }
+    assert not report.is_clean
+
+
+def test_a_drafted_tool_counts_as_reviewed_not_unreviewed(tmp_path, definition, spec):
+    """A scaffolded draft is somebody's work in progress, not a blind spot."""
+    from vultr_mcp.interface.drift import detect_drift
+
+    draft = copy.deepcopy(definition)
+    draft["name"] = "vultr_compute_clusters_get"
+    draft["operation"] = "get-cluster"
+    draft["enabled"] = False
+    draft["input"] = {
+        "type": "object",
+        "required": ["cluster_id"],
+        "properties": {
+            "cluster_id": {
+                "type": "string",
+                "description": "ID of the cluster.",
+                "maps_to": "cluster-id",
+            }
+        },
+    }
+    draft.pop("output", None)
+    draft.pop("computed", None)
+
+    directory = _scratch_interface(tmp_path, [definition, draft])
+    clusters = next(
+        a for a in detect_drift(directory, spec).areas if a.product_area == "clusters"
+    )
+
+    assert clusters.served == 1
+    assert clusters.drafted == 1
+    assert "get-cluster" not in {ref.operation_id for ref in clusters.unreviewed_reads}
+
+
+def test_a_stale_reference_is_reported_as_stale(tmp_path, definition, spec):
+    from vultr_mcp.interface.drift import detect_drift
+
+    definition["operation"] = "list-clusters-that-no-longer-exists"
+    directory = _scratch_interface(tmp_path, definition)
+    report = detect_drift(directory, spec)
+
+    assert report.stale == 1
+    clusters = next(a for a in report.areas if a.product_area == "clusters")
+    assert clusters.stale == ("list-clusters-that-no-longer-exists",)
+
+
+def test_writes_are_counted_separately_from_reads(spec):
+    """Read-only is the shipped posture, so an unreviewed write is not urgent."""
+    from vultr_mcp.interface.drift import detect_drift, format_report
+
+    report = detect_drift(INTERFACE_DIR, spec)
+    assert report.unreviewed_writes > report.unreviewed_reads
+
+    quiet = format_report(report)
+    assert "create-instance" not in quiet
+    assert "create-instance" in format_report(report, show_writes=True)
+
+
+# --------------------------------------------------------------------------
 # Wiring: the interface tool replaces the generated one.
 # --------------------------------------------------------------------------
 

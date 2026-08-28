@@ -78,6 +78,14 @@ uv run python -m vultr_mcp.interface --scaffold instances > interface/instances.
 
 Every drafted tool is `enabled: false` with a stub description, because the part that makes a tool worth having (say what it is for, and explicitly what it is *not* for) is the part no generator can write. Fields whose names look like credentials — `default_password`, `s3_secret_key`, the noVNC console link — are commented *out* of `output.include` rather than into it, so returning one is always a deliberate act.
 
+Once an area is covered, the layer can tell you what the spec grew that nobody has looked at:
+
+```bash
+uv run python -m vultr_mcp.interface --drift
+```
+
+It reports only *covered* areas, and only operations that are neither served, drafted, nor explicitly declined — so a new endpoint shows up as one line rather than being buried under the dozen omissions that were deliberate. New endpoints are news rather than a build failure, so this exits 0; a reference to an operation the spec no longer has exits non-zero, and CI that wants the stricter gate can pass `--fail-on-unreviewed`.
+
 Because these tools filter client-side, a filtered search pages through the collection itself (up to `VULTR_MCP_INTERFACE_MAX_PAGES` requests) and reports what it scanned in `meta.filtered`, so a count is never quietly taken from a partial scan. Set `VULTR_MCP_INTERFACE=off` to serve the generated surface alone.
 
 ### Read-only by default
