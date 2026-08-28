@@ -319,10 +319,10 @@ async def test_declining_an_operation_does_not_hide_its_generated_tool():
 
 def test_declined_operations_are_compiled_with_their_reasons(compiled):
     declined = {entry.operation_id: entry for entry in compiled.declined}
-    assert "get-instance-ipv4" in declined
-    assert declined["get-instance-ipv4"].product_area == "instances"
+    assert "get-instance-ipv6" in declined
+    assert declined["get-instance-ipv6"].product_area == "instances"
     # The reason is for whoever revisits the decision, so it has to say why.
-    assert "instances_get" in declined["get-instance-ipv4"].reason
+    assert "v6_networks" in declined["get-instance-ipv6"].reason
 
 
 def test_a_stale_decline_warns_without_failing(tmp_path, definition, spec):
@@ -803,7 +803,7 @@ def test_drift_reports_only_covered_areas(spec):
 def test_declined_operations_are_not_reported_as_unreviewed(spec):
     """The whole reason the declined marker exists.
 
-    instances has 15 read operations, 2 served and 3 declined. A report that
+    instances has 15 read operations, 2 served and 2 declined. A report that
     listed all 13 remaining would bury anything genuinely new.
     """
     from vultr_mcp.interface.drift import detect_drift
@@ -812,10 +812,13 @@ def test_declined_operations_are_not_reported_as_unreviewed(spec):
     instances = next(a for a in report.areas if a.product_area == "instances")
 
     unreviewed = {ref.operation_id for ref in instances.unreviewed_reads}
-    assert instances.declined == 3
-    assert len(unreviewed) == 10
-    for declined in ("get-instance-ipv4", "get-instance-ipv6", "list-instance-ipv6-reverse"):
+    assert instances.declined == 2
+    assert len(unreviewed) == 11
+    for declined in ("get-instance-ipv6", "list-instance-ipv6-reverse"):
         assert declined not in unreviewed
+    # ipv4 is NOT declined: it returns every address on the instance, where the
+    # instance object carries only main_ip.
+    assert "get-instance-ipv4" in unreviewed
 
 
 def test_a_new_operation_in_a_covered_area_is_reported(tmp_path, definition, spec):
