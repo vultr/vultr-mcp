@@ -34,11 +34,20 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     problems = validate_manifest(args.interface_dir, args.spec)
-    for problem in problems:
+    fatal = [problem for problem in problems if problem.is_error]
+    warnings = [problem for problem in problems if not problem.is_error]
+
+    for problem in fatal + warnings:
         print(problem, file=sys.stderr)
-    if problems:
-        print(f"\n{len(problems)} problem(s)", file=sys.stderr)
+    if fatal:
+        print(
+            f"\n{len(fatal)} error(s), {len(warnings)} warning(s)", file=sys.stderr
+        )
         return 1
+    if warnings:
+        # Disabled tools only. Worth seeing on every run, since a draft nobody
+        # looks at is how drift gets in, but never a reason to fail a build.
+        print(f"\n{len(warnings)} warning(s) on disabled tools", file=sys.stderr)
 
     import json
 

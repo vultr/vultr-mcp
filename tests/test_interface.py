@@ -89,8 +89,9 @@ def test_shipped_interface_validates(spec):
     assert problems == [], "\n".join(str(problem) for problem in problems)
 
 
-def _scratch_interface(tmp_path: Path, tool: dict) -> Path:
-    """A one-tool interface directory, sharing the real schema file."""
+def _scratch_interface(tmp_path: Path, tool: dict | list) -> Path:
+    """A scratch interface directory, sharing the real schema file."""
+    tools = tool if isinstance(tool, list) else [tool]
     schema = json.loads(
         (INTERFACE_DIR / "schema" / "interface.schema.json").read_text(encoding="utf-8")
     )
@@ -110,7 +111,7 @@ def _scratch_interface(tmp_path: Path, tool: dict) -> Path:
     )
     (tmp_path / "clusters.yaml").write_text(
         yaml.safe_dump(
-            {"product_area": "clusters", "family": "compute", "tools": [tool]}
+            {"product_area": "clusters", "family": "compute", "tools": tools}
         ),
         encoding="utf-8",
     )
@@ -267,6 +268,41 @@ def test_declared_family_is_required(tmp_path, definition, spec):
     (directory / "clusters.yaml").write_text(yaml.safe_dump(document), encoding="utf-8")
 
     assert [str(p) for p in validate_manifest(directory, spec)]
+
+
+def test_a_broken_disabled_tool_warns_rather_than_failing(tmp_path, definition, spec):
+    """A draft must not be able to stop the server from starting.
+
+    Scaffolded definitions land disabled and unreviewed. They are never
+    registered, so their problems cannot reach an agent -- but they are still
+    reported, because a draft nobody looks at is how drift gets in.
+    """
+    from vultr_mcp.interface.validator import validate_manifest
+
+    draft = copy.deepcopy(definition)
+    draft["name"] = "vultr_compute_clusters_draft"
+    draft["operation"] = "list-clusters-v2-does-not-exist"
+    draft["enabled"] = False
+
+    directory = _scratch_interface(tmp_path, [definition, draft])
+    problems = validate_manifest(directory, spec)
+
+    assert [p for p in problems if not p.is_error], "the draft should be reported"
+    assert not [p for p in problems if p.is_error], "but not as a build failure"
+
+    compiled = compile_interface(directory, spec)
+    assert [tool.name for tool in compiled.tools] == ["vultr_compute_clusters_search"]
+
+
+def test_the_same_problem_is_fatal_once_the_tool_is_enabled(tmp_path, definition, spec):
+    draft = copy.deepcopy(definition)
+    draft["name"] = "vultr_compute_clusters_draft"
+    draft["operation"] = "list-clusters-v2-does-not-exist"
+    draft["enabled"] = True
+
+    directory = _scratch_interface(tmp_path, [definition, draft])
+    with pytest.raises(InterfaceError):
+        compile_interface(directory, spec)
 
 
 def test_compile_refuses_an_invalid_layer(tmp_path, definition, spec):

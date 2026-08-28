@@ -22,7 +22,12 @@ import yaml
 from vultr_mcp.interface import expressions
 from vultr_mcp.interface.expressions import Expression
 from vultr_mcp.interface.spec_index import SpecIndex
-from vultr_mcp.interface.validator import Problem, load_manifest, validate_manifest
+from vultr_mcp.interface.validator import (
+    Problem,
+    errors,
+    load_manifest,
+    validate_manifest,
+)
 
 # Keys the layer adds to an input property that are instructions to the
 # compiler, not part of the JSON Schema the agent sees.
@@ -256,9 +261,11 @@ def compile_interface(
     a partial version of it silently is worse than not starting.
     """
     if validate:
-        problems = validate_manifest(interface_dir, spec)
-        if problems:
-            raise InterfaceError(problems)
+        # Only errors stop the build. Warnings belong to disabled tools, which
+        # are never registered -- see Problem.severity.
+        fatal = errors(validate_manifest(interface_dir, spec))
+        if fatal:
+            raise InterfaceError(fatal)
 
     manifest = load_manifest(interface_dir)
     index = SpecIndex.load(spec)

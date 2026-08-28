@@ -31,13 +31,34 @@ SUPPORTED_PARAMETER_LOCATIONS = frozenset({"query", "path"})
 
 @dataclass
 class Problem:
-    """One validation failure, located precisely enough to fix without hunting."""
+    """One validation failure, located precisely enough to fix without hunting.
+
+    Severity is about whether the tool is *served*, not about how bad the
+    problem is. A disabled tool is not registered, so its problems cannot
+    reach an agent -- failing the build over one would mean a scaffolded draft
+    could stop the server from starting. They are still reported, because a
+    draft nobody can see is exactly the kind of thing that rots.
+    """
 
     where: str
     message: str
+    severity: str = "error"
+
+    @property
+    def is_error(self) -> bool:
+        return self.severity == "error"
+
+    def as_warning(self) -> "Problem":
+        return Problem(self.where, self.message, "warning")
 
     def __str__(self) -> str:
-        return f"{self.where}: {self.message}"
+        prefix = "" if self.is_error else "warning: "
+        return f"{prefix}{self.where}: {self.message}"
+
+
+def errors(problems: list[Problem]) -> list[Problem]:
+    """Just the problems that must stop a build."""
+    return [problem for problem in problems if problem.is_error]
 
 
 def _check_access(tool: dict[str, Any], operation: Operation, where: str) -> list[Problem]:
@@ -260,8 +281,14 @@ def validate_product_area(
     for position, tool in enumerate(document["tools"]):
         name = tool["name"]
         location = f"{where}.tools[{position}] ({name})"
+        # Everything found on a disabled tool is reported as a warning: it is
+        # never registered, so it cannot mislead an agent, and a draft must not
+        # be able to stop the server from starting.
+        served = tool.get("enabled", True)
+        found: list[Problem] = []
+
         if name in seen:
-            problems.append(Problem(location, "duplicate tool name in this file"))
+            found.append(Problem(location, "duplicate tool name in this file"))
         seen.add(name)
 
         # The family prefix is the agent's first signal, and the reason
@@ -271,11 +298,14 @@ def validate_product_area(
         # trusted.
         prefix = f"vultr_{family}_"
         if not name.startswith(prefix):
-            problems.append(
+            found.append(
                 Problem(location, f"name must start with '{prefix}' (family: {family})")
             )
 
-        problems.extend(validate_tool(tool, index, location))
+        found.extend(validate_tool(tool, index, location))
+        problems.extend(
+            found if served else [problem.as_warning() for problem in found]
+        )
 
     return problems
 
