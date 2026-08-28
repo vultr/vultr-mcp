@@ -43,8 +43,15 @@ VULTR_API_BASE = os.environ.get("VULTR_API_BASE_URL", "https://api.vultr.com/v2"
 #
 # These are OpenAPI *tags*, matched by RouteMap. Override with
 # VULTR_MCP_EXCLUDED_CATEGORIES (comma-separated tags; empty string disables).
+#
+# `oauth` joined this list with the 2026-08-28 spec, which added 24 OAuth
+# client-management operations. It is the sibling of `oidc`, already excluded:
+# the tools list a customer's OAuth clients, their scopes, and their user
+# authorizations, and the write half mints and regenerates client secrets.
+# Read-only mode drops the writes, but the exclusion is what keeps them out
+# when writes are enabled rather than relying on that.
 DEFAULT_EXCLUDED_CATEGORIES = frozenset(
-    {"api-keys", "users", "iam", "scim", "organizations", "oidc"}
+    {"api-keys", "users", "iam", "scim", "organizations", "oidc", "oauth"}
 )
 
 # Read-only mode (the default) exposes only operations that cannot change
@@ -138,17 +145,37 @@ def load_spec(path: str | Path | None = None) -> dict:
         return sanitize_spec(json.load(fh))
 
 
+# Programming-language type names that appear where JSON Schema types belong.
+# Keyed by alias rather than by "is this valid", because
+# `securitySchemes.type: http` is a perfectly legal non-schema type and must
+# survive untouched.
+TYPE_ALIASES = {
+    "int": "integer",
+    "bool": "boolean",
+    "float": "number",
+    # The enum values live in the description; the author meant a string.
+    "enum": "string",
+}
+
+# Keys whose contents are sample payloads, not schemas. A startup script whose
+# `type` is "pxe" is data, and rewriting it would corrupt the examples.
+EXAMPLE_KEYS = frozenset({"example", "examples", "x-examples", "x-codeSamples"})
+
+
 def sanitize_spec(spec: dict) -> dict:
     """Fix spec-validity defects in Vultr's published openapi.json.
 
     FastMCP's parser enforces the OpenAPI schema strictly (the old PHP
-    generator was lenient, which is how these shipped unnoticed). Three
+    generator was lenient, which is how these shipped unnoticed). Four
     defect classes exist in the current spec — all reported upstream:
 
     1. Response objects missing the REQUIRED ``description`` field
        (e.g. GET /storage-gateways 200).
-    2. ``"type": "enum"`` — not a valid JSON-Schema type; the author meant
-       ``"type": "string"`` (the enum values live in the description).
+    2. Programming-language type names where JSON Schema types belong:
+       ``"type": "enum"``, and as of the 2026-08-28 spec ``"int"`` and
+       ``"bool"`` in the new marketplace and audit-log operations. These
+       appear in ``paths`` as well as ``components``, so the whole document
+       is walked.
     3. ``components.parameters.vcr_region`` missing ``name``/``in`` — it is
        the ``{region}`` path parameter of
        /registry/{registry-id}/replication/{region}.
@@ -162,18 +189,21 @@ def sanitize_spec(spec: dict) -> dict:
                 if isinstance(response, dict) and "$ref" not in response:
                     response.setdefault("description", "")
 
-    # (2) "type": "enum" → "type": "string" (recursive)
-    def fix_enum_type(node: object) -> None:
+    # (2) programming-language type names → JSON Schema types, everywhere but
+    # inside example payloads.
+    def fix_type_aliases(node: object) -> None:
         if isinstance(node, dict):
-            if node.get("type") == "enum":
-                node["type"] = "string"
-            for value in node.values():
-                fix_enum_type(value)
+            declared = node.get("type")
+            if isinstance(declared, str) and declared in TYPE_ALIASES:
+                node["type"] = TYPE_ALIASES[declared]
+            for key, value in node.items():
+                if key not in EXAMPLE_KEYS:
+                    fix_type_aliases(value)
         elif isinstance(node, list):
             for item in node:
-                fix_enum_type(item)
+                fix_type_aliases(item)
 
-    fix_enum_type(spec.get("components", {}).get("schemas", {}))
+    fix_type_aliases(spec)
 
     # (3) parameters missing `in` — vcr_region is the {region} path param
     for pname, param in spec.get("components", {}).get("parameters", {}).items():

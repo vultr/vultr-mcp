@@ -19,6 +19,7 @@ import yaml
 from fastmcp import Client
 
 from vultr_mcp.interface import runtime
+from vultr_mcp.interface.scaffold import _snake
 from vultr_mcp.interface.compiler import InterfaceError, compile_interface
 from vultr_mcp.interface.tools import InterfaceTool
 from vultr_mcp.server import create_server, load_spec
@@ -803,8 +804,10 @@ def test_drift_reports_only_covered_areas(spec):
 def test_declined_operations_are_not_reported_as_unreviewed(spec):
     """The whole reason the declined marker exists.
 
-    instances has 15 read operations, 2 served and 2 declined. A report that
-    listed all 13 remaining would bury anything genuinely new.
+    A report listing every operation somebody already decided about would bury
+    anything genuinely new. The exact counts belong to the spec and are free to
+    change; what must hold is that a decline keeps an operation out of the
+    report and a non-decline does not.
     """
     from vultr_mcp.interface.drift import detect_drift
 
@@ -812,12 +815,15 @@ def test_declined_operations_are_not_reported_as_unreviewed(spec):
     instances = next(a for a in report.areas if a.product_area == "instances")
 
     unreviewed = {ref.operation_id for ref in instances.unreviewed_reads}
-    assert instances.declined == 2
-    assert len(unreviewed) == 11
-    for declined in ("get-instance-ipv6", "list-instance-ipv6-reverse"):
-        assert declined not in unreviewed
-    # ipv4 is NOT declined: it returns every address on the instance, where the
-    # instance object carries only main_ip.
+    declared = yaml.safe_load(
+        (INTERFACE_DIR / "instances.yaml").read_text(encoding="utf-8")
+    )["declined"]
+
+    assert instances.declined == len(declared)
+    for operation_id in declared:
+        assert operation_id not in unreviewed
+    # ipv4 is deliberately NOT declined: it returns every address on the
+    # instance, where the instance object carries only main_ip.
     assert "get-instance-ipv4" in unreviewed
 
 
@@ -830,11 +836,11 @@ def test_a_new_operation_in_a_covered_area_is_reported(tmp_path, definition, spe
 
     assert clusters.served == 1
     # Everything else carrying the clusters tag is unreviewed, by definition.
-    assert {ref.operation_id for ref in clusters.unreviewed_reads} == {
-        "get-cluster",
-        "get-cluster-availability",
-        "get-cluster-metrics",
-    }
+    # Named rather than enumerated: the spec may add more, and that is the
+    # report doing its job rather than a test breaking.
+    unreviewed = {ref.operation_id for ref in clusters.unreviewed_reads}
+    assert "get-cluster" in unreviewed
+    assert "list-clusters" not in unreviewed, "the served operation must be excluded"
     assert not report.is_clean
 
 
@@ -882,38 +888,60 @@ def test_a_stale_reference_is_reported_as_stale(tmp_path, definition, spec):
     assert clusters.stale == ("list-clusters-that-no-longer-exists",)
 
 
-def test_deprecated_operations_are_flagged_as_decline_candidates(spec):
-    """The spec marks 23 operations deprecated, so the claim is not ours to make."""
+def test_deprecated_operations_are_flagged_as_decline_candidates(spec, index):
+    """Deprecation is the spec's claim, not ours, so the report should surface it.
+
+    Which operations are deprecated is the spec's business and changes between
+    releases -- list-instance-vpc2 was flagged here until Vultr retired it
+    outright -- so this checks the flagging against whatever the spec currently
+    says rather than against a remembered list.
+    """
     from vultr_mcp.interface.drift import detect_drift, format_report
 
     report = detect_drift(INTERFACE_DIR, spec)
     instances = next(a for a in report.areas if a.product_area == "instances")
 
-    deprecated = {ref.operation_id for ref in instances.deprecated_unreviewed}
-    assert "list-instance-vpc2" in deprecated
-    assert "list-instance-private-networks" in deprecated
-    assert "list-instance-vpcs" not in deprecated, "the replacement is not deprecated"
+    expected = {
+        operation.operation_id
+        for operation in index.operations.values()
+        if "instances" in operation.tags
+        and operation.is_deprecated
+        and not operation.is_write
+    }
+    reported = {ref.operation_id for ref in instances.deprecated_unreviewed}
+    assert expected, "the spec should still deprecate something under instances"
+    assert expected <= reported
 
     rendered = format_report(report)
     assert "[deprecated]" in rendered
     assert "the claim is the spec's" in rendered
 
 
-def test_a_tool_on_a_deprecated_operation_is_reported(tmp_path, definition, spec):
+def test_a_tool_on_a_deprecated_operation_is_reported(tmp_path, definition, spec, index):
     """Hand-authoring a name for something Vultr is retiring is worth knowing."""
     from vultr_mcp.interface.drift import detect_drift, format_report
 
-    definition["name"] = "vultr_compute_clusters_vpc2_search"
-    definition["operation"] = "list-instance-vpc2"
+    # Any deprecated read the spec currently carries will do.
+    victim = next(
+        operation
+        for operation in index.operations.values()
+        if operation.is_deprecated
+        and not operation.is_write
+        and not operation.has_request_body
+    )
+    definition["name"] = "vultr_compute_deprecated_thing_get"
+    definition["operation"] = victim.operation_id
     definition["input"] = {
         "type": "object",
-        "required": ["instance_id"],
+        "required": [_snake(p.name) for p in victim.parameters.values() if p.location == "path"],
         "properties": {
-            "instance_id": {
+            _snake(parameter.name): {
                 "type": "string",
-                "description": "ID of the instance.",
-                "maps_to": "instance-id",
+                "description": f"Path parameter {parameter.name}.",
+                "maps_to": parameter.name,
             }
+            for parameter in victim.parameters.values()
+            if parameter.location == "path"
         },
     }
     definition.pop("output", None)
