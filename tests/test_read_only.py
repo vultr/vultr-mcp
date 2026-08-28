@@ -55,8 +55,15 @@ async def test_default_surface_is_read_only(spec):
 
     # And the read surface is genuinely intact, not just empty.
     joined = " ".join(names)
-    for hint in ("list_instances", "get_account", "list_regions", "list_plans"):
+    for hint in ("get_account", "list_regions", "list_plans"):
         assert hint in joined, f"expected read tool '{hint}'"
+
+    # Instances are still reachable, under whichever name owns them: the
+    # interface layer replaces the generated list_instances with a
+    # hand-authored tool, so pinning the generated name here would fail the
+    # moment a product area is covered rather than when a read tool goes
+    # missing.
+    assert "list_instances" in joined or "vultr_compute_instances_search" in joined
 
 
 async def test_read_only_is_the_default_without_env(monkeypatch):

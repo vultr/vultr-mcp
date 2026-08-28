@@ -1,0 +1,217 @@
+product_area: instances
+
+# Vultr calls these "instances"; users call them VPS, servers, VMs, or cloud
+# compute. The generated descriptions ("List all VPS instances in your account.")
+# do not distinguish them from bare metal, VKE worker nodes, or the instances
+# inside a Compute Cluster, which is the confusion this file exists to remove.
+#
+# Two fields are deliberately withheld from every response here:
+#   default_password  a real credential, live for ten minutes after deployment
+#   kvm               an HTTPS link to the instance's noVNC console
+# Both are in the API's response and both reach the agent through the generated
+# tools. Neither is needed to answer a question about infrastructure, and an
+# agent that reads one can be induced to repeat it.
+
+tools:
+  - name: vultr_compute_instances_search
+    access: read
+    enabled: true
+
+    description: |
+      Searches for Vultr cloud compute instances, also called VPS, virtual
+      machines, or servers, in the active Vultr organization.
+
+      Use this tool to list, find, count, or select instances, and to answer
+      questions about their power state, region, plan, operating system, or
+      tags.
+
+      Do not use this tool for Vultr Bare Metal servers, Vultr Kubernetes
+      Engine worker nodes, or the member instances of a Compute Cluster. Those
+      are separate products with their own tools.
+
+    operation: list-instances
+
+    input:
+      type: object
+      properties:
+        # The API filters on these itself, so they cost one request and stay
+        # accurate across a paginated account.
+        label:
+          type: string
+          description: >-
+            Exact instance label. The API filters on this directly, so prefer it
+            whenever the full label is known. Use label_contains to search by
+            part of a label.
+
+        tag:
+          type: string
+          description: Exact tag applied to the instance.
+
+        region:
+          type: string
+          description: Vultr region ID, such as ewr.
+
+        hostname:
+          type: string
+          description: Exact hostname of the instance.
+
+        main_ip:
+          type: string
+          description: Main IPv4 address of the instance.
+
+        firewall_group_id:
+          type: string
+          description: ID of the firewall group applied to the instance.
+
+        # The API cannot filter on these, so the server does. Supplying one
+        # makes the tool scan the account rather than fetch a single page; the
+        # result reports in meta.filtered how much it covered.
+        label_contains:
+          type: string
+          description: >-
+            Case-insensitive text contained in the instance label, for finding
+            instances by part of a name. Slower than label, which the API
+            filters directly.
+          filter:
+            field: label
+            match: contains_ci
+
+        status:
+          type: string
+          description: Subscription status of the instance.
+          enum:
+            - active
+            - pending
+            - suspended
+            - resizing
+          filter:
+            field: status
+            match: equals
+
+        power_status:
+          type: string
+          description: Whether the instance is powered on.
+          enum:
+            - running
+            - stopped
+          filter:
+            field: power_status
+            match: equals
+
+        plan:
+          type: string
+          description: Vultr plan ID the instance runs on, such as vc2-1c-1gb.
+          filter:
+            field: plan
+            match: equals
+
+        page_size:
+          type: integer
+          description: >-
+            Maximum number of results to return. When label_contains, status,
+            power_status, or plan is supplied, the server scans the account and
+            returns up to this many matches, reporting in meta.filtered how much
+            it scanned.
+          default: 100
+          minimum: 1
+          maximum: 500
+          maps_to: per_page
+
+        cursor:
+          type: string
+          description: Cursor returned by a previous request for the next page.
+
+    output:
+      from_openapi: true
+      # Every field the agent can filter on is also returned, so it can see what
+      # it selected by. Deployment credentials and the console link are not.
+      include:
+        - id
+        - label
+        - hostname
+        - region
+        - plan
+        - status
+        - power_status
+        - server_status
+        - main_ip
+        - os
+        - vcpu_count
+        - ram
+        - disk
+        - tags
+        - firewall_group_id
+        - features
+        - date_created
+        - meta
+
+    computed:
+      display_name:
+        type: string
+        description: >-
+          Label if the instance has one, otherwise its hostname. Instances are
+          often deployed without a label.
+        from: coalesce(label, hostname)
+
+  - name: vultr_compute_instances_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets one Vultr cloud compute instance by its ID, including its plan,
+      operating system, network addresses, region, power state, and tags.
+
+      Use this tool when an instance ID is already known. To find an instance
+      by label, hostname, IP, or tag, use vultr_compute_instances_search first.
+
+      Do not use this tool for Vultr Bare Metal servers or Vultr Kubernetes
+      Engine worker nodes.
+
+    operation: get-instance
+
+    input:
+      type: object
+      required:
+        - instance_id
+      properties:
+        instance_id:
+          type: string
+          description: >-
+            ID of the instance to fetch, as returned in the id field by
+            vultr_compute_instances_search.
+          maps_to: instance-id
+
+    output:
+      from_openapi: true
+      # A single instance is cheap to return in full, so this keeps the detail a
+      # search result drops -- everything except the two withheld fields.
+      include:
+        - id
+        - label
+        - hostname
+        - region
+        - plan
+        - status
+        - power_status
+        - server_status
+        - main_ip
+        - internal_ip
+        - netmask_v4
+        - gateway_v4
+        - v6_networks
+        - os
+        - os_id
+        - app_id
+        - image_id
+        - snapshot_id
+        - vcpu_count
+        - ram
+        - disk
+        - allowed_bandwidth
+        - tags
+        - firewall_group_id
+        - features
+        - user_scheme
+        - vpc_only
+        - vpcs
+        - date_created
