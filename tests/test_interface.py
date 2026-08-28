@@ -680,6 +680,114 @@ async def test_calling_through_a_client_returns_shaped_json(cluster_tool):
 
 
 # --------------------------------------------------------------------------
+# Scaffolding: drafts a human reviews, never a surface anyone serves.
+# --------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def index(spec):
+    from vultr_mcp.interface.spec_index import SpecIndex
+
+    return SpecIndex.load(spec)
+
+
+def test_every_tag_scaffolds_into_something_that_validates(tmp_path, spec, index):
+    """The whole point of deriving from the spec: it cannot be wrong about it.
+
+    Run over all 41 tags rather than a sample, because the failures worth
+    catching are the odd ones -- an operation with no parameters at all, a
+    response field named after a date, a description containing a colon.
+    """
+    from vultr_mcp.interface.scaffold import scaffold_area, slug
+    from vultr_mcp.interface.validator import validate_manifest
+
+    (tmp_path / "schema").mkdir()
+    (tmp_path / "schema" / "interface.schema.json").write_text(
+        (INTERFACE_DIR / "schema" / "interface.schema.json").read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
+
+    tags = sorted({tag for op in index.operations.values() for tag in op.tags})
+    areas = {}
+    for tag in tags:
+        drafted = scaffold_area(tag, "compute", index)
+        if not drafted.tool_count:
+            continue
+        area = slug(tag)
+        (tmp_path / f"{area}.yaml").write_text(drafted.text, encoding="utf-8")
+        yaml.safe_load(drafted.text)  # must parse
+        areas[area] = f"{area}.yaml"
+
+    (tmp_path / "interface.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "version": "scaffold-test",
+                "schema": "schema/interface.schema.json",
+                "product_areas": areas,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    problems = validate_manifest(tmp_path, spec)
+    assert not [p for p in problems if p.is_error], "\n".join(
+        str(p) for p in problems if p.is_error
+    )
+
+
+def test_scaffolded_tools_are_disabled_with_stub_descriptions(index):
+    from vultr_mcp.interface.scaffold import scaffold_area
+
+    document = yaml.safe_load(scaffold_area("instances", "compute", index).text)
+    for tool in document["tools"]:
+        assert tool["enabled"] is False
+        assert "TODO review" in tool["description"]
+
+
+def test_scaffolding_withholds_credential_shaped_fields(index):
+    """GET /instances returns a live password and a console link.
+
+    A draft that put those in the include list would eventually have one
+    accepted, so they are commented out and have to be added back deliberately.
+    """
+    from vultr_mcp.interface.scaffold import scaffold_area
+
+    drafted = scaffold_area("instances", "compute", index)
+    assert set(drafted.withheld_fields) == {"default_password", "kvm"}
+
+    document = yaml.safe_load(drafted.text)
+    for tool in document["tools"]:
+        include = (tool.get("output") or {}).get("include") or []
+        assert "default_password" not in include
+        assert "kvm" not in include
+
+
+def test_scaffolded_names_follow_the_family_convention(index):
+    from vultr_mcp.interface.scaffold import tool_name
+
+    names = {
+        operation.operation_id: tool_name("compute", "instances", operation)
+        for operation in index.operations.values()
+        if operation.operation_id in ("list-instances", "get-instance", "get-instance-bandwidth")
+    }
+    # The same names we arrived at by hand for the two tools that exist.
+    assert names["list-instances"] == "vultr_compute_instances_search"
+    assert names["get-instance"] == "vultr_compute_instances_get"
+    assert names["get-instance-bandwidth"] == "vultr_compute_instances_bandwidth_get"
+
+
+def test_descriptions_with_yaml_metacharacters_survive(index):
+    """'Filter upgrade by type: - all (applications, os, plans)' is a real one."""
+    from vultr_mcp.interface.scaffold import scaffold_area
+
+    document = yaml.safe_load(scaffold_area("instances", "compute", index).text)
+    upgrades = next(
+        tool for tool in document["tools"] if tool["operation"] == "get-instance-upgrades"
+    )
+    assert "type:" in upgrades["input"]["properties"]["type"]["description"]
+
+
+# --------------------------------------------------------------------------
 # Wiring: the interface tool replaces the generated one.
 # --------------------------------------------------------------------------
 

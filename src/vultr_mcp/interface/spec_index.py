@@ -50,6 +50,7 @@ class Parameter:
     location: str  # "query" | "path" | "header" | "cookie"
     required: bool
     schema: dict[str, Any]
+    description: str = ""
 
 
 @dataclass(frozen=True)
@@ -118,6 +119,7 @@ class Operation:
                         location=location,
                         required=bool(entry.get("required", location == "path")),
                         schema=resolve(entry.get("schema", {}), self.spec),
+                        description=" ".join((entry.get("description") or "").split()),
                     )
             self._parameters = resolved
         return self._parameters

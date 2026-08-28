@@ -123,13 +123,13 @@
         },
         "properties": {
           "type": "object",
-          "minProperties": 1,
           "additionalProperties": {
             "$ref": "#/$defs/input_property"
           },
           "propertyNames": {
             "pattern": "^[a-z][a-z0-9_]*$"
-          }
+          },
+          "description": "The agent-facing inputs. May be empty: plenty of operations take no parameters at all (GET /account), and a tool for one is still a tool."
         }
       }
     },

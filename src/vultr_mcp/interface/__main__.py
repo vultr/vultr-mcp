@@ -17,6 +17,47 @@ from vultr_mcp.interface.compiler import compile_interface
 from vultr_mcp.interface.validator import validate_manifest
 
 
+def _scaffold(args) -> int:
+    """Print a draft product area file, with the review notes on stderr.
+
+    The draft goes to stdout so it can be redirected into interface/, and
+    everything the reviewer needs to know goes to stderr so redirecting does
+    not swallow it.
+    """
+    import json
+
+    from vultr_mcp.interface.scaffold import scaffold_area
+    from vultr_mcp.interface.spec_index import SpecIndex
+
+    index = SpecIndex.load(json.loads(args.spec.read_text(encoding="utf-8")))
+    tags = {tag for operation in index.operations.values() for tag in operation.tags}
+    if args.scaffold not in tags:
+        print(f"no such tag: {args.scaffold!r}", file=sys.stderr)
+        print(f"tags: {', '.join(sorted(tags))}", file=sys.stderr)
+        return 1
+
+    drafted = scaffold_area(args.scaffold, args.family, index)
+    print(drafted.text, end="")
+
+    print(
+        f"\ndrafted {drafted.tool_count} read operation(s) as disabled tools; "
+        f"skipped {drafted.skipped_writes} write operation(s)",
+        file=sys.stderr,
+    )
+    if drafted.withheld_fields:
+        print(
+            "held back as possible credentials: "
+            + ", ".join(drafted.withheld_fields),
+            file=sys.stderr,
+        )
+    print(
+        "every tool is enabled: false and every description is a stub — review "
+        "before enabling",
+        file=sys.stderr,
+    )
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     repo_root = Path(__file__).resolve().parent.parent.parent.parent
     parser = argparse.ArgumentParser(prog="python -m vultr_mcp.interface")
@@ -31,7 +72,18 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--list", action="store_true", help="print the compiled tools"
     )
+    parser.add_argument(
+        "--scaffold", metavar="TAG",
+        help="draft a product area file for an OpenAPI tag and print it to stdout",
+    )
+    parser.add_argument(
+        "--family", default="compute",
+        help="product family for scaffolded tool names (default: compute)",
+    )
     args = parser.parse_args(argv)
+
+    if args.scaffold:
+        return _scaffold(args)
 
     problems = validate_manifest(args.interface_dir, args.spec)
     fatal = [problem for problem in problems if problem.is_error]
