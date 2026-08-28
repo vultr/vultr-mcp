@@ -7,6 +7,10 @@ dependencies = [
     "fastmcp>=2.14",
     "httpx>=0.28",
     "py-key-value-aio[redis]>=0.4.5",
+    # The interface layer: product area files are YAML, validated against a
+    # JSON Schema at build time.
+    "pyyaml>=6.0",
+    "jsonschema>=4.21",
 ]
 
 [dependency-groups]

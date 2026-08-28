@@ -13,6 +13,9 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 
 COPY src ./src
 COPY openapi.json ./
+# The reviewed tool definitions. Without these the server still runs, it just
+# falls back to the generated surface for every operation.
+COPY interface ./interface
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev
 

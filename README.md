@@ -38,7 +38,39 @@ Serves Streamable HTTP on port 8080 (configurable via `SERVER_PORT`), plus `/hea
 
 ## Tool Surface
 
-Tools are generated from `openapi.json` via `FastMCP.from_openapi()` — no hand-written tool code.
+Most tools are generated from `openapi.json` via `FastMCP.from_openapi()`. A small, growing set is defined by hand in `interface/` and **replaces** the generated tool for the same operation — see below.
+
+### Interface layer
+
+Generated tool definitions inherit whatever the spec says, which is written for developers reading docs, not for an agent choosing between 180 tools. That ambiguity has a measurable cost: asked to add a node to a Compute Cluster, Claude picked a VKE tool.
+
+`interface/` is a versioned set of reviewed YAML files that decide what the agent sees — tool name, description, input schema, response shape — while `openapi.json` stays the source of truth for the HTTP call itself. One tool maps to exactly one `operationId`.
+
+```yaml
+- name: vultr_compute_clusters_search   # provider_productarea_resource_action
+  access: read                          # cross-checked against the HTTP method
+  operation: list-clusters
+  description: |
+    ... including an explicit "Do not use this tool for VKE clusters."
+  input:
+    properties:
+      label:                            # GET /clusters can't filter, so the
+        filter: {field: label, match: contains_ci}   # server does
+      page_size:
+        maps_to: per_page               # renamed on the way to the API
+  output:
+    include: [id, label, region, ...]   # everything else is dropped
+  computed:
+    instance_count: {from: length(instances)}
+```
+
+Every reference is resolved against `openapi.json` at build time, so a field the API stopped returning fails the build instead of a tool call:
+
+```bash
+uv run python -m vultr_mcp.interface --list
+```
+
+Because these tools filter client-side, a filtered search pages through the collection itself (up to `VULTR_MCP_INTERFACE_MAX_PAGES` requests) and reports what it scanned in `meta.filtered`, so a count is never quietly taken from a partial scan. Set `VULTR_MCP_INTERFACE=off` to serve the generated surface alone.
 
 ### Read-only by default
 
@@ -175,6 +207,9 @@ Two limitations follow:
 | `VULTR_MCP_WRITES_ENABLED` | expose state-changing tools (default `false` — the surface is read-only) |
 | `VULTR_MCP_EXCLUDED_CATEGORIES` | tags to drop (default identity set; empty disables) |
 | `VULTR_MCP_CATEGORY_ENDPOINTS` | category endpoints to mount (default: all non-excluded) |
+| `VULTR_MCP_INTERFACE` | `off` serves the generated surface alone, without the hand-reviewed `interface/` tools (default on) |
+| `VULTR_MCP_INTERFACE_DIR` | where the interface layer lives (default: `interface/` beside `openapi.json`) |
+| `VULTR_MCP_INTERFACE_MAX_PAGES` | requests one filtered search may make while scanning a collection (default `10`) |
 | `VULTR_MCP_OUTPUT_SCHEMAS` | advertise generated `outputSchema` on tools (default `false` — they tripled the tool-listing size without helping agents) |
 | `MCP_RESOURCE_URL` | public URL, used for OAuth + Host allow-list (default `https://vultrmcp.com`) |
 | `MCP_ALLOWED_HOSTS` | extra hosts for DNS-rebinding protection |

@@ -57,18 +57,20 @@ tools:
 
         cluster_type:
           type: string
-          description: Type of Vultr Compute Cluster.
-          enum:
-            - vps
-            - bare-metal
-            - gpu-fabric
+          description: >-
+            Kind of Compute Cluster, as the API reports it, such as fabric.
+            Not the same as the type field, which says whether a result is a
+            Compute Cluster or a VKE cluster.
           filter:
             field: cluster_type
             match: equals
 
         page_size:
           type: integer
-          description: Maximum number of results to request from the API.
+          description: >-
+            Maximum number of results to return. When a search filter is
+            supplied, the server scans the account and returns up to this many
+            matches, reporting in meta.filtered how much it scanned.
           default: 100
           minimum: 1
           maximum: 500
@@ -86,6 +88,7 @@ tools:
         - region
         - plan
         - type
+        - cluster_type
         - status
         - state
         - min_pool_count

@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from pathlib import Path
 from typing import Generator
 
@@ -27,6 +28,9 @@ import httpx
 from fastmcp import FastMCP
 from fastmcp.server.dependencies import get_http_headers
 from fastmcp.server.providers.openapi import MCPType, RouteMap
+
+from vultr_mcp.interface.compiler import CompiledInterface, compile_interface
+from vultr_mcp.interface.tools import InterfaceTool
 
 VULTR_API_BASE = os.environ.get("VULTR_API_BASE_URL", "https://api.vultr.com/v2")
 
@@ -251,19 +255,64 @@ def read_only_from_env() -> bool:
     )
 
 
-def _build_route_maps(exclude_tags: set[str], read_only: bool) -> list[RouteMap]:
+def interface_dir_from_env() -> Path | None:
+    """Where the interface layer lives, or None when it is switched off.
+
+    Defaults to the ``interface/`` directory beside openapi.json. Set
+    VULTR_MCP_INTERFACE=off to run the generated surface alone (useful for
+    measuring what the layer changes), or VULTR_MCP_INTERFACE_DIR to point at
+    another copy.
+    """
+    if os.environ.get("VULTR_MCP_INTERFACE", "on").lower() in ("0", "off", "false", "no"):
+        return None
+    override = os.environ.get("VULTR_MCP_INTERFACE_DIR")
+    if override:
+        return Path(override)
+    return Path(__file__).resolve().parent.parent.parent / "interface"
+
+
+def load_interface(spec: dict, interface_dir: Path | None) -> CompiledInterface:
+    """Compile the interface layer, or return an empty one when absent.
+
+    A missing directory is not an error — the server predates the layer and
+    still works without it. A *broken* one is: compile_interface raises, because
+    a layer that half-loads means the agent-facing surface is not the reviewed
+    one, and silently serving the generated tools instead would hide that.
+    """
+    if interface_dir is None or not (interface_dir / "interface.yaml").exists():
+        return CompiledInterface(version="none")
+    return compile_interface(interface_dir, spec)
+
+
+def _build_route_maps(
+    exclude_tags: set[str],
+    read_only: bool,
+    interface_routes: list[tuple[str, str]] | None = None,
+) -> list[RouteMap]:
     """RouteMaps applied in order — first match wins, default is TOOL.
 
-    1. One EXCLUDE per excluded tag. Each operation carries exactly one
+    1. One EXCLUDE per operation the interface layer owns. A hand-authored tool
+       *replaces* the generated one; leaving both would give the agent two tools
+       for one operation, which is the ambiguity the layer exists to remove.
+       These come first because they are the most specific.
+    2. One EXCLUDE per excluded tag. Each operation carries exactly one
        category tag, so a single RouteMap with a multi-tag set would never
        match (RouteMap requires all its tags to be present on the route);
-       hence one map per tag. These come first so an identity exclusion can
-       never be undone by a later map.
-    2. In read-only mode, the read-only overrides are re-admitted as TOOLs...
-    3. ...and every remaining write method is excluded. GETs match no map and
+       hence one map per tag. These come before the method maps so an identity
+       exclusion can never be undone by a later map.
+    3. In read-only mode, the read-only overrides are re-admitted as TOOLs...
+    4. ...and every remaining write method is excluded. GETs match no map and
        fall through to the default TOOL.
     """
-    maps = [RouteMap(tags={tag}, mcp_type=MCPType.EXCLUDE) for tag in sorted(exclude_tags)]
+    maps = [
+        RouteMap(
+            methods=[method],
+            pattern=f"^{re.escape(path)}$",
+            mcp_type=MCPType.EXCLUDE,
+        )
+        for method, path in sorted(interface_routes or [])
+    ]
+    maps += [RouteMap(tags={tag}, mcp_type=MCPType.EXCLUDE) for tag in sorted(exclude_tags)]
     if read_only:
         maps += [
             RouteMap(methods=[method], pattern=pattern, mcp_type=MCPType.TOOL)
@@ -280,6 +329,8 @@ def create_server(
     only_categories: set[str] | None = None,
     read_only: bool | None = None,
     auth=None,
+    interface_dir: Path | None = None,
+    use_interface: bool | None = None,
 ) -> FastMCP:
     """Build a FastMCP server over the Vultr tool surface.
 
@@ -295,6 +346,13 @@ def create_server(
     read_only:
         Drop every state-changing operation. Defaults to the env value
         (read-only unless VULTR_MCP_WRITES_ENABLED opts in).
+    interface_dir:
+        Directory of reviewed tool definitions. Defaults to the env value,
+        else ``interface/`` beside openapi.json. Each tool it defines replaces
+        the generated tool for the same operation.
+    use_interface:
+        Pass False to serve the generated surface alone, which is how the
+        eval framework measures what the layer is worth.
     """
     if spec is None:
         spec = load_spec()
@@ -322,14 +380,39 @@ def create_server(
         headers={"User-Agent": "vultr-mcp-server/2.0 (python; fastmcp)"},
     )
 
-    return FastMCP.from_openapi(
+    if use_interface is False:
+        interface = CompiledInterface(version="none")
+    else:
+        if interface_dir is None:
+            interface_dir = interface_dir_from_env()
+        interface = load_interface(spec, interface_dir)
+
+    # The same gates the generated surface passes through apply to hand-authored
+    # tools, so the layer can never reintroduce a write or an identity tool that
+    # policy excluded. Tools filtered out here keep their generated counterpart.
+    interface_tools = [
+        tool
+        for tool in interface.tools
+        if not (read_only and tool.is_write) and not (tool.tags & exclude_tags)
+    ]
+
+    server = FastMCP.from_openapi(
         openapi_spec=spec,
         client=client,
         name="Vultr MCP Server",
-        route_maps=_build_route_maps(exclude_tags, read_only),
+        route_maps=_build_route_maps(
+            exclude_tags,
+            read_only,
+            [(tool.method.upper(), tool.path_template) for tool in interface_tools],
+        ),
         mcp_component_fn=None if _output_schemas_enabled() else _strip_output_schema,
         auth=auth,
     )
+
+    for tool in interface_tools:
+        server.add_tool(InterfaceTool.build(tool, client))
+
+    return server
 
 
 def main() -> None:
