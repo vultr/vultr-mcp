@@ -38,10 +38,16 @@ class OperationRef:
     operation_id: str
     method: str
     path: str
+    deprecated: bool = False
 
     @classmethod
     def of(cls, operation: Operation) -> "OperationRef":
-        return cls(operation.operation_id, operation.method.upper(), operation.path)
+        return cls(
+            operation.operation_id,
+            operation.method.upper(),
+            operation.path,
+            operation.is_deprecated,
+        )
 
 
 @dataclass(frozen=True)
@@ -56,10 +62,23 @@ class AreaDrift:
     unreviewed_reads: tuple[OperationRef, ...] = ()
     unreviewed_writes: tuple[OperationRef, ...] = ()
     stale: tuple[str, ...] = ()
+    deprecated_in_use: tuple[OperationRef, ...] = ()
 
     @property
     def is_clean(self) -> bool:
         return not (self.unreviewed_reads or self.unreviewed_writes or self.stale)
+
+    @property
+    def deprecated_unreviewed(self) -> tuple[OperationRef, ...]:
+        """Unreviewed operations the spec already calls deprecated.
+
+        The easiest declines there are: the claim is the spec's, not ours.
+        """
+        return tuple(
+            ref
+            for ref in self.unreviewed_reads + self.unreviewed_writes
+            if ref.deprecated
+        )
 
 
 @dataclass(frozen=True)
@@ -82,6 +101,10 @@ class DriftReport:
     @property
     def is_clean(self) -> bool:
         return all(area.is_clean for area in self.areas)
+
+    @property
+    def deprecated_in_use(self) -> int:
+        return sum(len(area.deprecated_in_use) for area in self.areas)
 
 
 def _tag_for_area(area: str, index: SpecIndex) -> str | None:
@@ -120,6 +143,15 @@ def _area_drift(
             stale=stale,
         )
 
+    # A tool we serve or drafted pointing at a deprecated operation is worth
+    # knowing about: it still works, but we have hand-authored a name for
+    # something Vultr is retiring.
+    in_use = [
+        operation
+        for operation_id in sorted(served | drafted)
+        if (operation := index.get(operation_id)) is not None and operation.is_deprecated
+    ]
+
     unreviewed = [
         operation
         for operation in index.operations.values()
@@ -140,6 +172,7 @@ def _area_drift(
             OperationRef.of(operation) for operation in by_path if operation.is_write
         ),
         stale=stale,
+        deprecated_in_use=tuple(OperationRef.of(operation) for operation in in_use),
     )
 
 
@@ -182,10 +215,19 @@ def format_report(report: DriftReport, *, show_writes: bool = False) -> str:
         if area.stale:
             lines.append(f"  STALE, no longer in the spec: {', '.join(area.stale)}")
 
+        if area.deprecated_in_use:
+            lines.append(
+                "  DEPRECATED but covered by a tool here: "
+                + ", ".join(ref.operation_id for ref in area.deprecated_in_use)
+            )
+
         if area.unreviewed_reads:
             lines.append(f"  unreviewed reads: {len(area.unreviewed_reads)}")
             for ref in area.unreviewed_reads:
-                lines.append(f"      {ref.operation_id:<34} {ref.method} {ref.path}")
+                mark = "  [deprecated]" if ref.deprecated else ""
+                lines.append(
+                    f"      {ref.operation_id:<34} {ref.method} {ref.path}{mark}"
+                )
         else:
             lines.append("  unreviewed reads: none")
 
@@ -193,7 +235,10 @@ def format_report(report: DriftReport, *, show_writes: bool = False) -> str:
             if show_writes:
                 lines.append(f"  unreviewed writes: {len(area.unreviewed_writes)}")
                 for ref in area.unreviewed_writes:
-                    lines.append(f"      {ref.operation_id:<34} {ref.method} {ref.path}")
+                    mark = "  [deprecated]" if ref.deprecated else ""
+                    lines.append(
+                        f"      {ref.operation_id:<34} {ref.method} {ref.path}{mark}"
+                    )
             else:
                 lines.append(
                     f"  unreviewed writes: {len(area.unreviewed_writes)} "
@@ -208,6 +253,12 @@ def format_report(report: DriftReport, *, show_writes: bool = False) -> str:
             f"totals: {report.unreviewed_reads} unreviewed read(s), "
             f"{report.unreviewed_writes} unreviewed write(s), {report.stale} stale"
         )
+        deprecated = sum(len(area.deprecated_unreviewed) for area in report.areas)
+        if deprecated:
+            lines.append(
+                f"{deprecated} of those are marked deprecated in the spec, which is "
+                "the easiest kind of decline to justify: the claim is the spec's."
+            )
         lines.append(
             "scaffold a draft for one with: "
             "python -m vultr_mcp.interface --scaffold <tag>"

@@ -280,7 +280,7 @@
       "properties": {
         "reason": {
           "type": "string",
-          "description": "Why this operation does not need a tool of its own. Written for whoever revisits the decision, so 'the get tool already returns these fields' rather than 'not needed'.",
+          "description": "Why this operation does not need a tool of its own. It must make a claim someone can falsify in five minutes -- that bar is what caught a wrong decline of get-instance-ipv4, which looked redundant with the get tool and was not. Good reasons, strongest first: (1) the spec marks the operation deprecated, so the claim is not even ours; (2) a tool we already serve returns every field this one does, named explicitly so the claim can be checked; (3) one hand-authored tool already supersedes it; (4) it belongs to another product area, and only if that area will actually cover it, or it disappears from every report; (5) the generated tool is adequate -- no sibling it could be confused with, a small response, no credential-shaped fields, nothing worth filtering -- with those specifics stated rather than asserted. Not reasons: 'we have not got to it' (that is what leaving it out of this list means), 'seems unimportant', or the operation being a write, which the read-only posture already excludes and which would bury the signal here.",
           "minLength": 20
         }
       }

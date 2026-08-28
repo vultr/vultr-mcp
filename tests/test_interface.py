@@ -882,6 +882,50 @@ def test_a_stale_reference_is_reported_as_stale(tmp_path, definition, spec):
     assert clusters.stale == ("list-clusters-that-no-longer-exists",)
 
 
+def test_deprecated_operations_are_flagged_as_decline_candidates(spec):
+    """The spec marks 23 operations deprecated, so the claim is not ours to make."""
+    from vultr_mcp.interface.drift import detect_drift, format_report
+
+    report = detect_drift(INTERFACE_DIR, spec)
+    instances = next(a for a in report.areas if a.product_area == "instances")
+
+    deprecated = {ref.operation_id for ref in instances.deprecated_unreviewed}
+    assert "list-instance-vpc2" in deprecated
+    assert "list-instance-private-networks" in deprecated
+    assert "list-instance-vpcs" not in deprecated, "the replacement is not deprecated"
+
+    rendered = format_report(report)
+    assert "[deprecated]" in rendered
+    assert "the claim is the spec's" in rendered
+
+
+def test_a_tool_on_a_deprecated_operation_is_reported(tmp_path, definition, spec):
+    """Hand-authoring a name for something Vultr is retiring is worth knowing."""
+    from vultr_mcp.interface.drift import detect_drift, format_report
+
+    definition["name"] = "vultr_compute_clusters_vpc2_search"
+    definition["operation"] = "list-instance-vpc2"
+    definition["input"] = {
+        "type": "object",
+        "required": ["instance_id"],
+        "properties": {
+            "instance_id": {
+                "type": "string",
+                "description": "ID of the instance.",
+                "maps_to": "instance-id",
+            }
+        },
+    }
+    definition.pop("output", None)
+    definition.pop("computed", None)
+
+    directory = _scratch_interface(tmp_path, definition)
+    report = detect_drift(directory, spec)
+
+    assert report.deprecated_in_use == 1
+    assert "DEPRECATED but covered by a tool here" in format_report(report)
+
+
 def test_writes_are_counted_separately_from_reads(spec):
     """Read-only is the shipped posture, so an unreviewed write is not urgent."""
     from vultr_mcp.interface.drift import detect_drift, format_report

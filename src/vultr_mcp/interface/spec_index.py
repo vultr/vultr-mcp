@@ -96,6 +96,15 @@ class Operation:
         return "requestBody" in self.raw
 
     @property
+    def is_deprecated(self) -> bool:
+        """Whether the spec marks this operation deprecated.
+
+        Vultr flags all 23 of them with the OpenAPI field rather than only in
+        prose, so this is reliable enough to act on.
+        """
+        return bool(self.raw.get("deprecated"))
+
+    @property
     def parameters(self) -> dict[str, Parameter]:
         """Parameters the operation accepts, path-item level included.
 
