@@ -320,10 +320,10 @@ async def test_declining_an_operation_does_not_hide_its_generated_tool():
 
 def test_declined_operations_are_compiled_with_their_reasons(compiled):
     declined = {entry.operation_id: entry for entry in compiled.declined}
-    assert "get-instance-ipv6" in declined
-    assert declined["get-instance-ipv6"].product_area == "instances"
+    assert "list-instance-ipv6-reverse" in declined
+    assert declined["list-instance-ipv6-reverse"].product_area == "instances"
     # The reason is for whoever revisits the decision, so it has to say why.
-    assert "v6_networks" in declined["get-instance-ipv6"].reason
+    assert "dns" in declined["list-instance-ipv6-reverse"].reason.lower()
 
 
 def test_a_stale_decline_warns_without_failing(tmp_path, definition, spec):

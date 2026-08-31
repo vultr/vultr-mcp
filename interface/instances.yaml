@@ -14,20 +14,18 @@ family: compute
 # agent that reads one can be induced to repeat it.
 
 # Reviewed and left to the generated surface. Declining does not hide anything:
-# get_instance_ipv6 is still exposed and still callable. It records that
+# the generated tool is still exposed and still callable. It records that
 # somebody looked, so a report of new endpoints in this area is one line rather
-# than a pile of decisions repeated back. Everything else read-side here --
-# ipv4, bandwidth, upgrades, backup-schedule, vpcs, user-data, neighbors, jobs
-# -- is deliberately absent: those are candidates nobody has assessed, which is
-# a different thing from a decision.
+# than a pile of decisions repeated back.
+#
+# Both IPv6 and IPv4 were declined here as redundant with
+# vultr_compute_instances_get, and both were wrong. A live call showed the API
+# returns v6_main_ip, v6_network, and v6_network_size as flat fields and never
+# sends the v6_networks array the spec documents, so this tool returns no IPv6
+# information at all. Declines that rest on "another tool already returns X"
+# are only as sound as the spec, and the spec is wrong here in a way nothing
+# but a real response could reveal.
 declined:
-  get-instance-ipv6:
-    reason: >-
-      vultr_compute_instances_get already returns v6_networks, which carries the
-      same network, main_ip, and network_size this operation reports. Note the
-      IPv4 equivalent is NOT redundant and is deliberately absent from this
-      list: it returns every address on the instance, secondary and private
-      included, with reverse DNS, where the instance object has only main_ip.
   list-instance-ipv6-reverse:
     reason: >-
       Reverse DNS entries are a DNS concern rather than an instance one, and
