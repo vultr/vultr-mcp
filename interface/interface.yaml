@@ -5,10 +5,12 @@
 # openapi.json stays the source of truth for the REST API; this layer only
 # controls what the agent sees.
 
-version: 2026.08.4
+version: 2026.09.1
 
 schema: schema/interface.schema.json
 
 product_areas:
+  account: account.yaml
   clusters: clusters.yaml
+  logs: logs.yaml
   instances: instances.yaml

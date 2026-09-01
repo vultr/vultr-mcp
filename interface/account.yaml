@@ -1,0 +1,40 @@
+product_area: account
+family: account
+
+# One tool, for one reason. GET /account/bgp returns `password` -- "Password
+# used to form a BGP neighborship" -- and the account category is exposed, so
+# the generated tool was handing that to any agent that asked.
+#
+# It went unnoticed because the response is the resource itself rather than a
+# wrapper around it, and the shape reader used to treat that as "no readable
+# schema". Nothing to allowlist against meant nothing was withheld. The rest of
+# this product area is still unreviewed and still served by generated tools;
+# this covers the one operation that could not wait for that review.
+
+tools:
+  - name: vultr_account_bgp_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets the BGP configuration for the active Vultr account: whether BGP is
+      enabled and which Autonomous System Number it uses.
+
+      Use this tool to report on BGP setup or to check whether it is turned on.
+
+      Do not use this tool for a specific instance's BGP session, or for VPC
+      and networking configuration, which have their own tools.
+
+    operation: get-account-bgp
+
+    input:
+      type: object
+      properties: {}
+
+    output:
+      from_openapi: true
+      # `password` is deliberately absent: it is the shared secret used to form
+      # the BGP neighborship, and no question about BGP configuration needs it.
+      include:
+        - asn
+        - enabled

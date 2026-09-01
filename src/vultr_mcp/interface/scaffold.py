@@ -29,18 +29,42 @@ from dataclasses import dataclass
 
 from vultr_mcp.interface.spec_index import Operation, SpecIndex
 
-# Field names that have to be opted into rather than out of. Substring matched,
-# so `default_password` and `api_key_token` are both caught.
-SENSITIVE_HINTS = (
-    "password",
-    "secret",
-    "token",
-    "credential",
-    "private",
-    "api_key",
-    "apikey",
-    "kvm",
+# Field names that have to be opted into rather than out of.
+#
+# Matched on underscore-separated tokens rather than as substrings, which is
+# what separates a credential from a word that merely contains one. Substring
+# matching gets `valkey` wrong -- that is the database engine, not a key -- and
+# missed `s3_access_key` entirely, because "api_key" is not a substring of
+# "access_key". That miss was real: the scaffolder would have written the access
+# half of an S3 credential pair straight into a draft include list while
+# correctly withholding the secret half.
+SENSITIVE_TOKENS = frozenset(
+    {
+        "password",
+        "passwd",
+        "secret",
+        "token",
+        "credential",
+        "credentials",
+        "private",
+        "key",
+        "keys",
+        "apikey",
+        "kvm",
+    }
 )
+
+
+def is_sensitive(field: str) -> bool:
+    """Whether a response field looks like something an agent should not echo.
+
+    Deliberately over-inclusive. The consequence of a false positive is a
+    commented-out line a reviewer un-comments; the consequence of a miss is a
+    credential in every response, forever, because nobody re-reads an include
+    list once it validates.
+    """
+    return any(token in SENSITIVE_TOKENS for token in field.lower().split("_"))
+
 
 # Paging parameters get agent-facing names and bounds rather than the spec's.
 _PAGE_PARAM = "per_page"
@@ -204,7 +228,7 @@ def _output_lines(operation: Operation) -> tuple[list[str], list[str]]:
     withheld = [
         field
         for field in fields
-        if any(hint in field.lower() for hint in SENSITIVE_HINTS)
+        if is_sensitive(field)
     ]
     keep = [field for field in fields if field not in withheld]
 

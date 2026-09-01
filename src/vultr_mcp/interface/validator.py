@@ -204,7 +204,7 @@ def _check_output(tool: dict[str, Any], operation: Operation, where: str) -> lis
     problems: list[Problem] = []
     shape = operation.response
 
-    if shape.container_key is None and output.get("include"):
+    if shape.container_key is None and not shape.unwrapped and output.get("include"):
         return [
             Problem(
                 f"{where}.output",

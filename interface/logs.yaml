@@ -1,0 +1,202 @@
+product_area: logs
+family: account
+
+# This whole category was excluded from the tool surface, because ListAuditLogs
+# returns s3_access_key and s3_secret_key -- the credentials for the bucket
+# audit data is delivered to -- and the generated tool handed both to any agent
+# that asked. Excluding the category was the only lever available at the time,
+# and it cost `list-logs`, which reads application log lines and is genuinely
+# useful.
+#
+# These tools are what make the category safe to re-admit. Every read operation
+# in it is covered here, because the exclusion is per-category while the
+# replacement is per-operation: any operation left uncovered would come back as
+# its generated self, credentials and all.
+#
+# GetAuditLog is the reason the layer needed to learn about unwrapped
+# responses. Its 200 is the AuditLog object itself rather than a wrapper around
+# it, which the shape reader used to report as "no readable schema" -- leaving
+# nothing to allowlist against and no way to withhold anything.
+
+tools:
+  - name: vultr_account_logs_list
+    access: read
+    enabled: true
+
+    description: |
+      Reads application log lines for resources in the active Vultr
+      organization, filtered by time range, severity, or the specific resource
+      that emitted them.
+
+      Use this tool to investigate what a resource did or why it failed.
+
+      Do not use this tool for audit logs, which record account and
+      configuration changes rather than resource activity, and are managed as
+      delivery subscriptions by the audit-log tools.
+
+    operation: list-logs
+
+    input:
+      type: object
+      properties:
+        start_time:
+          type: string
+          description: >-
+            Start of the time range, as an RFC 3339 timestamp. Omit to use the
+            API default window.
+
+        end_time:
+          type: string
+          description: End of the time range, as an RFC 3339 timestamp.
+
+        log_level:
+          type: string
+          description: >-
+            Minimum severity to return, such as error or info. The API filters
+            on this directly.
+
+        resource_type:
+          type: string
+          description: >-
+            Kind of resource that emitted the log, such as instance or
+            kubernetes.
+
+        resource_id:
+          type: string
+          description: ID of the specific resource whose logs are wanted.
+
+    output:
+      from_openapi: true
+      include:
+        - timestamp
+        - log_level
+        - message
+        - resource_type
+        - resource_id
+        - metadata
+
+  - name: vultr_account_audit_log_subscriptions_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists audit-log delivery subscriptions in the active Vultr organization,
+      including where audit data is written, how much has been stored, and what
+      it costs.
+
+      Use this tool to answer whether audit logging is configured, where it
+      delivers, and what it is billing.
+
+      Do not use this tool to read log content. Application logs come from
+      vultr_account_logs_list; this reports only the delivery configuration.
+
+    operation: ListAuditLogs
+
+    input:
+      type: object
+      properties: {}
+
+    output:
+      from_openapi: true
+      # s3_access_key and s3_secret_key are deliberately absent: together they
+      # are a working credential for the delivery bucket, and no question about
+      # audit configuration needs them. Excluding this category was the only
+      # protection before these lines existed.
+      include:
+        - id
+        - label
+        - sub_status
+        - storage_status
+        - region
+        - location
+        - cluster_id
+        - bucket_name
+        - prefix
+        - s3_hostname
+        - expiration_days
+        - storage_used_bytes
+        - retention_gb
+        - ingestion_gb
+        - charges
+        - next_invoice_date
+        - date_created
+
+  - name: vultr_account_audit_log_subscriptions_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets one audit-log delivery subscription by its ID, including its
+      destination, retention, and billing detail.
+
+      Use this tool when a subscription ID is already known. To find one, use
+      vultr_account_audit_log_subscriptions_list first.
+
+      Do not use this tool to read log content.
+
+    operation: GetAuditLog
+
+    input:
+      type: object
+      required:
+        - subscription_id
+      properties:
+        subscription_id:
+          type: string
+          description: >-
+            ID of the audit-log subscription, as returned in the id field by
+            vultr_account_audit_log_subscriptions_list.
+          maps_to: id
+
+    output:
+      from_openapi: true
+      # The same two credentials are withheld here. This response is the
+      # subscription object itself rather than a wrapper around one, so the
+      # include list applies to the payload directly.
+      include:
+        - id
+        - label
+        - sub_status
+        - storage_status
+        - region
+        - location
+        - cluster_id
+        - bucket_name
+        - prefix
+        - s3_hostname
+        - expiration_days
+        - storage_used_bytes
+        - retention_gb
+        - ingestion_gb
+        - charges
+        - next_invoice_date
+        - date_created
+
+  - name: vultr_account_audit_log_locations_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the object-storage locations available to receive audit-log
+      delivery, with their regions and hostnames.
+
+      Use this tool when choosing or reporting where audit logs can be
+      delivered.
+
+      Do not use this tool for Object Storage buckets in general, or for
+      Vultr regions, which have their own tools.
+
+    operation: ListAuditLogsClusters
+
+    input:
+      type: object
+      properties: {}
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - name
+        - region
+        - hostname
+        - deploy

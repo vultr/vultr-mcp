@@ -59,6 +59,13 @@ class ResponseShape:
 
     ``output.include`` names fields at both levels -- ``meta`` sits on the
     envelope, ``label`` sits on each result item -- so both are kept.
+
+    Most Vultr responses are envelopes: ``{"instance": {...}}`` or
+    ``{"instances": [...], "meta": {...}}``. A minority return the resource
+    itself with no wrapper, and those are ``unwrapped``: there is no container
+    key because the payload *is* the item. Treating that as "no readable
+    schema" is what left GET /account/bgp returning a BGP password with no way
+    to shape it.
     """
 
     envelope: frozenset[str]
@@ -66,6 +73,7 @@ class ResponseShape:
     container_key: str | None
     is_collection: bool
     extra_containers: tuple[str, ...] = ()
+    unwrapped: bool = False
 
     @property
     def known_fields(self) -> frozenset[str]:
@@ -168,11 +176,17 @@ class Operation:
             container, extras, is_collection = None, (), False
 
         item_fields: frozenset[str] = frozenset()
+        unwrapped = False
         if container is not None:
             node = resolve(properties[container], self.spec)
             if is_collection:
                 node = resolve(node.get("items", {}), self.spec)
             item_fields = frozenset(node.get("properties", {}))
+        elif properties:
+            # No array and no nested object, but the schema has properties of
+            # its own: the response is the resource, unwrapped.
+            item_fields = frozenset(properties)
+            unwrapped = True
 
         return ResponseShape(
             envelope=envelope,
@@ -180,6 +194,7 @@ class Operation:
             container_key=container,
             is_collection=is_collection,
             extra_containers=extras,
+            unwrapped=unwrapped,
         )
 
 

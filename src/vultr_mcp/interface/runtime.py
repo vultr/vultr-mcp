@@ -123,6 +123,11 @@ def shape_response(
     plan = tool.output
     container = plan.container_key if plan else None
 
+    # An unwrapped response is its own item: there is no key to look under, so
+    # the include list and the computed fields apply to the payload itself.
+    if plan and plan.unwrapped:
+        return _shape_item(payload, tool)
+
     if container is None or container not in payload:
         return payload
 

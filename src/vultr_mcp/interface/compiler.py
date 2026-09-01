@@ -83,6 +83,9 @@ class OutputPlan:
     is_collection: bool
     envelope_include: frozenset[str] | None
     item_include: frozenset[str] | None
+    # True when the payload is the resource rather than a wrapper around it, so
+    # the runtime shapes the top level instead of looking for a container.
+    unwrapped: bool = False
 
 # Vultr pages every collection the same way: `per_page` sets the size, `cursor`
 # walks forward, and `meta.links.next` carries the next cursor. The names are
@@ -226,6 +229,7 @@ def compile_tool(
         is_collection=shape.is_collection,
         envelope_include=envelope_include,
         item_include=item_include,
+        unwrapped=shape.unwrapped,
     )
 
     computed: list[ComputedPlan] = []

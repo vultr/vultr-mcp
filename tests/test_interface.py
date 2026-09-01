@@ -823,11 +823,19 @@ def test_descriptions_with_yaml_metacharacters_survive(index):
 
 
 def test_drift_reports_only_covered_areas(spec):
-    """A report over the whole spec would say 519 uncovered, which is noise."""
+    """A report over the whole spec would say 500+ uncovered, which is noise.
+
+    Which areas are covered grows as files are added, so this checks the report
+    matches the manifest rather than a remembered list.
+    """
     from vultr_mcp.interface.drift import detect_drift
 
+    manifest = yaml.safe_load(
+        (INTERFACE_DIR / "interface.yaml").read_text(encoding="utf-8")
+    )
     report = detect_drift(INTERFACE_DIR, spec)
-    assert {area.product_area for area in report.areas} == {"clusters", "instances"}
+    assert {area.product_area for area in report.areas} == set(manifest["product_areas"])
+    assert report.areas, "the manifest should cover at least one area"
 
 
 def test_declined_operations_are_not_reported_as_unreviewed(spec):
@@ -1061,3 +1069,79 @@ async def test_category_exclusions_still_apply_to_interface_tools():
 async def test_missing_interface_directory_is_not_fatal(tmp_path):
     names = await _tool_names(create_server(interface_dir=tmp_path))
     assert "list_clusters" in names
+
+
+# --------------------------------------------------------------------------
+# Unwrapped responses, and the credentials they used to carry.
+# --------------------------------------------------------------------------
+
+
+def test_audit_log_credentials_are_shaped_out(compiled):
+    """The whole reason the logs category came back onto the surface.
+
+    ListAuditLogs returns the S3 access key and secret key for the bucket audit
+    data is delivered to. Excluding the category was the blunt fix; this is the
+    exact one, and it has to keep holding.
+    """
+    tool = next(
+        t for t in compiled.tools if t.name == "vultr_account_audit_log_subscriptions_list"
+    )
+    payload = {
+        "subscriptions": [
+            {
+                "id": "sub-1",
+                "label": "prod audit",
+                "bucket_name": "audit-prod",
+                "s3_hostname": "ewr1.vultrobjects.com",
+                "s3_access_key": "AKIAREALLOOKINGKEY",
+                "s3_secret_key": "sUp3r-s3cr3t-value",
+            }
+        ]
+    }
+    shaped = runtime.shape_response(payload, tool, {})
+    row = shaped["subscriptions"][0]
+
+    assert "s3_access_key" not in row
+    assert "s3_secret_key" not in row
+    assert "AKIAREALLOOKINGKEY" not in json.dumps(shaped)
+    assert "sUp3r-s3cr3t-value" not in json.dumps(shaped)
+    # and the useful half survived
+    assert row["bucket_name"] == "audit-prod"
+    assert row["s3_hostname"] == "ewr1.vultrobjects.com"
+
+
+def test_an_unwrapped_response_is_shaped_at_the_top_level(compiled):
+    """GetAuditLog returns the subscription itself, not a wrapper around one.
+
+    The shape reader used to call that "no readable schema", which left nothing
+    to allowlist against and no way to withhold anything.
+    """
+    tool = next(
+        t for t in compiled.tools if t.name == "vultr_account_audit_log_subscriptions_get"
+    )
+    assert tool.output.unwrapped, "GetAuditLog's 200 is the resource itself"
+
+    payload = {
+        "id": "sub-1",
+        "label": "prod audit",
+        "bucket_name": "audit-prod",
+        "s3_access_key": "AKIAREALLOOKINGKEY",
+        "s3_secret_key": "sUp3r-s3cr3t-value",
+    }
+    shaped = runtime.shape_response(payload, tool, {})
+
+    assert shaped["id"] == "sub-1"
+    assert shaped["label"] == "prod audit"
+    assert "s3_access_key" not in shaped
+    assert "s3_secret_key" not in shaped
+
+
+async def test_no_generated_logs_tool_survives():
+    """Exclusion is per-category; replacement is per-operation.
+
+    Re-admitting the category is only safe while every read in it is covered.
+    An uncovered one would return as its generated self, credentials included.
+    """
+    names = set(await _tool_names(create_server()))
+    for generated in ("ListAuditLogs", "GetAuditLog", "ListAuditLogsClusters", "list_logs"):
+        assert generated not in names, f"{generated} is unshaped and back on the surface"

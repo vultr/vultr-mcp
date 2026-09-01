@@ -51,15 +51,14 @@ VULTR_API_BASE = os.environ.get("VULTR_API_BASE_URL", "https://api.vultr.com/v2"
 # Read-only mode drops the writes, but the exclusion is what keeps them out
 # when writes are enabled rather than relying on that.
 #
-# `logs` joined for a blunter reason: ListAuditLogs returns `s3_access_key` and
-# `s3_secret_key` for the audit-log delivery bucket, so the generated tool hands
-# an agent a live credential pair. This costs us `list-logs`, which is a
-# genuinely useful read of application log lines and carries nothing sensitive.
-# Re-admitting the category is the right move once a hand-authored tool shapes
-# those keys out -- an interface tool replaces the generated one, which is
-# exactly the mechanism for it. Until then the category is the only lever.
+# `logs` was excluded here for a while, because ListAuditLogs returns
+# `s3_access_key` and `s3_secret_key` for the audit-log delivery bucket. It is
+# back, because interface/logs.yaml now covers every read operation in the
+# category with a tool that withholds both. That is the mechanism working as
+# intended: exclusion is per-category and blunt, shaping is per-operation and
+# exact, so the category returns as soon as the shaping exists.
 DEFAULT_EXCLUDED_CATEGORIES = frozenset(
-    {"api-keys", "users", "iam", "scim", "organizations", "oidc", "oauth", "logs"}
+    {"api-keys", "users", "iam", "scim", "organizations", "oidc", "oauth"}
 )
 
 # Read-only mode (the default) exposes only operations that cannot change
@@ -256,6 +255,7 @@ REVIEWED_CATEGORIES = frozenset(
         "iso",
         "kubernetes",
         "load-balancer",
+        "logs",
         "managed-databases",
         "marketplace",
         "os",
