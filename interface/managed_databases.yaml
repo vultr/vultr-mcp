@@ -12,10 +12,21 @@ family: database
 # or anyone reading its transcript, connect as a user. `ca_certificate` is
 # withheld too -- it is not a secret, it is a PEM blob nobody asked for.
 #
-# Five tools out of twenty-eight read operations. The rest -- connectors,
-# topics, quotas, connection pools, advanced options -- are unreviewed rather
-# than declined: they are real capability nobody has assessed, and the drift
-# report will keep saying so.
+# The reads are all covered now, and covering the connectors turned up a fourth
+# credential carrier the earlier audit could not have seen. A Kafka Connect
+# connector's `config` holds whatever that connector needs to reach the system
+# it integrates with, which for most classes includes a password, an access key
+# or a token. The spec declares it as a bare `object` with no properties, so a
+# scan for credential-shaped field names finds nothing to flag -- there are no
+# field names in the spec to scan. It is withheld from both connector tools,
+# under the same rule as `root_user` in the container registry file: `include`
+# allowlists the top level of an item and a nested object passes through whole,
+# so an object that may hold a secret goes or stays as one piece.
+#
+# What is left is what identifies a connector -- name, class, topics -- which is
+# what questions about connectors actually ask. The settings a connector class
+# accepts, as opposed to the values one has been given, are public schema and
+# are served by vultr_database_connector_configuration_get.
 #
 # The resource is called `clusters` because Vultr's own docs do, and because
 # vultr_database_clusters_list beside vultr_compute_clusters_list and
@@ -305,3 +316,932 @@ tools:
         - status
         - method
         - error
+
+  - name: vultr_database_services_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the database engines Vultr offers as a managed service -- MySQL,
+      PostgreSQL, Valkey and Kafka -- with the versions available for each.
+
+      Use this tool to find which engines and versions can be deployed before
+      creating a managed database.
+
+      Do not use this tool for the engine a database already runs, which
+      vultr_database_clusters_get returns, or for the versions one existing
+      database can upgrade to, which vultr_database_versions_list returns.
+
+    operation: available-services
+
+    input:
+      type: object
+      properties: {}
+
+    output:
+      from_openapi: true
+      include:
+        - mysql
+        - pg
+        - valkey
+        - kafka
+
+  - name: vultr_database_plans_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists Vultr Managed Database plans, with each plan's vCPU count, RAM,
+      disk, node count, maximum connections, monthly cost, supported engines
+      and available regions.
+
+      Use this tool to compare plans, price a managed database before creating
+      it, or check which plans exist in a region or for an engine.
+
+      Do not use this tool for compute instance or bare metal plans, which are
+      a different product, or for the plan a database already runs on, which
+      vultr_database_clusters_get returns.
+
+    operation: list-database-plans
+
+    input:
+      type: object
+      properties:
+        engine:
+          type: string
+          description: Limit results to plans supporting one database engine.
+          enum:
+            - mysql
+            - pg
+            - valkey
+            - kafka
+
+        nodes:
+          type: integer
+          description: Limit results to plans with this number of nodes.
+          minimum: 1
+
+        region:
+          type: string
+          description: >-
+            Limit results to plans available in a Vultr region ID, such as ewr.
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - type
+        - vcpu_count
+        - ram
+        - disk
+        - number_of_nodes
+        - max_connections
+        - monthly_cost
+        - supported_engines
+        - locations
+
+  - name: vultr_database_usage_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets current resource usage for one Vultr Managed Database: disk, memory
+      and CPU, each as the amount used against what the plan provides.
+
+      Use this tool to check how close a database is to its limits, or whether
+      it needs a larger plan.
+
+      Do not use this tool for network bandwidth, which managed databases do
+      not report here, or for the plan's specifications, which
+      vultr_database_plans_list returns.
+
+    operation: get-database-usage
+
+    input:
+      type: object
+      required:
+        - database_id
+      properties:
+        database_id:
+          type: string
+          description: >-
+            ID of the managed database, as returned in the id field by
+            vultr_database_clusters_list.
+          maps_to: database-id
+
+    output:
+      from_openapi: true
+      include:
+        - disk
+        - memory
+        - cpu
+
+  - name: vultr_database_backups_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets the backup window for one Vultr Managed Database: the date and time
+      of the most recent backup and of the oldest one still retained.
+
+      Use this tool to check that a database is being backed up, and to find
+      the earliest point it could be restored to.
+
+      Do not use this tool for compute instance backups or snapshots, which are
+      separate products with their own tools.
+
+    operation: get-backup-information
+
+    input:
+      type: object
+      required:
+        - database_id
+      properties:
+        database_id:
+          type: string
+          description: >-
+            ID of the managed database, as returned in the id field by
+            vultr_database_clusters_list.
+          maps_to: database-id
+
+    # No `output` block: the response carries latest_backup and oldest_backup
+    # side by side, and shaping applies to a single container. Both are two
+    # fields each, so the whole payload passes through.
+
+  - name: vultr_database_versions_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the engine versions one Vultr Managed Database can be upgraded to.
+
+      Use this tool to check whether an upgrade is available for a specific
+      database before planning one.
+
+      Do not use this tool for the engines and versions available to new
+      databases, which vultr_database_services_list returns, or for the version
+      a database currently runs, which vultr_database_clusters_get returns.
+
+    operation: list-available-versions
+
+    input:
+      type: object
+      required:
+        - database_id
+      properties:
+        database_id:
+          type: string
+          description: >-
+            ID of the managed database, as returned in the id field by
+            vultr_database_clusters_list.
+          maps_to: database-id
+
+    # No `output` block: available_versions is a bare array of version strings,
+    # so there are no item fields to allowlist against.
+
+  - name: vultr_database_maintenance_updates_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the maintenance updates pending for one Vultr Managed Database,
+      as the update descriptions the service reports.
+
+      Use this tool to check whether a database has maintenance waiting before
+      scheduling a window.
+
+      Do not use this tool for engine version upgrades, which
+      vultr_database_versions_list returns, or for the maintenance day and time
+      configured on the database, which vultr_database_clusters_get returns.
+
+    operation: list-maintenance-updates
+
+    input:
+      type: object
+      required:
+        - database_id
+      properties:
+        database_id:
+          type: string
+          description: >-
+            ID of the managed database, as returned in the id field by
+            vultr_database_clusters_list.
+          maps_to: database-id
+
+    # No `output` block: available_updates is a bare array of strings, so there
+    # are no item fields to allowlist against.
+
+  - name: vultr_database_logical_databases_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the logical databases inside one Vultr Managed Database instance --
+      the named databases a client connects to, not the managed service itself.
+
+      Use this tool to find what database names exist on an instance before
+      connecting or granting access.
+
+      Do not use this tool to list managed database instances, which
+      vultr_database_clusters_list returns; this tool looks inside one of them.
+
+    operation: list-database-dbs
+
+    input:
+      type: object
+      required:
+        - database_id
+      properties:
+        database_id:
+          type: string
+          description: >-
+            ID of the managed database, as returned in the id field by
+            vultr_database_clusters_list.
+          maps_to: database-id
+
+    output:
+      from_openapi: true
+      include:
+        - name
+        - meta
+
+  - name: vultr_database_logical_databases_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets one logical database inside a Vultr Managed Database instance by
+      name, confirming it exists.
+
+      Use this tool when the logical database name is already known. To list
+      them, use vultr_database_logical_databases_list.
+
+      Do not use this tool for the managed database instance itself, which
+      vultr_database_clusters_get returns, or for the tables inside a logical
+      database, which this API does not expose.
+
+    operation: get-database-db
+
+    input:
+      type: object
+      required:
+        - database_id
+        - db_name
+      properties:
+        database_id:
+          type: string
+          description: >-
+            ID of the managed database, as returned in the id field by
+            vultr_database_clusters_list.
+          maps_to: database-id
+
+        db_name:
+          type: string
+          description: >-
+            Name of the logical database, as returned in the name field by
+            vultr_database_logical_databases_list.
+          maps_to: db-name
+
+    output:
+      from_openapi: true
+      include:
+        - name
+
+  - name: vultr_database_connection_pools_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the connection pools on one Vultr Managed Database (PostgreSQL),
+      each with its pool name, the logical database and user it connects as,
+      its mode and its size, alongside the instance's overall connection
+      counts.
+
+      Use this tool to report how pooling is configured, or to find which pool
+      serves a given database.
+
+      Do not use this tool for database users, which
+      vultr_database_users_list returns, or for logical databases, which
+      vultr_database_logical_databases_list returns.
+
+    operation: list-connection-pools
+
+    input:
+      type: object
+      required:
+        - database_id
+      properties:
+        database_id:
+          type: string
+          description: >-
+            ID of the managed database, as returned in the id field by
+            vultr_database_clusters_list.
+          maps_to: database-id
+
+    output:
+      from_openapi: true
+      include:
+        - name
+        - database
+        - username
+        - mode
+        - size
+        - connections
+        - meta
+
+  - name: vultr_database_connection_pools_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets one connection pool on a Vultr Managed Database by name, with the
+      logical database and user it connects as, its mode and its size.
+
+      Use this tool when the pool name is already known. To list them, use
+      vultr_database_connection_pools_list.
+
+      Do not use this tool for the instance's overall connection counts, which
+      the list tool returns alongside the pools.
+
+    operation: get-connection-pool
+
+    input:
+      type: object
+      required:
+        - database_id
+        - pool_name
+      properties:
+        database_id:
+          type: string
+          description: >-
+            ID of the managed database, as returned in the id field by
+            vultr_database_clusters_list.
+          maps_to: database-id
+
+        pool_name:
+          type: string
+          description: >-
+            Name of the connection pool, as returned in the name field by
+            vultr_database_connection_pools_list.
+          maps_to: pool-name
+
+    output:
+      from_openapi: true
+      include:
+        - name
+        - database
+        - username
+        - mode
+        - size
+
+  - name: vultr_database_advanced_options_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the advanced engine options for one Vultr Managed Database: every
+      option that can be set, with its type, permitted range or values and
+      units, alongside the options currently configured.
+
+      Use this tool to see how an engine is tuned, or what a setting may be
+      changed to.
+
+      Do not use this tool for Kafka Connect, Kafka REST or Schema Registry
+      options, which are separate tools, and not for the database's plan or
+      status.
+
+    operation: list-advanced-options
+
+    input:
+      type: object
+      required:
+        - database_id
+      properties:
+        database_id:
+          type: string
+          description: >-
+            ID of the managed database, as returned in the id field by
+            vultr_database_clusters_list.
+          maps_to: database-id
+
+    output:
+      from_openapi: true
+      include:
+        - name
+        - type
+        - units
+        - min_value
+        - max_value
+        - enumerals
+        - alt_values
+        - configured_options
+
+  - name: vultr_database_kafka_connect_options_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the advanced Kafka Connect options for one Vultr Managed Database
+      running Kafka: every option that can be set, with its type, permitted
+      range or values and units, alongside those currently configured.
+
+      Use this tool to see how Kafka Connect is tuned on a specific database.
+
+      Do not use this tool for the engine's general advanced options, which
+      vultr_database_advanced_options_list returns, nor for Kafka REST or
+      Schema Registry options, which have their own tools.
+
+    operation: list-advanced-options-kafka-connect
+
+    input:
+      type: object
+      required:
+        - database_id
+      properties:
+        database_id:
+          type: string
+          description: >-
+            ID of the managed database, as returned in the id field by
+            vultr_database_clusters_list.
+          maps_to: database-id
+
+    output:
+      from_openapi: true
+      include:
+        - name
+        - type
+        - units
+        - min_value
+        - max_value
+        - enumerals
+        - alt_values
+        - configured_options
+
+  - name: vultr_database_kafka_rest_options_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the advanced Kafka REST options for one Vultr Managed Database
+      running Kafka: every option that can be set, with its type, permitted
+      range or values and units, alongside those currently configured.
+
+      Use this tool to see how the Kafka REST proxy is tuned on a specific
+      database.
+
+      Do not use this tool for the engine's general advanced options, which
+      vultr_database_advanced_options_list returns, nor for Kafka Connect or
+      Schema Registry options, which have their own tools.
+
+    operation: list-advanced-options-kafka-rest
+
+    input:
+      type: object
+      required:
+        - database_id
+      properties:
+        database_id:
+          type: string
+          description: >-
+            ID of the managed database, as returned in the id field by
+            vultr_database_clusters_list.
+          maps_to: database-id
+
+    output:
+      from_openapi: true
+      include:
+        - name
+        - type
+        - units
+        - min_value
+        - max_value
+        - enumerals
+        - alt_values
+        - configured_options
+
+  - name: vultr_database_schema_registry_options_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the advanced Schema Registry options for one Vultr Managed Database
+      running Kafka: every option that can be set, with its type, permitted
+      range or values and units, alongside those currently configured.
+
+      Use this tool to see how the Schema Registry is tuned on a specific
+      database.
+
+      Do not use this tool for the engine's general advanced options, which
+      vultr_database_advanced_options_list returns, nor for Kafka Connect or
+      Kafka REST options, which have their own tools.
+
+    operation: list-advanced-options-schema-registry
+
+    input:
+      type: object
+      required:
+        - database_id
+      properties:
+        database_id:
+          type: string
+          description: >-
+            ID of the managed database, as returned in the id field by
+            vultr_database_clusters_list.
+          maps_to: database-id
+
+    output:
+      from_openapi: true
+      include:
+        - name
+        - type
+        - units
+        - min_value
+        - max_value
+        - enumerals
+        - alt_values
+        - configured_options
+
+  - name: vultr_database_topics_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the Kafka topics on one Vultr Managed Database, each with its
+      partition count, replication factor, and retention in hours and bytes.
+
+      Use this tool to find what topics exist on a Kafka database and how they
+      are configured.
+
+      Do not use this tool for the messages inside a topic, which need a Kafka
+      client rather than this API, or for logical databases on a SQL engine,
+      which vultr_database_logical_databases_list returns.
+
+    operation: list-database-topics
+
+    input:
+      type: object
+      required:
+        - database_id
+      properties:
+        database_id:
+          type: string
+          description: >-
+            ID of the managed database, as returned in the id field by
+            vultr_database_clusters_list.
+          maps_to: database-id
+
+    output:
+      from_openapi: true
+      include:
+        - name
+        - partitions
+        - replication
+        - retention_hours
+        - retention_bytes
+        - meta
+
+  - name: vultr_database_topics_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets one Kafka topic on a Vultr Managed Database by name, with its
+      partition count, replication factor, and retention in hours and bytes.
+
+      Use this tool when the topic name is already known. To list them, use
+      vultr_database_topics_list.
+
+      Do not use this tool for the messages inside the topic, which need a
+      Kafka client rather than this API.
+
+    operation: get-database-topic
+
+    input:
+      type: object
+      required:
+        - database_id
+        - topic_name
+      properties:
+        database_id:
+          type: string
+          description: >-
+            ID of the managed database, as returned in the id field by
+            vultr_database_clusters_list.
+          maps_to: database-id
+
+        topic_name:
+          type: string
+          description: >-
+            Name of the Kafka topic, as returned in the name field by
+            vultr_database_topics_list.
+          maps_to: topic-name
+
+    output:
+      from_openapi: true
+      include:
+        - name
+        - partitions
+        - replication
+        - retention_hours
+        - retention_bytes
+
+  - name: vultr_database_quotas_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the Kafka quotas on one Vultr Managed Database, each capping a
+      client and user pair's producer and consumer byte rates and its share of
+      request handler time.
+
+      Use this tool to report which clients are rate-limited and by how much.
+
+      Do not use this tool for the database's own plan limits or resource
+      usage, which vultr_database_usage_get returns.
+
+    operation: list-database-quotas
+
+    input:
+      type: object
+      required:
+        - database_id
+      properties:
+        database_id:
+          type: string
+          description: >-
+            ID of the managed database, as returned in the id field by
+            vultr_database_clusters_list.
+          maps_to: database-id
+
+    output:
+      from_openapi: true
+      include:
+        - client_id
+        - user
+        - producer_byte_rate
+        - consumer_byte_rate
+        - request_percentage
+        - meta
+
+  - name: vultr_database_quotas_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets one Kafka quota on a Vultr Managed Database by client ID and
+      username, with its producer and consumer byte rates and its share of
+      request handler time.
+
+      Use this tool when the client ID and username are already known. To list
+      them, use vultr_database_quotas_list.
+
+      Do not use this tool for the database's own plan limits or resource
+      usage, which vultr_database_usage_get returns.
+
+    operation: get-database-quota
+
+    input:
+      type: object
+      required:
+        - database_id
+        - client_id
+        - username
+      properties:
+        database_id:
+          type: string
+          description: >-
+            ID of the managed database, as returned in the id field by
+            vultr_database_clusters_list.
+          maps_to: database-id
+
+        client_id:
+          type: string
+          description: >-
+            Client ID the quota applies to, as returned in the client_id field
+            by vultr_database_quotas_list.
+          maps_to: client-id
+
+        username:
+          type: string
+          description: >-
+            User the quota applies to, as returned in the user field by
+            vultr_database_quotas_list.
+
+    output:
+      from_openapi: true
+      include:
+        - client_id
+        - user
+        - producer_byte_rate
+        - consumer_byte_rate
+        - request_percentage
+
+  - name: vultr_database_available_connectors_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the Kafka Connect connectors that can be created on one Vultr
+      Managed Database, each with its class, title, type and documentation URL.
+
+      Use this tool to find which connector integrations are on offer before
+      configuring one.
+
+      Do not use this tool for the connectors already configured, which
+      vultr_database_connectors_list returns.
+
+    operation: list-database-available-connectors
+
+    input:
+      type: object
+      required:
+        - database_id
+      properties:
+        database_id:
+          type: string
+          description: >-
+            ID of the managed database, as returned in the id field by
+            vultr_database_clusters_list.
+          maps_to: database-id
+
+    output:
+      from_openapi: true
+      include:
+        - class
+        - title
+        - type
+        - version
+        - doc_url
+
+  - name: vultr_database_connector_configuration_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets the configuration schema for one available Kafka Connect connector
+      class: every setting it accepts, with each setting's type, default value,
+      description and whether it is required.
+
+      Use this tool to find out what a connector needs configured before
+      creating one.
+
+      Do not use this tool for the configuration of a connector that already
+      exists, which this layer does not return -- see the note at the top of
+      this file.
+
+    operation: get-database-connector-configuration-schema
+
+    input:
+      type: object
+      required:
+        - database_id
+        - connector_class
+      properties:
+        database_id:
+          type: string
+          description: >-
+            ID of the managed database, as returned in the id field by
+            vultr_database_clusters_list.
+          maps_to: database-id
+
+        connector_class:
+          type: string
+          description: >-
+            Identifying class of the connector, as returned in the class field
+            by vultr_database_available_connectors_list.
+          maps_to: connector-class
+
+    output:
+      from_openapi: true
+      include:
+        - name
+        - type
+        - required
+        - default_value
+        - description
+
+  - name: vultr_database_connectors_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the Kafka Connect connectors configured on one Vultr Managed
+      Database, each with its name, class, and the topics it reads or writes.
+
+      Use this tool to find what integrations a Kafka database is running and
+      which topics they touch.
+
+      Do not use this tool for the connector classes available to create, which
+      vultr_database_available_connectors_list returns, or for a connector's
+      running state, which vultr_database_connector_status_get returns.
+
+    operation: list-database-connectors
+
+    input:
+      type: object
+      required:
+        - database_id
+      properties:
+        database_id:
+          type: string
+          description: >-
+            ID of the managed database, as returned in the id field by
+            vultr_database_clusters_list.
+          maps_to: database-id
+
+    output:
+      from_openapi: true
+      # `config` is deliberately absent; see the note at the top of this file.
+      include:
+        - name
+        - class
+        - topics
+        - meta
+
+  - name: vultr_database_connectors_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets one Kafka Connect connector on a Vultr Managed Database by name,
+      with its class and the topics it reads or writes.
+
+      Use this tool when the connector name is already known. To list them, use
+      vultr_database_connectors_list.
+
+      Do not use this tool for whether the connector is running, which
+      vultr_database_connector_status_get returns, or for the settings a
+      connector class accepts, which
+      vultr_database_connector_configuration_get returns.
+
+    operation: get-database-connector
+
+    input:
+      type: object
+      required:
+        - database_id
+        - connector_name
+      properties:
+        database_id:
+          type: string
+          description: >-
+            ID of the managed database, as returned in the id field by
+            vultr_database_clusters_list.
+          maps_to: database-id
+
+        connector_name:
+          type: string
+          description: >-
+            Name of the connector, as returned in the name field by
+            vultr_database_connectors_list.
+          maps_to: connector-name
+
+    output:
+      from_openapi: true
+      # `config` is deliberately absent; see the note at the top of this file.
+      include:
+        - name
+        - class
+        - topics
+
+  - name: vultr_database_connector_status_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets the running state of one Kafka Connect connector on a Vultr Managed
+      Database, with the state of each of its tasks.
+
+      Use this tool to check whether a connector is running or has failed, and
+      which task failed.
+
+      Do not use this tool for the connector's configuration or topics, which
+      vultr_database_connectors_get returns.
+
+    operation: get-database-connector-status
+
+    input:
+      type: object
+      required:
+        - database_id
+        - connector_name
+      properties:
+        database_id:
+          type: string
+          description: >-
+            ID of the managed database, as returned in the id field by
+            vultr_database_clusters_list.
+          maps_to: database-id
+
+        connector_name:
+          type: string
+          description: >-
+            Name of the connector, as returned in the name field by
+            vultr_database_connectors_list.
+          maps_to: connector-name
+
+    output:
+      from_openapi: true
+      include:
+        - state
+        - tasks
