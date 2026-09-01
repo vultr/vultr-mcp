@@ -18,9 +18,20 @@
     },
     "family": {
       "type": "string",
-      "description": "Product family this area belongs to, and the second segment of every tool name in the file (family 'compute' means every tool here is named vultr_compute_*). Families group products the way a person thinks about them -- compute covers instances, bare metal, and Compute Clusters -- which is what lets an agent tell vultr_compute_clusters_search from vultr_kubernetes_clusters_search by name alone. It is a human taxonomy: nothing in openapi.json supplies it.",
-      "pattern": "^[a-z][a-z0-9]*$",
-      "maxLength": 24
+      "description": "Product family this area belongs to, and the second segment of every tool name in the file. Families group products the way a person thinks about them, which is what lets an agent tell vultr_compute_clusters_list from vultr_kubernetes_clusters_list by name alone -- kubernetes is deliberately its own family rather than part of compute, because those two are the pair that actually gets confused. It is a human taxonomy: nothing in openapi.json supplies it, so adding a family is a decision, not a mapping.",
+      "maxLength": 24,
+      "enum": [
+        "account",
+        "catalog",
+        "compute",
+        "database",
+        "inference",
+        "kubernetes",
+        "marketplace",
+        "network",
+        "registry",
+        "storage"
+      ]
     },
     "tools": {
       "type": "array",
@@ -57,7 +68,7 @@
       "properties": {
         "name": {
           "type": "string",
-          "description": "Agent-facing tool name, provider_productarea_resource_action.",
+          "description": "Agent-facing tool name: vultr_<family>_<resource>_<verb>. The family must match the one declared by the file. The verb must come from the closed vocabulary, because it is what an agent pattern-matches on across every product area: `list` for a collection and `get` for one thing -- `search` was rejected because it reads like finding a single item and collides with `get` -- then `create`, `update`, `delete` for CRUD, and `start`, `stop`, `restart`, `reinstall`, `restore`, `attach`, `detach`, `resize` for lifecycle actions. Both rules are enforced by the validator.",
           "pattern": "^vultr_[a-z0-9]+(_[a-z0-9]+)+$",
           "maxLength": 64
         },

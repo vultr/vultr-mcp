@@ -47,7 +47,7 @@ Generated tool definitions inherit whatever the spec says, which is written for 
 `interface/` is a versioned set of reviewed YAML files that decide what the agent sees — tool name, description, input schema, response shape — while `openapi.json` stays the source of truth for the HTTP call itself. One tool maps to exactly one `operationId`.
 
 ```yaml
-- name: vultr_compute_clusters_search   # provider_productarea_resource_action
+- name: vultr_compute_clusters_list     # vultr_<family>_<resource>_<verb>
   access: read                          # cross-checked against the HTTP method
   operation: list-clusters
   description: |

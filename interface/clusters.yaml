@@ -2,12 +2,12 @@ product_area: clusters
 family: compute
 
 tools:
-  - name: vultr_compute_clusters_search
+  - name: vultr_compute_clusters_list
     access: read
     enabled: true
 
     description: |
-      Searches for Vultr Compute Clusters in the active Vultr organization.
+      Lists Vultr Compute Clusters in the active Vultr organization.
 
       Use this tool to list, find, count, or select Compute Clusters, including
       GPU and fabric-connected clusters. Results can be filtered by label,

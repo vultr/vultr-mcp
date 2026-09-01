@@ -85,7 +85,7 @@ def _snake(name: str) -> str:
 def tool_name(family: str, area: str, operation: Operation) -> str:
     """Derive a name in the family_resource_action convention.
 
-    ``list-instances`` becomes ``vultr_compute_instances_search`` and
+    ``list-instances`` becomes ``vultr_compute_instances_list`` and
     ``get-instance-bandwidth`` becomes ``vultr_compute_instances_bandwidth_get``.
     Singular resources are normalised to the area slug so the two sit together
     in a listing. It is a draft name; renaming it is the reviewer's call.
@@ -97,7 +97,7 @@ def tool_name(family: str, area: str, operation: Operation) -> str:
     if tokens and _singular(tokens[0].lower()) == _singular(area):
         tokens[0] = area
 
-    action = "search" if operation.response.is_collection else "get"
+    action = "list" if operation.response.is_collection else "get"
     stem = "_".join(_snake(token) for token in tokens if token) or area
     return f"vultr_{family}_{stem}_{action}"
 

@@ -47,13 +47,13 @@ declined:
       belong with the dns product area if they are ever worth a tool.
 
 tools:
-  - name: vultr_compute_instances_search
+  - name: vultr_compute_instances_list
     access: read
     enabled: true
 
     description: |
-      Searches for Vultr cloud compute instances, also called VPS, virtual
-      machines, or servers, in the active Vultr organization.
+      Lists Vultr cloud compute instances, also called VPS, virtual machines,
+      or servers, in the active Vultr organization.
 
       Use this tool to list, find, count, or select instances, and to answer
       questions about their power state, region, plan, operating system, or
@@ -196,7 +196,7 @@ tools:
       operating system, network addresses, region, power state, and tags.
 
       Use this tool when an instance ID is already known. To find an instance
-      by label, hostname, IP, or tag, use vultr_compute_instances_search first.
+      by label, hostname, IP, or tag, use vultr_compute_instances_list first.
 
       Do not use this tool for Vultr Bare Metal servers or Vultr Kubernetes
       Engine worker nodes.
@@ -212,7 +212,7 @@ tools:
           type: string
           description: >-
             ID of the instance to fetch, as returned in the id field by
-            vultr_compute_instances_search.
+            vultr_compute_instances_list.
           maps_to: instance-id
 
     output:

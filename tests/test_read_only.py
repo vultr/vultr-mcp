@@ -63,7 +63,7 @@ async def test_default_surface_is_read_only(spec):
     # hand-authored tool, so pinning the generated name here would fail the
     # moment a product area is covered rather than when a read tool goes
     # missing.
-    assert "list_instances" in joined or "vultr_compute_instances_search" in joined
+    assert "list_instances" in joined or "vultr_compute_instances_list" in joined
 
 
 async def test_read_only_is_the_default_without_env(monkeypatch):

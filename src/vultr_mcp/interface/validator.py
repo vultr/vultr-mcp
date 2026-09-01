@@ -28,6 +28,39 @@ from vultr_mcp.interface.spec_index import Operation, SpecIndex
 # parameter would need credentials or transport plumbing the layer doesn't own.
 SUPPORTED_PARAMETER_LOCATIONS = frozenset({"query", "path"})
 
+# The closed verb vocabulary, and the last segment of every tool name. It is
+# what an agent pattern-matches on across every product area, so consistency
+# matters more than expressiveness: one word per action, the same word
+# everywhere.
+#
+# `list` rather than `search` for collections. `search` reads like finding a
+# single item, which puts it in competition with `get` for exactly the prompts
+# where the two must be distinguishable.
+#
+# The lifecycle verbs use the words a person would say rather than the ones the
+# API uses -- `stop` for Vultr's halt, `restart` for its reboot. Vultr's own
+# term belongs in the description, where someone reading the docs will find it.
+TOOL_VERBS = frozenset(
+    {
+        # read
+        "list",
+        "get",
+        # CRUD
+        "create",
+        "update",
+        "delete",
+        # lifecycle
+        "start",
+        "stop",
+        "restart",
+        "reinstall",
+        "restore",
+        "attach",
+        "detach",
+        "resize",
+    }
+)
+
 
 @dataclass
 class Problem:
@@ -326,7 +359,7 @@ def validate_product_area(
         seen.add(name)
 
         # The family prefix is the agent's first signal, and the reason
-        # vultr_compute_clusters_search cannot be mistaken for a VKE tool. A
+        # vultr_compute_clusters_list cannot be mistaken for a VKE tool. A
         # name that drops it looks fine in isolation and quietly costs that
         # distinction, so the file's declared family is enforced rather than
         # trusted.
@@ -334,6 +367,19 @@ def validate_product_area(
         if not name.startswith(prefix):
             found.append(
                 Problem(location, f"name must start with '{prefix}' (family: {family})")
+            )
+
+        # The verb is the other half of the convention, and the half an agent
+        # matches on when choosing between product areas. One invented verb --
+        # `find`, `fetch`, `query` -- and the surface stops being predictable.
+        verb = name.rsplit("_", 1)[-1]
+        if verb not in TOOL_VERBS:
+            found.append(
+                Problem(
+                    location,
+                    f"name ends in '{verb}', which is not in the verb vocabulary "
+                    f"({', '.join(sorted(TOOL_VERBS))})",
+                )
             )
 
         found.extend(validate_tool(tool, index, location))

@@ -27,7 +27,7 @@ from vultr_mcp.server import create_server, load_spec
 REPO_ROOT = Path(__file__).resolve().parent.parent
 INTERFACE_DIR = REPO_ROOT / "interface"
 
-CLUSTER_TOOL = "vultr_compute_clusters_search"
+CLUSTER_TOOL = "vultr_compute_clusters_list"
 
 
 @pytest.fixture(scope="module")
@@ -252,12 +252,41 @@ def test_required_api_parameter_with_no_input_fails(tmp_path, spec):
 def test_name_must_carry_the_declared_family(tmp_path, definition, spec):
     """The family prefix is what stops a name being mistakable for another product.
 
-    vultr_clusters_search reads fine on its own and loses the distinction from
+    vultr_clusters_list reads fine on its own and loses the distinction from
     VKE clusters, so the file's declared family is enforced rather than trusted.
     """
-    definition["name"] = "vultr_clusters_search"
+    definition["name"] = "vultr_clusters_list"
     problems = _problems(tmp_path, definition, spec)
     assert any("must start with 'vultr_compute_'" in p for p in problems)
+
+
+def test_an_invented_verb_fails(tmp_path, definition, spec):
+    """The verb is what an agent matches on across every product area.
+
+    One tool named `_find` and another `_list` for the same shape, and the
+    surface stops being predictable in exactly the way the layer exists to fix.
+    """
+    definition["name"] = "vultr_compute_clusters_find"
+    problems = _problems(tmp_path, definition, spec)
+    assert any("not in the verb vocabulary" in p for p in problems)
+
+
+def test_search_is_no_longer_a_verb(tmp_path, definition, spec):
+    """`search` reads like finding one item, which collides with `get`."""
+    definition["name"] = "vultr_compute_clusters_search"
+    problems = _problems(tmp_path, definition, spec)
+    assert any("not in the verb vocabulary" in p for p in problems)
+
+
+def test_an_unknown_family_fails(tmp_path, definition, spec):
+    from vultr_mcp.interface.validator import validate_manifest
+
+    directory = _scratch_interface(tmp_path, definition)
+    document = yaml.safe_load((directory / "clusters.yaml").read_text(encoding="utf-8"))
+    document["family"] = "widgets"
+    (directory / "clusters.yaml").write_text(yaml.safe_dump(document), encoding="utf-8")
+
+    assert [p for p in validate_manifest(directory, spec) if p.is_error]
 
 
 def test_declared_family_is_required(tmp_path, definition, spec):
@@ -292,7 +321,7 @@ def test_a_broken_disabled_tool_warns_rather_than_failing(tmp_path, definition, 
     assert not [p for p in problems if p.is_error], "but not as a build failure"
 
     compiled = compile_interface(directory, spec)
-    assert [tool.name for tool in compiled.tools] == ["vultr_compute_clusters_search"]
+    assert [tool.name for tool in compiled.tools] == ["vultr_compute_clusters_list"]
 
 
 def test_the_same_problem_is_fatal_once_the_tool_is_enabled(tmp_path, definition, spec):
@@ -399,7 +428,7 @@ def test_a_tool_without_an_output_block_still_filters(tmp_path, spec):
     directory = _scratch_interface(
         tmp_path,
         {
-            "name": "vultr_compute_clusters_search",
+            "name": "vultr_compute_clusters_list",
             "access": "read",
             "enabled": True,
             "description": (
@@ -772,7 +801,7 @@ def test_scaffolded_names_follow_the_family_convention(index):
         if operation.operation_id in ("list-instances", "get-instance", "get-instance-bandwidth")
     }
     # The same names we arrived at by hand for the two tools that exist.
-    assert names["list-instances"] == "vultr_compute_instances_search"
+    assert names["list-instances"] == "vultr_compute_instances_list"
     assert names["get-instance"] == "vultr_compute_instances_get"
     assert names["get-instance-bandwidth"] == "vultr_compute_instances_bandwidth_get"
 
