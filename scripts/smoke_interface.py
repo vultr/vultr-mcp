@@ -187,7 +187,16 @@ async def main() -> int:
 
     passed = sum(1 for r in results if r.ok)
     print(f"\n{passed}/{len(results)} returned successfully; {layer_bugs} layer bug(s)")
-    return 1 if layer_bugs else 0
+
+    if layer_bugs:
+        return 1
+    # A credential was supplied and nothing worked: a wrong key, an unreachable
+    # host, an IP allowlist. That must not pass quietly in CI, where nobody
+    # reads the output unless it fails.
+    if os.environ.get("VULTR_API_KEY") and results and not passed:
+        print("a key was supplied but nothing succeeded; treating that as failure")
+        return 1
+    return 0
 
 
 def _needs_id(tool: CompiledTool) -> bool:

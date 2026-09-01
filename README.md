@@ -106,6 +106,21 @@ VULTR_MCP_WRITES_ENABLED=true uv run python -m vultr_mcp
 
 > Per-user, per-org write access — a toggle in the Vultr console that promotes a specific user to the write surface — is the planned next step. The env flag is the mechanism it will drive.
 
+### Keeping up with the spec
+
+`openapi.json` moves because someone else shipped, so CI answers "what changed, and does it still work" on every push:
+
+| Check | Catches |
+|---|---|
+| `pytest` | spec defects that stop the server parsing at all, plus a new OpenAPI tag nobody has assessed |
+| `python -m vultr_mcp.interface` | a tool definition referencing something the spec no longer has |
+| `python -m vultr_mcp.interface --drift` | operations added to a covered product area that nobody has reviewed |
+| `scripts/smoke_interface.py` | the spec being *wrong* — a documented field that never arrives, an undocumented one that does |
+
+The category check deserves a note. A new tag defaults to being exposed, so a spec update can put a product area on the tool surface with nobody having looked — that is how 24 OAuth client-management operations arrived, and an audit-log endpoint returning `s3_secret_key`. Every tag must now appear in either `DEFAULT_EXCLUDED_CATEGORIES` or `REVIEWED_CATEGORIES`, and a tag in neither fails the build.
+
+The smoke test needs a `VULTR_API_KEY` secret and is skipped without one. Use a test account: whatever the API returns lands in the workflow log.
+
 ### Excluded categories
 
 Identity and credential-management categories are **excluded by default** so they stay out of agent reach (the same posture as the GitHub/Stripe/DigitalOcean MCPs): `api-keys`, `users`, `iam`, `scim`, `organizations`, `oidc`. Enforcement of these permissions belongs in the IAM policy attached to the OAuth client app; excluding the tools is UX-layer hygiene.

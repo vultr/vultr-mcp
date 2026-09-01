@@ -83,3 +83,42 @@ def test_all_categories_matches_spec():
         "every default-excluded category must exist as a real spec tag"
     )
     assert len(cats) > 35
+
+
+async def test_no_category_is_unreviewed():
+    """A tag nobody has decided about must fail the build, not ship.
+
+    The default for a new OpenAPI tag is exposure, so a spec update can put a
+    product area on the tool surface with nobody having looked. That is how
+    `oauth` arrived with 24 client-management operations, and `logs` with an
+    endpoint returning s3_secret_key. Both are now decided; this is what makes
+    the next one impossible to miss.
+
+    To fix a failure here: put the tag in DEFAULT_EXCLUDED_CATEGORIES if it is
+    identity, credential, or otherwise not for agents, and in
+    REVIEWED_CATEGORIES if it belongs on the surface.
+    """
+    from vultr_mcp.server import unreviewed_categories
+
+    unreviewed = unreviewed_categories(load_spec())
+    assert not unreviewed, (
+        "new OpenAPI tag(s) nobody has assessed: "
+        + ", ".join(sorted(unreviewed))
+        + " — decide each one into DEFAULT_EXCLUDED_CATEGORIES or REVIEWED_CATEGORIES"
+    )
+
+
+async def test_reviewed_and_excluded_do_not_overlap():
+    """A tag in both lists means one of them is a lie about the surface."""
+    from vultr_mcp.server import DEFAULT_EXCLUDED_CATEGORIES, REVIEWED_CATEGORIES
+
+    overlap = REVIEWED_CATEGORIES & DEFAULT_EXCLUDED_CATEGORIES
+    assert not overlap, f"listed as both reviewed and excluded: {sorted(overlap)}"
+
+
+async def test_reviewed_categories_still_exist_in_the_spec():
+    """A reviewed tag the spec dropped is a stale decision worth pruning."""
+    from vultr_mcp.server import REVIEWED_CATEGORIES
+
+    stale = REVIEWED_CATEGORIES - all_categories(load_spec())
+    assert not stale, f"reviewed tag(s) no longer in the spec: {sorted(stale)}"

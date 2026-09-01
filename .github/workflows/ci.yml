@@ -1,0 +1,79 @@
+name: CI
+
+# The spec is the thing most likely to move under this repo, and it moves
+# because someone else shipped. Everything here is arranged so a spec update
+# produces a readable answer to "what changed and does it still work" rather
+# than a wall of failures.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  # So a spec bump can be checked without opening a PR first.
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      # Catches the big one: a spec whose defects stop FastMCP parsing it at
+      # all. The 2026-08-28 update did exactly that, via `"type": "int"`.
+      - name: Tests
+        run: uv run pytest -q
+
+      # Fails when a definition references something the spec no longer has.
+      # Disabled tools report as warnings and do not fail.
+      - name: Validate the interface layer
+        run: uv run python -m vultr_mcp.interface
+
+      # Informational: what the spec grew that nobody has reviewed. A new
+      # endpoint upstream is news, not a build failure -- this exits non-zero
+      # only for a stale reference, which is breakage on our side.
+      - name: Interface drift
+        run: uv run python -m vultr_mcp.interface --drift
+
+  # Calls every compiled tool against a real API. This is the only check that
+  # can catch the spec being wrong about what the API returns, which is where
+  # every error found on 2026-08-28 came from -- a documented field that never
+  # arrives, an undocumented one that does.
+  #
+  # Skipped unless VULTR_API_KEY is configured, so forks and PRs from outside
+  # the org do not fail on a missing secret. Read-only: compiled tools carry an
+  # access the validator cross-checks against the HTTP method.
+  smoke:
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Live smoke test
+        env:
+          VULTR_API_KEY: ${{ secrets.VULTR_API_KEY }}
+          VULTR_API_BASE_URL: ${{ vars.VULTR_API_BASE_URL }}
+        run: |
+          if [ -z "$VULTR_API_KEY" ]; then
+            echo "VULTR_API_KEY is not configured; skipping the live smoke test."
+            echo "Set it as a repository secret to exercise the runtime against a"
+            echo "real API. Use a test account: whatever the API returns lands in"
+            echo "the workflow log."
+            exit 0
+          fi
+          uv run python scripts/smoke_interface.py

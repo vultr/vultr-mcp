@@ -229,6 +229,63 @@ def sanitize_spec(spec: dict) -> dict:
     return spec
 
 
+# Categories somebody has looked at and decided to expose. This is not a
+# filter — it is a record, and its only job is to make a *new* tag detectable.
+# Without it every unexcluded tag is implicitly allowed, which is how 24 OAuth
+# client-management operations and an audit-log endpoint returning
+# `s3_secret_key` arrived on the default surface unnoticed in a single spec
+# update. A tag in neither this set nor DEFAULT_EXCLUDED_CATEGORIES fails the
+# build until a human puts it in one of them.
+REVIEWED_CATEGORIES = frozenset(
+    {
+        "CDNs",
+        "Container Registry",
+        "VFS",
+        "VPCs",
+        "account",
+        "application",
+        "backup",
+        "baremetal",
+        "billing",
+        "block",
+        "clusters",
+        "dns",
+        "firewall",
+        "instance-templates",
+        "instances",
+        "iso",
+        "kubernetes",
+        "load-balancer",
+        "managed-databases",
+        "marketplace",
+        "os",
+        "plans",
+        "private Networks",
+        "region",
+        "reserved-ip",
+        "s3",
+        "serverless-inference",
+        "snapshot",
+        "ssh",
+        "startup",
+        "storage-gateways",
+        "subaccount",
+        "tickets",
+    }
+)
+
+
+def unreviewed_categories(spec: dict) -> set[str]:
+    """Tags nobody has decided about: neither excluded nor reviewed.
+
+    The category-level twin of the interface layer's drift report. A spec update
+    that introduces a product area is news that has to reach a person, because
+    the default is exposure and the cost of missing one is a tool surface nobody
+    chose.
+    """
+    return all_categories(spec) - set(DEFAULT_EXCLUDED_CATEGORIES) - REVIEWED_CATEGORIES
+
+
 def all_categories(spec: dict) -> set[str]:
     """Every OpenAPI operation tag present in the spec."""
     tags: set[str] = set()
