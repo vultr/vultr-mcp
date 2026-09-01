@@ -37,6 +37,15 @@ declined:
     reason: >-
       The same credential-minting operation in Kubernetes secret form, and the
       same answer.
+  read-replication:
+    reason: >-
+      GET /registry/{registry-id}/replication/{region} cannot be called as the
+      spec describes it. The only parameter it declares beside registry-id is
+      named "VCR Region", with no `in` and no `schema`, so nothing fills the
+      {region} placeholder in the path and the layer would build a URL with the
+      braces still in it. vultr_registry_replications_list returns every field
+      this one does -- region, namespace and urn -- for all policies on a
+      registry, so nothing is lost. Reported upstream.
 
 tools:
   - name: vultr_registry_registries_list
@@ -211,4 +220,291 @@ tools:
         - disable
         - duration
         - creation_time
+        - meta
+
+  - name: vultr_registry_repositories_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets one image repository inside a Vultr Container Registry by name, with
+      its description, artifact count, pull count, and when it was added and
+      last updated.
+
+      Use this tool when a repository name is already known. To find one, use
+      vultr_registry_repositories_list first.
+
+      Do not use this tool for the individual tags and digests inside the
+      repository, which vultr_registry_artifacts_list returns, or for the
+      registry itself.
+
+    operation: read-registry-repository
+
+    input:
+      type: object
+      required:
+        - registry_id
+        - repository_image
+      properties:
+        registry_id:
+          type: string
+          description: >-
+            ID of the container registry, as returned in the id field by
+            vultr_registry_registries_list.
+          maps_to: registry-id
+
+        repository_image:
+          type: string
+          description: >-
+            Name of the repository image, as returned in the image field by
+            vultr_registry_repositories_list.
+          maps_to: repository-image
+
+    output:
+      from_openapi: true
+      include:
+        - name
+        - image
+        - description
+        - artifact_count
+        - pull_count
+        - added_at
+        - updated_at
+
+  - name: vultr_registry_artifacts_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the artifacts in one repository of a Vultr Container Registry --
+      the individual pushed images -- each with its digest, tags, size, media
+      type, and push and pull times.
+
+      Use this tool to find the tags available for an image, to identify an
+      image by digest, or to see which artifacts are stale or oversized.
+
+      Do not use this tool for the repository's summary counts, which
+      vultr_registry_repositories_get returns, or to pull an image, which needs
+      a Docker client rather than this API.
+
+    operation: list-registry-repository-artifacts
+
+    input:
+      type: object
+      required:
+        - registry_id
+        - repository_image
+      properties:
+        registry_id:
+          type: string
+          description: >-
+            ID of the container registry, as returned in the id field by
+            vultr_registry_registries_list.
+          maps_to: registry-id
+
+        repository_image:
+          type: string
+          description: >-
+            Name of the repository image, as returned in the image field by
+            vultr_registry_repositories_list.
+          maps_to: repository-image
+
+    output:
+      from_openapi: true
+      include:
+        - digest
+        - tags
+        - size
+        - type
+        - artifact_type
+        - media_type
+        - manifest_media_type
+        - repository_name
+        - push_time
+        - pull_time
+        - meta
+
+  - name: vultr_registry_replications_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the replication policies on one Vultr Container Registry -- the
+      regions its images are copied to -- with each policy's region and
+      namespace.
+
+      Use this tool to report where a registry's images are replicated, or to
+      check whether replication is configured at all.
+
+      Do not use this tool for the regions a registry can be created in, which
+      vultr_registry_regions_list returns, or for the registry's own region.
+
+    operation: list-replications
+
+    input:
+      type: object
+      required:
+        - registry_id
+      properties:
+        registry_id:
+          type: string
+          description: >-
+            ID of the container registry, as returned in the id field by
+            vultr_registry_registries_list.
+          maps_to: registry-id
+
+    output:
+      from_openapi: true
+      include:
+        - region
+        - namespace
+        - urn
+        - meta
+
+  - name: vultr_registry_retention_rules_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the retention rules on one Vultr Container Registry -- the policies
+      that delete old artifacts automatically -- with each rule's action,
+      template, parameters, tag and scope selectors, and whether it is
+      disabled.
+
+      Use this tool to report how a registry prunes images, or to check whether
+      a retention policy is active before relying on an old tag.
+
+      Do not use this tool to list the artifacts themselves, which
+      vultr_registry_artifacts_list returns.
+
+    operation: list-retention-rules
+
+    input:
+      type: object
+      required:
+        - registry_id
+      properties:
+        registry_id:
+          type: string
+          description: >-
+            ID of the container registry, as returned in the id field by
+            vultr_registry_registries_list.
+          maps_to: registry-id
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - action
+        - template
+        - params
+        - tag_selectors
+        - scope_selectors
+        - disabled
+        - meta
+
+  - name: vultr_registry_retention_rules_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets one retention rule on a Vultr Container Registry by its ID, with its
+      action, template, parameters, tag and scope selectors, and whether it is
+      disabled.
+
+      Use this tool when a retention rule ID is already known. To find one, use
+      vultr_registry_retention_rules_list first.
+
+      Do not use this tool to list the artifacts a rule would delete, which
+      vultr_registry_artifacts_list returns.
+
+    operation: read-retention-rule
+
+    input:
+      type: object
+      required:
+        - registry_id
+        - retention_rule_id
+      properties:
+        registry_id:
+          type: string
+          description: >-
+            ID of the container registry, as returned in the id field by
+            vultr_registry_registries_list.
+          maps_to: registry-id
+
+        retention_rule_id:
+          type: integer
+          description: >-
+            ID of the retention rule, as returned in the id field by
+            vultr_registry_retention_rules_list.
+          maps_to: retention-rule-id
+
+    # No `output` block. The response is one rule, but the shape reader picks
+    # tag_selectors -- an array nested inside it -- as the container, so a
+    # declared shape would describe the selectors rather than the rule. Nothing
+    # here is worth trimming or withholding, so the payload passes through as
+    # the API sends it.
+
+  - name: vultr_registry_plans_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the Vultr Container Registry plans -- start-up, premium, business
+      and enterprise -- with each one's storage allowance and monthly price.
+
+      Use this tool to compare registry plans or to price one before creating
+      it.
+
+      Do not use this tool for the plan a registry is already on, which
+      vultr_registry_registries_get returns, or for compute plans, which are a
+      different product.
+
+    operation: list-registry-plans
+
+    input:
+      type: object
+      properties: {}
+
+    output:
+      from_openapi: true
+      include:
+        - start_up
+        - premium
+        - business
+        - enterprise
+
+  - name: vultr_registry_regions_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the regions a Vultr Container Registry can be created in, with each
+      region's data centre, base URL, and whether it is public.
+
+      Use this tool to find where a registry can be hosted, or to resolve a
+      registry's region to its data centre and endpoint.
+
+      Do not use this tool for Vultr regions in general, which cover compute
+      and are a different list, or for the replication policies on an existing
+      registry, which vultr_registry_replications_list returns.
+
+    operation: list-registry-regions
+
+    input:
+      type: object
+      properties: {}
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - name
+        - urn
+        - base_url
+        - data_center
+        - public
+        - added_at
+        - updated_at
         - meta
