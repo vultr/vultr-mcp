@@ -161,7 +161,7 @@ tools:
         description: Number of instances currently in the cluster.
         from: length(instances)
 
-  - name: vultr_compute_cluster_availability_get
+  - name: vultr_compute_clusters_availability_get
     access: read
     enabled: true
 
@@ -195,7 +195,7 @@ tools:
     # the whole payload is passed through rather than claiming a shape the
     # layer cannot honour.
 
-  - name: vultr_compute_cluster_metrics_get
+  - name: vultr_compute_clusters_metrics_get
     access: read
     enabled: true
 

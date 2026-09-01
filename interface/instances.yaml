@@ -23,9 +23,14 @@ family: compute
 # stack and production both show the API returning v6_main_ip, v6_network and
 # v6_network_size as flat fields, and never the v6_networks array the spec
 # documents -- so this tool returns no IPv6 information at all, and
-# get-instance-ipv6 is currently the only way to get any. Declines that rest on
+# get-instance-ipv6 is the only way to get any. Declines that rest on
 # "another tool already returns X" are only as sound as the spec, and the spec
 # is wrong here in a way nothing but a real response could reveal.
+#
+# Both are covered by tools below now. list-instance-vpcs was nearly declined
+# on the same reasoning -- the VPCs area lists what is attached to a VPC -- and
+# was kept for the same reason: that answers the question in the other
+# direction, and nothing but this operation says which VPCs one instance is in.
 declined:
   list-instance-private-networks:
     reason: >-
@@ -265,3 +270,421 @@ tools:
         - vpc_only
         - vpcs
         - date_created
+
+  - name: vultr_compute_instances_ipv4_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists every IPv4 address assigned to one Vultr cloud compute instance,
+      with each address's netmask, gateway, MAC address, reverse DNS entry, and
+      whether it is the main address, an additional one, or a private address.
+
+      Use this tool when an instance has more than one address, or when the
+      netmask, gateway, MAC or reverse DNS is needed.
+      vultr_compute_instances_get returns only main_ip.
+
+      Do not use this tool for bare metal servers, which have their own tool,
+      or for reserved IPs that are not attached to an instance.
+
+    operation: get-instance-ipv4
+
+    input:
+      type: object
+      required:
+        - instance_id
+      properties:
+        instance_id:
+          type: string
+          description: >-
+            ID of the instance, as returned in the id field by
+            vultr_compute_instances_list.
+          maps_to: instance-id
+
+        public_network:
+          type: boolean
+          description: >-
+            Include the public network adapter's address as well as private
+            ones. Defaults to false.
+
+        page_size:
+          type: integer
+          description: Maximum number of addresses to return.
+          default: 100
+          minimum: 1
+          maximum: 500
+          maps_to: per_page
+
+        cursor:
+          type: string
+          description: Cursor returned by a previous request for the next page.
+
+    output:
+      from_openapi: true
+      include:
+        - ip
+        - netmask
+        - gateway
+        - type
+        - reverse
+        - mac_address
+        - meta
+
+  - name: vultr_compute_instances_ipv6_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists every IPv6 address assigned to one Vultr cloud compute instance,
+      with each address's network and prefix size.
+
+      Use this tool for any question about an instance's IPv6 addressing. It is
+      the only tool that returns it: vultr_compute_instances_get does not carry
+      IPv6 information.
+
+      Do not use this tool for IPv4 addresses, which
+      vultr_compute_instances_ipv4_list returns, or for bare metal servers,
+      which have their own tool.
+
+    operation: get-instance-ipv6
+
+    input:
+      type: object
+      required:
+        - instance_id
+      properties:
+        instance_id:
+          type: string
+          description: >-
+            ID of the instance, as returned in the id field by
+            vultr_compute_instances_list.
+          maps_to: instance-id
+
+    output:
+      from_openapi: true
+      include:
+        - ip
+        - network
+        - network_size
+        - type
+        - meta
+
+  - name: vultr_compute_instances_bandwidth_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets daily bandwidth usage for one Vultr cloud compute instance, as
+      incoming and outgoing bytes per day.
+
+      Use this tool to report how much traffic a specific instance has moved,
+      or to find which day drove a spike.
+
+      Do not use this tool for account-wide bandwidth across every product,
+      which vultr_account_bandwidth_get returns, or for bare metal servers,
+      which have their own tool.
+
+    operation: get-instance-bandwidth
+
+    input:
+      type: object
+      required:
+        - instance_id
+      properties:
+        instance_id:
+          type: string
+          description: >-
+            ID of the instance, as returned in the id field by
+            vultr_compute_instances_list.
+          maps_to: instance-id
+
+        date_range:
+          type: integer
+          description: >-
+            Number of days back from today to include. Defaults to 30 and the
+            API caps it at 180.
+          minimum: 1
+          maximum: 180
+
+    # No `output` block, for the same reason as the bare metal bandwidth tool:
+    # the response is one key per day and the spec models it with two
+    # hard-coded example dates, so an allowlist would empty every response.
+
+  - name: vultr_compute_instances_backup_schedule_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets the automatic backup schedule for one Vultr cloud compute instance:
+      whether backups are enabled, how often they run, the hour and the day
+      they run on, and when the next one is due.
+
+      Use this tool to check whether an instance is backed up and on what
+      cadence.
+
+      Do not use this tool to list the backups that already exist, which is a
+      separate Vultr resource with its own tools, or for snapshots.
+
+    operation: get-instance-backup-schedule
+
+    input:
+      type: object
+      required:
+        - instance_id
+      properties:
+        instance_id:
+          type: string
+          description: >-
+            ID of the instance, as returned in the id field by
+            vultr_compute_instances_list.
+          maps_to: instance-id
+
+    output:
+      from_openapi: true
+      include:
+        - enabled
+        - type
+        - hour
+        - dow
+        - dom
+        - next_scheduled_time_utc
+
+  - name: vultr_compute_instances_iso_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets the ISO attachment status of one Vultr cloud compute instance: which
+      ISO is mounted, if any, and the state of the attachment.
+
+      Use this tool to check whether an instance is booted from or has an ISO
+      attached.
+
+      Do not use this tool to browse the ISO library itself, either the
+      account's uploaded ISOs or Vultr's public ones, which have their own
+      tools.
+
+    operation: get-instance-iso-status
+
+    input:
+      type: object
+      required:
+        - instance_id
+      properties:
+        instance_id:
+          type: string
+          description: >-
+            ID of the instance, as returned in the id field by
+            vultr_compute_instances_list.
+          maps_to: instance-id
+
+    output:
+      from_openapi: true
+      include:
+        - iso_id
+        - state
+
+  - name: vultr_compute_instances_neighbors_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the IDs of other Vultr cloud compute instances in the account that
+      sit on the same physical host as a given instance.
+
+      Use this tool to assess co-location risk: instances sharing a host share
+      its failure, so this answers whether a redundant pair is genuinely
+      redundant.
+
+      Do not use this tool for instances in the same region or VPC, which are
+      much weaker relationships and are answered by other tools.
+
+    operation: get-instance-neighbors
+
+    input:
+      type: object
+      required:
+        - instance_id
+      properties:
+        instance_id:
+          type: string
+          description: >-
+            ID of the instance, as returned in the id field by
+            vultr_compute_instances_list.
+          maps_to: instance-id
+
+    # No `output` block: the payload is a bare array of instance ID strings,
+    # so there are no item fields to allowlist against.
+
+  - name: vultr_compute_instances_upgrades_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets the plans, operating systems and marketplace applications one Vultr
+      cloud compute instance can be upgraded or changed to.
+
+      Use this tool to find what an instance can move to before planning a
+      resize, OS change or application switch.
+
+      Do not use this tool for the instance's current plan or OS, which
+      vultr_compute_instances_get returns, or to browse the plan, OS and
+      marketplace catalogs in general, which are not specific to one instance.
+
+    operation: get-instance-upgrades
+
+    input:
+      type: object
+      required:
+        - instance_id
+      properties:
+        instance_id:
+          type: string
+          description: >-
+            ID of the instance, as returned in the id field by
+            vultr_compute_instances_list.
+          maps_to: instance-id
+
+        type:
+          type: string
+          description: >-
+            Limit the answer to one kind of upgrade. Omit for everything
+            available.
+          # Spelled out as an enum because the spec leaves this a bare string
+          # and names the values only in prose.
+          enum:
+            - all
+            - applications
+            - os
+            - plans
+
+    output:
+      from_openapi: true
+      include:
+        - plans
+        - os
+        - applications
+
+  - name: vultr_compute_instances_userdata_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets the user data configured for one Vultr cloud compute instance -- the
+      cloud-init or startup configuration supplied at deployment -- returned
+      base64-encoded.
+
+      Use this tool to inspect or reproduce how an instance was configured at
+      first boot.
+
+      Do not use this tool for startup scripts, which are a separate Vultr
+      resource with their own tools, or for bare metal servers, which have
+      their own tool.
+
+    operation: get-instance-userdata
+
+    input:
+      type: object
+      required:
+        - instance_id
+      properties:
+        instance_id:
+          type: string
+          description: >-
+            ID of the instance, as returned in the id field by
+            vultr_compute_instances_list.
+          maps_to: instance-id
+
+    output:
+      from_openapi: true
+      include:
+        - data
+
+  - name: vultr_compute_instances_vpcs_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the VPCs one Vultr cloud compute instance is attached to, with the
+      instance's private IP address and MAC address on each.
+
+      Use this tool to find which private networks a specific instance reaches,
+      or its address inside one.
+
+      Do not use this tool to list VPCs in general, or to see everything
+      attached to a given VPC, which are answered from the VPC side.
+
+    operation: list-instance-vpcs
+
+    input:
+      type: object
+      required:
+        - instance_id
+      properties:
+        instance_id:
+          type: string
+          description: >-
+            ID of the instance, as returned in the id field by
+            vultr_compute_instances_list.
+          maps_to: instance-id
+
+        page_size:
+          type: integer
+          description: Maximum number of VPCs to return.
+          default: 100
+          minimum: 1
+          maximum: 500
+          maps_to: per_page
+
+        cursor:
+          type: string
+          description: Cursor returned by a previous request for the next page.
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - ip_address
+        - mac_address
+        - meta
+
+  - name: vultr_compute_instances_job_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets the status of one long-running instance job by its job ID -- the
+      asynchronous work Vultr returns a handle for, such as an OS change or a
+      plan upgrade -- with its type, state, and when it was started and last
+      updated.
+
+      Use this tool to poll whether such an operation has finished, when a job
+      ID is already in hand.
+
+      Do not use this tool for the instance's own power state or provisioning
+      status, which vultr_compute_instances_get returns.
+
+    operation: get-instance-job
+
+    input:
+      type: object
+      required:
+        - job_id
+      properties:
+        job_id:
+          type: string
+          description: >-
+            ID of the job, as returned by the instance operation that started
+            it.
+          maps_to: job-id
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - vps_id
+        - type
+        - state
+        - info
+        - added_at
+        - updated_at

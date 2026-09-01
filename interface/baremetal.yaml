@@ -22,13 +22,15 @@ family: compute
 # Declining it would not have hidden anything either: a declined operation keeps
 # its generated tool, so the choice was only ever between a good description and
 # a generated one.
-
-declined:
-  list-baremetal-vpcs:
-    reason: >-
-      VPC membership belongs with the VPCs product area, which will cover
-      attachment from the network side rather than duplicating it per compute
-      product.
+#
+# list-baremetal-vpcs was declined here on the grounds that the VPCs area would
+# cover attachment "from the network side". That claim was checked and does not
+# hold. GET /vpcs/{vpc-id}/attachments answers "what is attached to this VPC";
+# nothing answers "which VPCs is this server in" except this operation, short of
+# enumerating every VPC in the account. It is the same error as the ipv4 and
+# ipv6 declines above, in the same shape: a decline resting on another tool
+# returning the data, when that other tool only returns it in the other
+# direction.
 
 tools:
   - name: vultr_compute_baremetal_list
@@ -433,3 +435,38 @@ tools:
       # here.
       include:
         - url
+
+  - name: vultr_compute_baremetal_vpcs_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the VPCs one Vultr Bare Metal server is attached to, with the
+      server's private IP address and MAC address on each.
+
+      Use this tool to find which private networks a specific server reaches,
+      or its address inside one.
+
+      Do not use this tool to list VPCs in general, or to see everything
+      attached to a given VPC, which are answered from the VPC side.
+
+    operation: list-baremetal-vpcs
+
+    input:
+      type: object
+      required:
+        - baremetal_id
+      properties:
+        baremetal_id:
+          type: string
+          description: >-
+            ID of the bare metal server, as returned in the id field by
+            vultr_compute_baremetal_list.
+          maps_to: baremetal-id
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - ip_address
+        - mac_address

@@ -338,13 +338,14 @@ def test_the_same_problem_is_fatal_once_the_tool_is_enabled(tmp_path, definition
 async def test_declining_an_operation_does_not_hide_its_generated_tool():
     """Declining is bookkeeping for drift reports, not suppression.
 
-    interface/instances.yaml declines the ipv4/ipv6 operations because
-    vultr_compute_instances_get already answers them. That decision must not
-    quietly remove capability from the served surface.
+    Two operations that really are declined, for two different reasons:
+    list-instance-ipv6-reverse belongs to another product area, and
+    get-cluster-availability is a GET the runtime cannot build a body for.
+    Neither decision may quietly remove capability from the served surface.
     """
     names = await _tool_names(create_server())
-    assert "get_instance_ipv4" in names
-    assert "get_instance_ipv6" in names
+    assert "list_instance_ipv6_reverse" in names
+    assert "get_cluster_availability" in names
 
 
 def test_declined_operations_are_compiled_with_their_reasons(compiled):
@@ -851,7 +852,13 @@ def test_declined_operations_are_not_reported_as_unreviewed(spec):
     report = detect_drift(INTERFACE_DIR, spec)
     instances = next(a for a in report.areas if a.product_area == "instances")
 
-    unreviewed = {ref.operation_id for ref in instances.unreviewed_reads}
+    # instances declines both reads and writes, so both halves of the report
+    # have to be checked -- a decline that only quietened one would still bury
+    # the operation somewhere.
+    unreviewed = {
+        ref.operation_id
+        for ref in instances.unreviewed_reads + instances.unreviewed_writes
+    }
     declared = yaml.safe_load(
         (INTERFACE_DIR / "instances.yaml").read_text(encoding="utf-8")
     )["declined"]
@@ -859,9 +866,9 @@ def test_declined_operations_are_not_reported_as_unreviewed(spec):
     assert instances.declined == len(declared)
     for operation_id in declared:
         assert operation_id not in unreviewed
-    # ipv4 is deliberately NOT declined: it returns every address on the
-    # instance, where the instance object carries only main_ip.
-    assert "get-instance-ipv4" in unreviewed
+    # And the other half: something nobody has declined still shows up, or the
+    # report would be quiet for the wrong reason.
+    assert "create-instance" in unreviewed
 
 
 def test_a_new_operation_in_a_covered_area_is_reported(tmp_path, definition, spec):
