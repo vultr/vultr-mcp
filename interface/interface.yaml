@@ -18,4 +18,5 @@ product_areas:
   managed_databases: managed_databases.yaml
   serverless_inference: serverless_inference.yaml
   instances: instances.yaml
+  kubernetes: kubernetes.yaml
   s3: s3.yaml
