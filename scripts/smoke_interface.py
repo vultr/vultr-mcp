@@ -25,6 +25,7 @@ import json
 import os
 import sys
 import time
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import httpx
@@ -41,6 +42,20 @@ from vultr_mcp.server import (  # noqa: E402
 )
 
 TIMEOUT = float(os.environ.get("SMOKE_TIMEOUT", "30"))
+
+# Arguments a tool needs before it will return anything, where the spec does not
+# say so. GET /logs rejects a call with no time range -- 422, "Either a
+# start_time or end_time must be provided" -- but marks neither parameter
+# required, so nothing in the definition can be validated against that. Without
+# this the smoke run reports a permanent 422 that is really a missing argument,
+# and a check that always shows the same complaint stops being read.
+SMOKE_ARGUMENTS: dict[str, dict[str, object]] = {
+    "vultr_account_logs_list": {
+        "start_time": (
+            datetime.now(timezone.utc) - timedelta(days=1)
+        ).strftime("%Y-%m-%dT%H:%M:%SZ")
+    },
+}
 
 
 class Result:
@@ -158,7 +173,7 @@ async def main() -> int:
 
     async with client:
         for tool in searches:
-            result = await _run(tool, {}, client)
+            result = await _run(tool, dict(SMOKE_ARGUMENTS.get(tool.name, {})), client)
             results.append(result)
             if result.ok and result.sample and "id" in result.sample:
                 harvested.setdefault(tool.product_area, result.sample["id"])
@@ -176,7 +191,9 @@ async def main() -> int:
                 for plan in tool.parameters
                 if plan.location == "path"
             )
-            results.append(await _run(tool, {name: identifier}, client))
+            arguments = dict(SMOKE_ARGUMENTS.get(tool.name, {}))
+            arguments[name] = identifier
+            results.append(await _run(tool, arguments, client))
 
     print()
     layer_bugs = 0
