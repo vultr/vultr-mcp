@@ -167,33 +167,39 @@ async def main() -> int:
     )
 
     searches = [tool for tool in tools if not _needs_id(tool)]
-    by_id = [tool for tool in tools if _needs_id(tool)]
-    harvested: dict[str, str] = {}
+    # Fewest path parameters first, so a tool that needs two of them can be fed
+    # from the result of one that needed one: get-database-user wants a database
+    # id AND a username, and the username only exists once the users list has
+    # run.
+    by_id = sorted(
+        (tool for tool in tools if _needs_id(tool)),
+        key=lambda tool: sum(1 for p in tool.parameters if p.location == "path"),
+    )
+    harvested: dict[str, dict] = {}
     results: list[Result] = []
 
     async with client:
         for tool in searches:
             result = await _run(tool, dict(SMOKE_ARGUMENTS.get(tool.name, {})), client)
             results.append(result)
-            if result.ok and result.sample and "id" in result.sample:
-                harvested.setdefault(tool.product_area, result.sample["id"])
+            if result.ok and result.sample:
+                _harvest(harvested, tool.product_area, result.sample)
 
         for tool in by_id:
-            identifier = harvested.get(tool.product_area)
-            if identifier is None:
+            arguments, missing = _fill_path(tool, harvested)
+            if missing:
                 result = Result(tool)
                 result.status = "skipped"
-                result.detail = f"no id harvested from the {tool.product_area} search"
+                result.detail = (
+                    f"nothing in the {tool.product_area} results supplies "
+                    + ", ".join(missing)
+                )
                 results.append(result)
                 continue
-            name = next(
-                plan.agent_name
-                for plan in tool.parameters
-                if plan.location == "path"
-            )
-            arguments = dict(SMOKE_ARGUMENTS.get(tool.name, {}))
-            arguments[name] = identifier
-            results.append(await _run(tool, arguments, client))
+            result = await _run(tool, arguments, client)
+            results.append(result)
+            if result.ok and result.sample:
+                _harvest(harvested, tool.product_area, result.sample)
 
     print()
     layer_bugs = 0
@@ -221,6 +227,38 @@ async def main() -> int:
         print("a key was supplied but nothing succeeded; treating that as failure")
         return 1
     return 0
+
+
+def _harvest(store: dict, area: str, row: dict) -> None:
+    """Remember a sample row per product area, to feed by-id tools."""
+    known = store.setdefault(area, {})
+    for field, value in row.items():
+        if isinstance(value, (str, int)) and field not in known:
+            known[field] = value
+
+
+def _fill_path(tool: CompiledTool, harvested: dict) -> tuple[dict, list[str]]:
+    """Values for every path parameter, or the names we could not supply.
+
+    A path parameter is satisfied by a field of the same name in a harvested
+    row (`username`), or by that row's `id` when the parameter is an id
+    (`database_id`). Calling with one of two path parameters filled produces a
+    confusing 404 rather than a useful result, so an unfillable tool is skipped
+    and says which value was missing.
+    """
+    known = harvested.get(tool.product_area, {})
+    arguments = dict(SMOKE_ARGUMENTS.get(tool.name, {}))
+    missing: list[str] = []
+    for plan in tool.parameters:
+        if plan.location != "path":
+            continue
+        if plan.agent_name in known:
+            arguments[plan.agent_name] = known[plan.agent_name]
+        elif plan.agent_name.endswith("_id") and "id" in known:
+            arguments[plan.agent_name] = known["id"]
+        else:
+            missing.append(plan.agent_name)
+    return arguments, missing
 
 
 def _needs_id(tool: CompiledTool) -> bool:

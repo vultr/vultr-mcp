@@ -51,6 +51,13 @@ SENSITIVE_TOKENS = frozenset(
         "keys",
         "apikey",
         "kvm",
+        # Managed databases return `access_cert`, a TLS client certificate, which
+        # authenticates as surely as a password does. `ca_certificate` is caught
+        # by the same token and is not secret -- it is also a PEM blob nobody
+        # asked for, so having it opted into rather than out of is right anyway.
+        "cert",
+        "certificate",
+        "certs",
     }
 )
 

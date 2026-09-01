@@ -1,0 +1,118 @@
+product_area: serverless_inference
+family: inference
+
+# Every read here returned `api_key` -- the key that authenticates calls to the
+# inference endpoint, so possession of it is the ability to spend the account's
+# inference budget. It was on every row of every listing.
+#
+# The subscription id is kept, because that is what identifies a subscription
+# for every other purpose. Anyone who needs the key itself reads it in the
+# customer portal, where a person retrieves it deliberately.
+
+tools:
+  - name: vultr_inference_subscriptions_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists Vultr Serverless Inference subscriptions in the active Vultr
+      organization.
+
+      Use this tool to list, find, or count inference subscriptions, and to get
+      the subscription ID needed by the usage tool.
+
+      Do not use this tool to run an inference request or to list available
+      models; those go to the inference endpoint itself rather than to this
+      management API.
+
+    operation: list-inference
+
+    input:
+      type: object
+      properties:
+        label_contains:
+          type: string
+          description: >-
+            Case-insensitive text contained in the subscription label.
+          filter:
+            field: label
+            match: contains_ci
+
+    output:
+      from_openapi: true
+      # api_key is deliberately absent.
+      include:
+        - id
+        - label
+        - date_created
+
+  - name: vultr_inference_subscriptions_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets one Vultr Serverless Inference subscription by its ID.
+
+      Use this tool when a subscription ID is already known. To find one, use
+      vultr_inference_subscriptions_list first. For token and request volume,
+      use vultr_inference_usage_get.
+
+      Do not use this tool to run an inference request.
+
+    operation: get-inference
+
+    input:
+      type: object
+      required:
+        - inference_id
+      properties:
+        inference_id:
+          type: string
+          description: >-
+            ID of the inference subscription, as returned in the id field by
+            vultr_inference_subscriptions_list.
+          maps_to: inference-id
+
+    output:
+      from_openapi: true
+      # api_key is deliberately absent here too.
+      include:
+        - id
+        - label
+        - date_created
+
+  - name: vultr_inference_usage_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets usage for one Vultr Serverless Inference subscription, broken down
+      by chat, audio, and image workloads, and by model for chat.
+
+      Use this tool to answer how much inference an account has consumed and
+      which models it went to.
+
+      Do not use this tool for billing totals across the account, which belong
+      to the billing product area.
+
+    operation: get-inference-usage
+
+    input:
+      type: object
+      required:
+        - inference_id
+      properties:
+        inference_id:
+          type: string
+          description: >-
+            ID of the inference subscription, as returned in the id field by
+            vultr_inference_subscriptions_list.
+          maps_to: inference-id
+
+    output:
+      from_openapi: true
+      include:
+        - chat
+        - chat_by_model
+        - audio
+        - image

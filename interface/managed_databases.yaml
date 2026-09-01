@@ -1,0 +1,305 @@
+product_area: managed_databases
+family: database
+
+# The area with the most credentials on the surface. Every database row carried
+# `password` and `access_key`, and every user row carried both plus
+# `access_cert` -- a TLS client certificate, which authenticates as surely as a
+# password does and which the credential heuristic missed until this file was
+# written. A migration status carried `credentials` outright.
+#
+# What is kept is what someone needs to reason about a database: host, port,
+# engine, plan, status. What is withheld is everything that would let an agent,
+# or anyone reading its transcript, connect as a user. `ca_certificate` is
+# withheld too -- it is not a secret, it is a PEM blob nobody asked for.
+#
+# Five tools out of twenty-eight read operations. The rest -- connectors,
+# topics, quotas, connection pools, advanced options -- are unreviewed rather
+# than declined: they are real capability nobody has assessed, and the drift
+# report will keep saying so.
+#
+# The resource is called `clusters` because Vultr's own docs do, and because
+# vultr_database_clusters_list beside vultr_compute_clusters_list and
+# vultr_kubernetes_clusters_list is the family prefix doing exactly the job it
+# was added for.
+
+tools:
+  - name: vultr_database_clusters_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists Vultr Managed Database clusters, also called managed databases, in
+      the active Vultr organization, with their engine, plan, region, and
+      connection endpoints.
+
+      Use this tool to list, find, count, or select managed databases, and to
+      answer questions about which engine or plan a database runs.
+
+      Do not use this tool for Vultr Compute Clusters or Vultr Kubernetes
+      Engine clusters, which are unrelated products with their own tools, nor
+      for a database you run yourself on an instance.
+
+    operation: list-databases
+
+    input:
+      type: object
+      properties:
+        # The API filters on these itself.
+        label:
+          type: string
+          description: >-
+            Exact database label. The API filters on this directly, so prefer
+            it when the full label is known.
+
+        tag:
+          type: string
+          description: Exact tag applied to the database.
+
+        region:
+          type: string
+          description: Vultr region ID, such as ewr.
+
+        # Applied here, because the API cannot. GET /databases takes no
+        # per_page or cursor at all -- it returns the whole account in one
+        # response -- so there is no page size to cap matches against and no
+        # paging loop to run.
+        label_contains:
+          type: string
+          description: >-
+            Case-insensitive text contained in the database label. Slower than
+            label, which the API filters directly.
+          filter:
+            field: label
+            match: contains_ci
+
+        database_engine:
+          type: string
+          description: Database engine, such as pg, mysql, valkey, or kafka.
+          filter:
+            field: database_engine
+            match: equals
+
+        status:
+          type: string
+          description: Provisioning status of the database.
+          filter:
+            field: status
+            match: equals
+
+    output:
+      from_openapi: true
+      # password, access_key, access_cert, and ca_certificate are all absent.
+      # `user` is the username and stays: it identifies, it does not authorise.
+      include:
+        - id
+        - label
+        - region
+        - status
+        - plan
+        - database_engine
+        - database_engine_version
+        - host
+        - public_host
+        - port
+        - user
+        - dbname
+        - tag
+        - latest_backup
+        - pending_charges
+        - date_created
+        - meta
+
+  - name: vultr_database_clusters_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets one Vultr Managed Database cluster by its ID, including its engine,
+      plan sizing, maintenance window, backup schedule, and network access
+      rules.
+
+      Use this tool when a database ID is already known. To find one by label,
+      tag, or region, use vultr_database_clusters_list first.
+
+      Do not use this tool for Vultr Compute Clusters or Kubernetes clusters.
+
+    operation: get-database
+
+    input:
+      type: object
+      required:
+        - database_id
+      properties:
+        database_id:
+          type: string
+          description: >-
+            ID of the managed database, as returned in the id field by
+            vultr_database_clusters_list.
+          maps_to: database-id
+
+    output:
+      from_openapi: true
+      # The same credentials are withheld. This view adds the sizing,
+      # maintenance, and engine-specific settings the list drops.
+      include:
+        - id
+        - label
+        - region
+        - status
+        - plan
+        - plan_disk
+        - plan_ram
+        - plan_vcpus
+        - plan_replicas
+        - plan_brokers
+        - database_engine
+        - database_engine_version
+        - host
+        - public_host
+        - port
+        - sasl_port
+        - user
+        - dbname
+        - tag
+        - vpc_id
+        - trusted_ips
+        - read_replicas
+        - parent_id
+        - latest_backup
+        - backup_hour
+        - backup_minute
+        - maintenance_dow
+        - maintenance_time
+        - cluster_time_zone
+        - eviction_policy
+        - redis_eviction_policy
+        - enable_kafka_connect
+        - enable_kafka_rest
+        - enable_schema_registry
+        - kafka_rest_uri
+        - schema_registry_uri
+        - kafka_private_access
+        - mysql_require_primary_key
+        - mysql_slow_query_log
+        - mysql_long_query_time
+        - mysql_sql_modes
+        - pending_charges
+        - date_created
+
+  - name: vultr_database_users_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the database users defined on one Vultr Managed Database, with
+      their permissions and access control settings.
+
+      Use this tool to answer who has access to a database and at what
+      permission level.
+
+      Do not use this tool for Vultr account users or IAM identities, which are
+      unrelated and are not exposed through this server.
+
+    operation: list-database-users
+
+    input:
+      type: object
+      required:
+        - database_id
+      properties:
+        database_id:
+          type: string
+          description: >-
+            ID of the managed database, as returned in the id field by
+            vultr_database_clusters_list.
+          maps_to: database-id
+
+    output:
+      from_openapi: true
+      # password, access_key, and access_cert are absent. What remains answers
+      # "who can reach this database and with what rights" without handing over
+      # the means to become them.
+      include:
+        - username
+        - permission
+        - encryption
+        - access_control
+
+  - name: vultr_database_users_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets one database user on a Vultr Managed Database by username, with its
+      permission and access control settings.
+
+      Use this tool when the username is already known. To list them, use
+      vultr_database_users_list.
+
+      Do not use this tool for Vultr account users or IAM identities.
+
+    operation: get-database-user
+
+    input:
+      type: object
+      required:
+        - database_id
+        - username
+      properties:
+        database_id:
+          type: string
+          description: >-
+            ID of the managed database, as returned in the id field by
+            vultr_database_clusters_list.
+          maps_to: database-id
+
+        username:
+          type: string
+          description: >-
+            Name of the database user, as returned in the username field by
+            vultr_database_users_list.
+
+    output:
+      from_openapi: true
+      include:
+        - username
+        - permission
+        - encryption
+        - access_control
+
+  - name: vultr_database_migration_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets the status of a data migration into one Vultr Managed Database,
+      including the method used and any error reported.
+
+      Use this tool to answer whether a migration is running, finished, or
+      failed.
+
+      Do not use this tool to start or stop a migration.
+
+    operation: view-migration-status
+
+    input:
+      type: object
+      required:
+        - database_id
+      properties:
+        database_id:
+          type: string
+          description: >-
+            ID of the managed database, as returned in the id field by
+            vultr_database_clusters_list.
+          maps_to: database-id
+
+    output:
+      from_openapi: true
+      # `credentials` is absent: it holds the source database's connection
+      # details, which is somebody else's system's credential rather than
+      # Vultr's, and no less real for that.
+      include:
+        - status
+        - method
+        - error
