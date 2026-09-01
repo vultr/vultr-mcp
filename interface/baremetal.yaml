@@ -138,7 +138,7 @@ tools:
 
     description: |
       Gets one Vultr Bare Metal server by its ID, including its plan, operating
-      system, network addresses, region, and power state.
+      system, IPv4 and IPv6 addressing, MAC address, region, and power state.
 
       Use this tool when a server ID is already known. To find one by label,
       IP, or region, use vultr_compute_baremetal_list first.

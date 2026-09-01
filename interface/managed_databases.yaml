@@ -191,11 +191,12 @@ tools:
     enabled: true
 
     description: |
-      Lists the database users defined on one Vultr Managed Database, with
-      their permissions and access control settings.
+      Lists the usernames defined on one Vultr Managed Database, with their
+      permission level and access control rules where the engine reports them.
 
-      Use this tool to answer who has access to a database and at what
-      permission level.
+      Use this tool to answer who has access to a database. Permission and
+      access control detail is engine-dependent and is often absent, in which
+      case this returns usernames alone.
 
       Do not use this tool for Vultr account users or IAM identities, which are
       unrelated and are not exposed through this server.
@@ -231,7 +232,8 @@ tools:
 
     description: |
       Gets one database user on a Vultr Managed Database by username, with its
-      permission and access control settings.
+      permission level and access control rules where the engine reports them,
+      which is often not at all.
 
       Use this tool when the username is already known. To list them, use
       vultr_database_users_list.
