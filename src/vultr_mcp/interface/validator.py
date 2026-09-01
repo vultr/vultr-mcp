@@ -22,6 +22,7 @@ import yaml
 from jsonschema import Draft202012Validator
 
 from vultr_mcp.interface import expressions
+from vultr_mcp.interface.scaffold import slug
 from vultr_mcp.interface.spec_index import Operation, SpecIndex
 
 # Parameter locations the runtime knows how to fill. A header or cookie
@@ -333,7 +334,9 @@ def validate_product_area(
             problems.append(
                 Problem(location, "is declined but also has a tool in this file")
             )
-        if product_area not in operation.tags:
+        # Compare slugs, not raw tags: the area for "Container Registry" is
+        # container_registry, and drift resolves it the same way.
+        if product_area not in {slug(tag) for tag in operation.tags}:
             problems.append(
                 Problem(
                     location,

@@ -23,7 +23,15 @@ from typing import Any
 
 # Methods that change state. `access` must agree with the operation's method, so
 # a write cannot be mislabelled `read` and slip past the read-only gate.
-WRITE_METHODS = frozenset({"post", "put", "patch", "delete"})
+#
+# Everything that is not a GET counts, which is the same rule server.py applies
+# to the generated surface. OPTIONS in particular: Vultr's two
+# docker-credentials routes mint registry credentials despite the verb, and
+# while the route maps already drop them, listing only the obvious four here
+# meant the validator would have *required* `access: read` on one of them --
+# and a read-only server keeps read tools. An interface tool could have walked
+# a credential-minting operation straight back onto the safe surface.
+WRITE_METHODS = frozenset({"post", "put", "patch", "delete", "options", "head", "trace"})
 
 # Depth cap on $ref chains, so a cyclic spec cannot hang the build.
 _MAX_REF_DEPTH = 20
@@ -166,11 +174,25 @@ class Operation:
             elif key != "meta" and value.get("type") == "object":
                 objects.append(key)
 
+        # A wrapper holds nothing but the thing it wraps: {"instance": {...}}
+        # or {"instances": [...], "meta": {...}}. A response that also carries
+        # scalars of its own is not wrapping anything -- it IS the resource.
+        # GET /registry/{id} returns id, name, public and urn alongside nested
+        # storage and root_user objects, and reading one of those objects as the
+        # container would shape the wrong level.
+        scalars = [
+            key
+            for key, value in properties.items()
+            if key != "meta"
+            and not resolve(value, self.spec).get("properties")
+            and resolve(value, self.spec).get("type") not in ("array", "object")
+        ]
+
         # A list response is the common case: one array of results beside
         # `meta`. A get-by-id response wraps a single object under one key.
         if arrays:
             container, extras, is_collection = arrays[0], tuple(arrays[1:]), True
-        elif objects:
+        elif objects and not scalars:
             container, extras, is_collection = objects[0], tuple(objects[1:]), False
         else:
             container, extras, is_collection = None, (), False

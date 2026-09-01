@@ -38,6 +38,13 @@ from vultr_mcp.interface.spec_index import Operation, SpecIndex
 # "access_key". That miss was real: the scaffolder would have written the access
 # half of an S3 credential pair straight into a draft include list while
 # correctly withholding the secret half.
+#
+# `private` was a token here and is not any more. It flagged private_ip,
+# private_network, and private_networks -- addressing, not secrets -- across
+# kubernetes, load balancers, and instances, while the one thing it was there
+# for, private_key, is already caught by `key`. Over-flagging is the right
+# direction, but a token that produces only false positives just teaches
+# reviewers to skim the comment.
 SENSITIVE_TOKENS = frozenset(
     {
         "password",
@@ -46,7 +53,6 @@ SENSITIVE_TOKENS = frozenset(
         "token",
         "credential",
         "credentials",
-        "private",
         "key",
         "keys",
         "apikey",

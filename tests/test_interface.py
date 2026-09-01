@@ -1145,3 +1145,65 @@ async def test_no_generated_logs_tool_survives():
     names = set(await _tool_names(create_server()))
     for generated in ("ListAuditLogs", "GetAuditLog", "ListAuditLogsClusters", "list_logs"):
         assert generated not in names, f"{generated} is unshaped and back on the surface"
+
+
+def test_options_operations_count_as_writes(spec):
+    """Vultr's docker-credentials routes mint credentials despite the verb.
+
+    The generated surface drops them because server.WRITE_METHODS includes
+    OPTIONS. The interface layer listed only POST/PUT/PATCH/DELETE, so the
+    validator would have *required* access: read on one of them -- and a
+    read-only server keeps read tools. A tool for one would have walked a
+    credential-minting operation back onto the safe surface.
+    """
+    from vultr_mcp.interface.spec_index import SpecIndex
+
+    index = SpecIndex.load(spec)
+    for operation_id in (
+        "create-registry-docker-credentials",
+        "create-registry-kubernetes-docker-credentials",
+    ):
+        operation = index.get(operation_id)
+        assert operation.method == "options"
+        assert operation.is_write, f"{operation_id} mints credentials; it is not a read"
+
+
+def test_nested_credentials_are_dropped_with_their_parent(compiled):
+    """include allowlists the top level; a nested object comes through whole.
+
+    Every container registry carries root_user.password one level down, which a
+    flat scan of response fields cannot see. There is no way to keep
+    root_user.username and drop root_user.password, so the whole object goes.
+    """
+    tool = next(t for t in compiled.tools if t.name == "vultr_registry_registries_list")
+    payload = {
+        "registries": [
+            {
+                "id": "r1",
+                "name": "prod",
+                "storage": {"allowed": 10, "used": 2},
+                "root_user": {"username": "admin", "password": "ROOT-PASSWORD-HERE"},
+            }
+        ]
+    }
+    shaped = runtime.shape_response(payload, tool, {})
+
+    assert "root_user" not in shaped["registries"][0]
+    assert "ROOT-PASSWORD-HERE" not in json.dumps(shaped)
+    # the useful nested object survives
+    assert shaped["registries"][0]["storage"] == {"allowed": 10, "used": 2}
+
+
+def test_a_response_carrying_scalars_is_not_an_envelope(spec):
+    """GET /registry/{id} returns the registry, not a wrapper around one.
+
+    Reading one of its nested objects as the container would shape the wrong
+    level -- and would leave root_user in the envelope untouched.
+    """
+    from vultr_mcp.interface.spec_index import SpecIndex
+
+    index = SpecIndex.load(spec)
+    assert index.get("read-registry").response.unwrapped
+    # A true wrapper still reads as one.
+    assert index.get("get-instance").response.container_key == "instance"
+    assert not index.get("get-instance").response.unwrapped
