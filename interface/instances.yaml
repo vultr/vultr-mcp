@@ -19,12 +19,13 @@ family: compute
 # than a pile of decisions repeated back.
 #
 # Both IPv6 and IPv4 were declined here as redundant with
-# vultr_compute_instances_get, and both were wrong. A live call showed the API
-# returns v6_main_ip, v6_network, and v6_network_size as flat fields and never
-# sends the v6_networks array the spec documents, so this tool returns no IPv6
-# information at all. Declines that rest on "another tool already returns X"
-# are only as sound as the spec, and the spec is wrong here in a way nothing
-# but a real response could reveal.
+# vultr_compute_instances_get, and both were wrong. Live calls against the local
+# stack and production both show the API returning v6_main_ip, v6_network and
+# v6_network_size as flat fields, and never the v6_networks array the spec
+# documents -- so this tool returns no IPv6 information at all, and
+# get-instance-ipv6 is currently the only way to get any. Declines that rest on
+# "another tool already returns X" are only as sound as the spec, and the spec
+# is wrong here in a way nothing but a real response could reveal.
 declined:
   list-instance-private-networks:
     reason: >-
@@ -193,10 +194,12 @@ tools:
 
     description: |
       Gets one Vultr cloud compute instance by its ID, including its plan,
-      operating system, network addresses, region, power state, and tags.
+      operating system, IPv4 addressing, region, power state, and tags.
 
       Use this tool when an instance ID is already known. To find an instance
       by label, hostname, IP, or tag, use vultr_compute_instances_list first.
+      This tool returns no IPv6 detail; get_instance_ipv6 is currently the only
+      source for that.
 
       Do not use this tool for Vultr Bare Metal servers or Vultr Kubernetes
       Engine worker nodes.
@@ -219,6 +222,20 @@ tools:
       from_openapi: true
       # A single instance is cheap to return in full, so this keeps the detail a
       # search result drops -- everything except the two withheld fields.
+      #
+      # No IPv6 here, and not by choice. The spec documents `v6_networks`, an
+      # array of objects, and the API has never once sent it: not on the local
+      # stack, not on production. What it actually returns is v6_main_ip,
+      # v6_network and v6_network_size as flat fields, which openapi.json does
+      # not document for instances at all -- so the validator rejects them,
+      # correctly, as fields the 200 response does not have.
+      #
+      # The bare metal schema documents exactly those three flat fields for the
+      # near-identical bare_metal object, which is the third piece of evidence
+      # that this is a bug in the instance schema rather than an inconsistency
+      # in the API. Reported upstream; when the spec is fixed the three fields
+      # go in here and get-instance-ipv6 can be reconsidered, since it is
+      # currently the only way to get an instance's IPv6 at all.
       include:
         - id
         - label
@@ -232,7 +249,6 @@ tools:
         - internal_ip
         - netmask_v4
         - gateway_v4
-        - v6_networks
         - os
         - os_id
         - app_id
