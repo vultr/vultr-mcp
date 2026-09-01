@@ -4,11 +4,13 @@ family: storage
 # Vultr's OpenAPI tag is `s3`, which tells an agent nothing; the product is
 # Object Storage, and the tool names say so.
 #
-# Both tools here withhold s3_access_key and s3_secret_key. Together those are a
-# working credential for the bucket -- not a reference to one, the actual pair --
-# and the generated tools returned them on every row of every listing. An agent
-# asked to report on storage usage got the keys whether or not anyone wanted
-# them, which is the shape of accident this layer exists to prevent.
+# The two subscription tools withhold s3_access_key and s3_secret_key. Together
+# those are a working credential for the bucket -- not a reference to one, the
+# actual pair -- and the generated tools returned them on every row of every
+# listing. An agent asked to report on storage usage got the keys whether or not
+# anyone wanted them, which is the shape of accident this layer exists to
+# prevent. The cluster and tier tools below are catalog data and carry no
+# credential of any kind.
 #
 # s3_hostname is kept. It is the endpoint, not a secret, and it is what someone
 # needs to know where a subscription lives.
@@ -132,3 +134,140 @@ tools:
         - s3_hostname
         - pending_charges
         - date_created
+
+  - name: vultr_storage_object_storage_clusters_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the Object Storage clusters Vultr runs -- the storage locations a
+      subscription can be created in -- with each one's region, endpoint
+      hostname, and whether it currently accepts new deployments.
+
+      Use this tool to find where Object Storage can be provisioned, or to
+      resolve the cluster_id on an existing subscription to a region and
+      hostname.
+
+      Do not use this tool for Compute Clusters or Vultr Kubernetes Engine
+      clusters, which are unrelated products with their own tools, and not for
+      the subscriptions themselves, which
+      vultr_storage_object_storage_list returns.
+
+    operation: list-object-storage-clusters
+
+    input:
+      type: object
+      properties:
+        region:
+          type: string
+          description: Vultr region ID the cluster is in, such as ewr.
+          filter:
+            field: region
+            match: equals
+
+        page_size:
+          type: integer
+          description: >-
+            Maximum number of results to return. When a filter is supplied the
+            server scans the list and returns up to this many matches,
+            reporting in meta.filtered how much it scanned.
+          default: 100
+          minimum: 1
+          maximum: 500
+          maps_to: per_page
+
+        cursor:
+          type: string
+          description: Cursor returned by a previous request for the next page.
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - region
+        - hostname
+        - deploy
+        - meta
+
+  - name: vultr_storage_object_storage_tiers_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the Object Storage tiers Vultr offers, with each tier's monthly
+      price, per-gigabyte disk, archive and bandwidth pricing, request rate
+      limits, and the locations it is available in.
+
+      Use this tool to compare Object Storage tiers, to price a subscription
+      before creating one, or to find which tier is the default.
+
+      Do not use this tool for Block Storage or Vultr File System pricing, for
+      instance plans, or for what an existing subscription already costs, which
+      vultr_storage_object_storage_list reports as pending charges.
+
+    operation: list-object-storage-tiers
+
+    input:
+      type: object
+      properties: {}
+
+    output:
+      from_openapi: true
+      # sales_desc is a paragraph of marketing copy on every row; sales_name
+      # carries the same identification in a few words.
+      include:
+        - id
+        - slug
+        - sales_name
+        - price
+        - disk_gb_price
+        - archive_disk_gb_price
+        - bw_gb_price
+        - ratelimit_ops_secs
+        - ratelimit_ops_bytes
+        - is_default
+        - locations
+
+  - name: vultr_storage_object_storage_cluster_tiers_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the Object Storage tiers available in one specific cluster, with
+      each tier's monthly price, per-gigabyte pricing and request rate limits.
+
+      Use this tool when a cluster ID is already known and the question is what
+      can be deployed there. To compare every tier Vultr offers across all
+      locations, use vultr_storage_object_storage_tiers_list.
+
+      Do not use this tool for Compute Cluster plans or Kubernetes node pool
+      plans, which are unrelated products.
+
+    operation: list-object-storage-cluster-tiers
+
+    input:
+      type: object
+      required:
+        - cluster_id
+      properties:
+        cluster_id:
+          type: string
+          description: >-
+            ID of the Object Storage cluster, as returned in the id field by
+            vultr_storage_object_storage_clusters_list.
+          maps_to: cluster-id
+
+    output:
+      from_openapi: true
+      # sales_desc dropped for the same reason as in the tiers list above.
+      include:
+        - id
+        - slug
+        - sales_name
+        - price
+        - disk_gb_price
+        - archive_disk_gb_price
+        - bw_gb_price
+        - ratelimit_ops_secs
+        - ratelimit_ops_bytes
+        - is_default
