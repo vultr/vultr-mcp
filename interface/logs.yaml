@@ -28,7 +28,9 @@ tools:
       organization, filtered by time range, severity, or the specific resource
       that emitted them.
 
-      Use this tool to investigate what a resource did or why it failed.
+      Use this tool to investigate what a resource did or why it failed. A
+      time range is required: supply start_time, end_time, or both, spanning no
+      more than 30 days.
 
       Do not use this tool for audit logs, which record account and
       configuration changes rather than resource activity, and are managed as
@@ -42,12 +44,15 @@ tools:
         start_time:
           type: string
           description: >-
-            Start of the time range, as an RFC 3339 timestamp. Omit to use the
-            API default window.
+            Start of the time range, as an RFC 3339 timestamp. At least one of
+            start_time or end_time is required, and the range they span cannot
+            exceed 30 days.
 
         end_time:
           type: string
-          description: End of the time range, as an RFC 3339 timestamp.
+          description: >-
+            End of the time range, as an RFC 3339 timestamp. At least one of
+            start_time or end_time is required.
 
         log_level:
           type: string

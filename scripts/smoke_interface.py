@@ -90,6 +90,13 @@ async def _run(tool: CompiledTool, arguments: dict, client) -> Result:
         result.detail = f"{type(error).__name__}: {error}"[:160]
     else:
         result.status = "ok"
+        plan = tool.output
+        if plan is not None and plan.unwrapped:
+            # The payload is the resource, not a wrapper around one.
+            result.items = 1
+            result.sample = payload if isinstance(payload, dict) else None
+            result.seconds = time.monotonic() - started
+            return result
         container = _container(tool)
         body = payload.get(container) if container else None
         if isinstance(body, list):
