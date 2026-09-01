@@ -888,32 +888,62 @@ def test_a_stale_reference_is_reported_as_stale(tmp_path, definition, spec):
     assert clusters.stale == ("list-clusters-that-no-longer-exists",)
 
 
-def test_deprecated_operations_are_flagged_as_decline_candidates(spec, index):
-    """Deprecation is the spec's claim, not ours, so the report should surface it.
+def test_deprecated_unreviewed_is_derived_not_hardcoded(spec):
+    """Whatever is deprecated AND unaccounted for must show up, and only that.
 
-    Which operations are deprecated is the spec's business and changes between
-    releases -- list-instance-vpc2 was flagged here until Vultr retired it
-    outright -- so this checks the flagging against whatever the spec currently
-    says rather than against a remembered list.
+    Which operations are deprecated belongs to the spec, and how many are
+    outstanding belongs to whoever last reviewed a product area -- both move.
+    So this asserts the report agrees with the files rather than pinning a
+    count, and it holds when the answer is zero.
     """
-    from vultr_mcp.interface.drift import detect_drift, format_report
+    from vultr_mcp.interface.drift import detect_drift
+    from vultr_mcp.interface.spec_index import SpecIndex
 
+    index = SpecIndex.load(spec)
     report = detect_drift(INTERFACE_DIR, spec)
-    instances = next(a for a in report.areas if a.product_area == "instances")
 
-    expected = {
-        operation.operation_id
-        for operation in index.operations.values()
-        if "instances" in operation.tags
-        and operation.is_deprecated
-        and not operation.is_write
-    }
-    reported = {ref.operation_id for ref in instances.deprecated_unreviewed}
-    assert expected, "the spec should still deprecate something under instances"
-    assert expected <= reported
+    for area in report.areas:
+        document = yaml.safe_load(
+            (INTERFACE_DIR / f"{area.product_area}.yaml").read_text(encoding="utf-8")
+        )
+        accounted = {tool["operation"] for tool in document["tools"]}
+        accounted |= set(document.get("declined") or {})
 
-    rendered = format_report(report)
-    assert "[deprecated]" in rendered
+        expected = {
+            operation.operation_id
+            for operation in index.operations.values()
+            if area.tag in operation.tags
+            and operation.is_deprecated
+            and operation.operation_id not in accounted
+        }
+        reported = {ref.operation_id for ref in area.deprecated_unreviewed}
+        assert reported == expected, f"{area.product_area}: {reported} != {expected}"
+
+
+def test_the_deprecated_marker_renders(spec):
+    """Built by hand, so it tests the rendering and not the current backlog."""
+    from vultr_mcp.interface.drift import AreaDrift, DriftReport, OperationRef, format_report
+
+    area = AreaDrift(
+        product_area="clusters",
+        tag="clusters",
+        served=1,
+        drafted=0,
+        declined=0,
+        unreviewed_reads=(
+            OperationRef("list-old-thing", "GET", "/old", deprecated=True),
+            OperationRef("list-new-thing", "GET", "/new", deprecated=False),
+        ),
+    )
+    rendered = format_report(DriftReport(version="test", areas=(area,)))
+
+    assert "list-old-thing" in rendered and "[deprecated]" in rendered
+    assert "list-new-thing  GET /new" in rendered.replace("   ", "  ") or (
+        "list-new-thing" in rendered
+    )
+    # The line for the non-deprecated one must not carry the marker.
+    line = next(l for l in rendered.splitlines() if "list-new-thing" in l)
+    assert "[deprecated]" not in line
     assert "the claim is the spec's" in rendered
 
 

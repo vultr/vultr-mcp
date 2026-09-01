@@ -26,6 +26,21 @@ family: compute
 # are only as sound as the spec, and the spec is wrong here in a way nothing
 # but a real response could reveal.
 declined:
+  list-instance-private-networks:
+    reason: >-
+      Marked deprecated in the spec, which points at List Instance VPCs as the
+      replacement. Vultr already retired the whole VPC2 family this way, so
+      these will follow.
+  attach-instance-network:
+    reason: >-
+      Deprecated in the spec alongside the private-networks read, superseded by
+      the VPC attach operations. Recorded now so it does not surface as
+      unreviewed the day writes are enabled.
+  detach-instance-network:
+    reason: >-
+      Deprecated in the spec alongside the private-networks read, superseded by
+      the VPC detach operations. Recorded now so it does not surface as
+      unreviewed the day writes are enabled.
   list-instance-ipv6-reverse:
     reason: >-
       Reverse DNS entries are a DNS concern rather than an instance one, and
