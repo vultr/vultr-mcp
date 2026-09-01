@@ -20,3 +20,4 @@ product_areas:
   instances: instances.yaml
   kubernetes: kubernetes.yaml
   s3: s3.yaml
+  vpcs: vpcs.yaml

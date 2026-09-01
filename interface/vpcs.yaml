@@ -1,0 +1,526 @@
+product_area: vpcs
+family: network
+
+# VPCs are the private networks compute resources attach to. Two things this
+# file is careful about.
+#
+# The attachment question has two directions, and they are not interchangeable.
+# vultr_network_vpc_attachments_list answers "what is attached to this VPC".
+# vultr_compute_instances_vpcs_list and vultr_compute_baremetal_vpcs_list answer
+# "which VPCs is this server in". Neither substitutes for the other without
+# enumerating the whole account, which is why the compute-side tools exist
+# rather than being declined in favour of this one.
+#
+# Vultr also has a retired VPC2 family and a deprecated "private networks" tag
+# covering the same ground. Those stay on the generated surface and are declined
+# in instances.yaml; nothing here should be confused for them.
+
+tools:
+  - name: vultr_network_vpcs_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists Vultr VPCs, private networks, in the active Vultr organization,
+      with each one's region, IPv4 subnet and mask, and description.
+
+      Use this tool to list, find, count, or select VPCs, and to find the
+      subnet a private network uses.
+
+      Do not use this tool for the deprecated private networks or VPC2 family,
+      and not for what is attached to a VPC, which
+      vultr_network_vpc_attachments_list returns.
+
+    operation: list-vpcs
+
+    input:
+      type: object
+      properties:
+        description:
+          type: string
+          description: Case-insensitive text contained in the VPC description.
+          filter:
+            field: description
+            match: contains_ci
+
+        region:
+          type: string
+          description: Vultr region ID the VPC is in, such as ewr.
+          filter:
+            field: region
+            match: equals
+
+        page_size:
+          type: integer
+          description: >-
+            Maximum number of results to return. When a filter is supplied the
+            server scans the account and returns up to this many matches,
+            reporting in meta.filtered how much it scanned.
+          default: 100
+          minimum: 1
+          maximum: 500
+          maps_to: per_page
+
+        cursor:
+          type: string
+          description: Cursor returned by a previous request for the next page.
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - description
+        - region
+        - v4_subnet
+        - v4_subnet_mask
+        - internet
+        - date_created
+        - meta
+
+  - name: vultr_network_vpcs_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets one Vultr VPC by its ID, with its region, IPv4 subnet and mask, and
+      description.
+
+      Use this tool when a VPC ID is already known. To find one, use
+      vultr_network_vpcs_list first.
+
+      Do not use this tool for what is attached to the VPC, which
+      vultr_network_vpc_attachments_list returns, or for its NAT gateways,
+      which vultr_network_nat_gateways_list returns.
+
+    operation: get-vpc
+
+    input:
+      type: object
+      required:
+        - vpc_id
+      properties:
+        vpc_id:
+          type: string
+          description: >-
+            ID of the VPC, as returned in the id field by
+            vultr_network_vpcs_list.
+          maps_to: vpc-id
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - description
+        - region
+        - v4_subnet
+        - v4_subnet_mask
+        - internet
+        - date_created
+
+  - name: vultr_network_vpc_attachments_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists everything attached to one Vultr VPC -- instances, bare metal
+      servers and other subscriptions -- with each attachment's private IP,
+      MAC address, resource type and the subscription it belongs to.
+
+      Use this tool to find what shares a private network, or to audit which
+      resources can reach each other over it.
+
+      Do not use this tool to ask which VPCs a given server is in; that is the
+      other direction and is answered by vultr_compute_instances_vpcs_list or
+      vultr_compute_baremetal_vpcs_list.
+
+    operation: list-vpc-attachments
+
+    input:
+      type: object
+      required:
+        - vpc_id
+      properties:
+        vpc_id:
+          type: string
+          description: >-
+            ID of the VPC, as returned in the id field by
+            vultr_network_vpcs_list.
+          maps_to: vpc-id
+
+        type:
+          type: string
+          description: >-
+            Kind of attached resource, as the API reports it, such as instance
+            or baremetal.
+          filter:
+            field: type
+            match: equals
+
+        page_size:
+          type: integer
+          description: >-
+            Maximum number of results to return. When a filter is supplied the
+            server scans the collection and returns up to this many matches,
+            reporting in meta.filtered how much it scanned.
+          default: 100
+          minimum: 1
+          maximum: 500
+          maps_to: per_page
+
+        cursor:
+          type: string
+          description: Cursor returned by a previous request for the next page.
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - type
+        - ip
+        - mac_address
+        - linked_subscription
+        - date_added
+        - meta
+
+  - name: vultr_network_nat_gateways_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the NAT gateways on one Vultr VPC, each with its label, status,
+      public and private IP addresses, and billing information.
+
+      Use this tool to find how a private network reaches the internet, or
+      which public addresses its outbound traffic uses.
+
+      Do not use this tool for load balancers, which are a different product,
+      or for the VPC's own subnet, which vultr_network_vpcs_get returns.
+
+    operation: list-nat-gateways
+
+    input:
+      type: object
+      required:
+        - vpc_id
+      properties:
+        vpc_id:
+          type: string
+          description: >-
+            ID of the VPC, as returned in the id field by
+            vultr_network_vpcs_list.
+          maps_to: vpc-id
+
+        page_size:
+          type: integer
+          description: Maximum number of results to return.
+          default: 100
+          minimum: 1
+          maximum: 500
+          maps_to: per_page
+
+        cursor:
+          type: string
+          description: Cursor returned by a previous request for the next page.
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - label
+        - tag
+        - vpc_id
+        - status
+        - public_ips
+        - public_ips_v6
+        - private_ips
+        - billing
+        - date_created
+        - meta
+
+  - name: vultr_network_nat_gateways_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets one NAT gateway on a Vultr VPC by its ID, with its label, status,
+      public and private IP addresses, and billing information.
+
+      Use this tool when a NAT gateway ID is already known. To find one, use
+      vultr_network_nat_gateways_list first.
+
+      Do not use this tool for the gateway's firewall or port forwarding rules,
+      which have their own tools.
+
+    operation: get-nat-gateway
+
+    input:
+      type: object
+      required:
+        - vpc_id
+        - nat_gateway_id
+      properties:
+        vpc_id:
+          type: string
+          description: >-
+            ID of the VPC, as returned in the id field by
+            vultr_network_vpcs_list.
+          maps_to: vpc-id
+
+        nat_gateway_id:
+          type: string
+          description: >-
+            ID of the NAT gateway, as returned in the id field by
+            vultr_network_nat_gateways_list.
+          maps_to: nat-gateway-id
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - label
+        - tag
+        - vpc_id
+        - status
+        - public_ips
+        - public_ips_v6
+        - private_ips
+        - billing
+        - date_created
+
+  - name: vultr_network_nat_gateway_firewall_rules_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the firewall rules on one Vultr NAT gateway, each with its action,
+      protocol, port, source subnet and notes.
+
+      Use this tool to audit what traffic a NAT gateway permits or blocks.
+
+      Do not use this tool for Vultr firewall groups, which protect instances
+      and are a separate product with their own tools, or for the gateway's
+      port forwarding rules.
+
+    operation: list-nat-gateway-firewall-rules
+
+    input:
+      type: object
+      required:
+        - vpc_id
+        - nat_gateway_id
+      properties:
+        vpc_id:
+          type: string
+          description: >-
+            ID of the VPC, as returned in the id field by
+            vultr_network_vpcs_list.
+          maps_to: vpc-id
+
+        nat_gateway_id:
+          type: string
+          description: >-
+            ID of the NAT gateway, as returned in the id field by
+            vultr_network_nat_gateways_list.
+          maps_to: nat-gateway-id
+
+        page_size:
+          type: integer
+          description: Maximum number of results to return.
+          default: 100
+          minimum: 1
+          maximum: 500
+          maps_to: per_page
+
+        cursor:
+          type: string
+          description: Cursor returned by a previous request for the next page.
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - action
+        - protocol
+        - port
+        - subnet
+        - subnet_size
+        - notes
+        - meta
+
+  - name: vultr_network_nat_gateway_firewall_rules_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets one firewall rule on a Vultr NAT gateway by its ID, with its action,
+      protocol, port, source subnet and notes.
+
+      Use this tool when a rule ID is already known. To list them, use
+      vultr_network_nat_gateway_firewall_rules_list.
+
+      Do not use this tool for Vultr firewall group rules, which protect
+      instances and are a separate product.
+
+    operation: get-nat-gateway-firewall-rule
+
+    input:
+      type: object
+      required:
+        - vpc_id
+        - nat_gateway_id
+        - firewall_rule_id
+      properties:
+        vpc_id:
+          type: string
+          description: >-
+            ID of the VPC, as returned in the id field by
+            vultr_network_vpcs_list.
+          maps_to: vpc-id
+
+        nat_gateway_id:
+          type: string
+          description: >-
+            ID of the NAT gateway, as returned in the id field by
+            vultr_network_nat_gateways_list.
+          maps_to: nat-gateway-id
+
+        firewall_rule_id:
+          type: string
+          description: >-
+            ID of the firewall rule, as returned in the id field by
+            vultr_network_nat_gateway_firewall_rules_list.
+          maps_to: firewall-rule-id
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - action
+        - protocol
+        - port
+        - subnet
+        - subnet_size
+        - notes
+
+  - name: vultr_network_nat_gateway_port_forwards_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the port forwarding rules on one Vultr NAT gateway, each mapping an
+      external port to an internal IP and port, with its protocol, name and
+      whether it is enabled.
+
+      Use this tool to find how inbound traffic reaches a private resource, or
+      to audit what a NAT gateway exposes.
+
+      Do not use this tool for the gateway's firewall rules, which permit or
+      block traffic rather than redirect it, or for load balancer forwarding
+      rules, which are a different product.
+
+    operation: list-nat-gateway-port-forwarding-rules
+
+    input:
+      type: object
+      required:
+        - vpc_id
+        - nat_gateway_id
+      properties:
+        vpc_id:
+          type: string
+          description: >-
+            ID of the VPC, as returned in the id field by
+            vultr_network_vpcs_list.
+          maps_to: vpc-id
+
+        nat_gateway_id:
+          type: string
+          description: >-
+            ID of the NAT gateway, as returned in the id field by
+            vultr_network_nat_gateways_list.
+          maps_to: nat-gateway-id
+
+        page_size:
+          type: integer
+          description: Maximum number of results to return.
+          default: 100
+          minimum: 1
+          maximum: 500
+          maps_to: per_page
+
+        cursor:
+          type: string
+          description: Cursor returned by a previous request for the next page.
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - name
+        - description
+        - protocol
+        - external_port
+        - internal_ip
+        - internal_port
+        - enabled
+        - created_at
+        - updated_at
+        - meta
+
+  - name: vultr_network_nat_gateway_port_forwards_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets one port forwarding rule on a Vultr NAT gateway by its ID, with its
+      external port, internal IP and port, protocol, and whether it is enabled.
+
+      Use this tool when a port forwarding rule ID is already known. To list
+      them, use vultr_network_nat_gateway_port_forwards_list.
+
+      Do not use this tool for the gateway's firewall rules, which permit or
+      block traffic rather than redirect it.
+
+    operation: get-nat-gateway-port-forwarding-rule
+
+    input:
+      type: object
+      required:
+        - vpc_id
+        - nat_gateway_id
+        - port_forwarding_rule_id
+      properties:
+        vpc_id:
+          type: string
+          description: >-
+            ID of the VPC, as returned in the id field by
+            vultr_network_vpcs_list.
+          maps_to: vpc-id
+
+        nat_gateway_id:
+          type: string
+          description: >-
+            ID of the NAT gateway, as returned in the id field by
+            vultr_network_nat_gateways_list.
+          maps_to: nat-gateway-id
+
+        port_forwarding_rule_id:
+          type: string
+          description: >-
+            ID of the port forwarding rule, as returned in the id field by
+            vultr_network_nat_gateway_port_forwards_list.
+          maps_to: port-forwarding-rule-id
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - name
+        - description
+        - protocol
+        - external_port
+        - internal_ip
+        - internal_port
+        - enabled
+        - created_at
+        - updated_at
