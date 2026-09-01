@@ -183,7 +183,7 @@ async def main() -> int:
             result = await _run(tool, dict(SMOKE_ARGUMENTS.get(tool.name, {})), client)
             results.append(result)
             if result.ok and result.sample:
-                _harvest(harvested, tool.product_area, result.sample)
+                _harvest(harvested, tool, result.sample)
 
         for tool in by_id:
             arguments, missing = _fill_path(tool, harvested)
@@ -199,7 +199,7 @@ async def main() -> int:
             result = await _run(tool, arguments, client)
             results.append(result)
             if result.ok and result.sample:
-                _harvest(harvested, tool.product_area, result.sample)
+                _harvest(harvested, tool, result.sample)
 
     print()
     layer_bugs = 0
@@ -229,35 +229,76 @@ async def main() -> int:
     return 0
 
 
-def _harvest(store: dict, area: str, row: dict) -> None:
-    """Remember a sample row per product area, to feed by-id tools."""
-    known = store.setdefault(area, {})
-    for field, value in row.items():
-        if isinstance(value, (str, int)) and field not in known:
-            known[field] = value
+def _harvest(store: dict, tool: CompiledTool, row: dict) -> None:
+    """Remember a sample row, tagged with the collection it came from.
+
+    Keyed by product area but keeping each source separate, because ids of
+    different resources are not interchangeable. Feeding an audit-log
+    *location* id to the subscription tool earns a 400, which reads like a
+    broken tool and is really a broken harness.
+    """
+    scalars = {k: v for k, v in row.items() if isinstance(v, (str, int))}
+    if scalars:
+        container = tool.output.container_key if tool.output else None
+        store.setdefault(tool.product_area, []).append((container or tool.name, scalars))
+
+
+def _resource_matches(param: str, container: str) -> bool:
+    """Whether `<param>_id` names the resource this collection holds.
+
+    baremetal_id against bare_metals, registry_id against registries,
+    database_id against databases: compared with separators removed and a
+    trailing plural dropped, which is enough for every shape Vultr uses.
+    """
+    def normalise(text: str) -> str:
+        text = text.replace("_", "").replace("-", "").lower()
+        return text[:-1] if text.endswith("s") and not text.endswith("ss") else text
+
+    return normalise(param) == normalise(container)
 
 
 def _fill_path(tool: CompiledTool, harvested: dict) -> tuple[dict, list[str]]:
     """Values for every path parameter, or the names we could not supply.
 
-    A path parameter is satisfied by a field of the same name in a harvested
-    row (`username`), or by that row's `id` when the parameter is an id
-    (`database_id`). Calling with one of two path parameters filled produces a
-    confusing 404 rather than a useful result, so an unfillable tool is skipped
-    and says which value was missing.
+    An id parameter prefers a row from the collection that actually holds that
+    resource, and only falls back to any id in the area when nothing matches.
+    Other parameters (`username`) are satisfied by a field of the same name.
+    Calling with one of two path parameters filled produces a confusing 404
+    rather than a useful result, so an unfillable tool is skipped and says which
+    value was missing.
     """
-    known = harvested.get(tool.product_area, {})
+    sources = harvested.get(tool.product_area, [])
     arguments = dict(SMOKE_ARGUMENTS.get(tool.name, {}))
     missing: list[str] = []
+
     for plan in tool.parameters:
         if plan.location != "path":
             continue
-        if plan.agent_name in known:
-            arguments[plan.agent_name] = known[plan.agent_name]
-        elif plan.agent_name.endswith("_id") and "id" in known:
-            arguments[plan.agent_name] = known["id"]
-        else:
-            missing.append(plan.agent_name)
+        name = plan.agent_name
+
+        named = next((row[name] for _, row in sources if name in row), None)
+        if named is not None:
+            arguments[name] = named
+            continue
+
+        if name.endswith("_id"):
+            resource = name[: -len("_id")]
+            preferred = next(
+                (
+                    row["id"]
+                    for container, row in sources
+                    if "id" in row and _resource_matches(resource, container)
+                ),
+                None,
+            )
+            fallback = next((row["id"] for _, row in sources if "id" in row), None)
+            chosen = preferred if preferred is not None else fallback
+            if chosen is not None:
+                arguments[name] = chosen
+                continue
+
+        missing.append(name)
+
     return arguments, missing
 
 
