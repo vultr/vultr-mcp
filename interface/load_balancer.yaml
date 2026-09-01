@@ -1,0 +1,382 @@
+product_area: load_balancer
+family: network
+
+# `ssl_cert_b64` is withheld from both load balancer tools. The spec describes
+# it as "Base64 encoded ssl certificate, private key, and chain" -- so the field
+# is not a certificate, which would be public, but a bundle containing the
+# private key for the domains the load balancer terminates TLS for. It sat on
+# every row of every listing, and the generated tools return it today.
+#
+# It is the same finding as the object storage keys and the database passwords,
+# and it was missed by the audit that caught those for a simple reason: nothing
+# in the name says credential. `has_ssl` is kept, which answers the question
+# anyone actually asks -- whether TLS is configured -- without handing over the
+# key that serves it.
+#
+# Three different things in Vultr are called firewall rules, and an agent has to
+# tell them apart: this file's rules restrict traffic to a load balancer,
+# firewall.yaml's belong to a firewall group protecting instances, and vpcs.yaml
+# has a third set on NAT gateways. Each says so.
+#
+# The two load balancer firewall tools declare no output block. The spec gives
+# "List Firewall Rules" the shape of a single rule rather than a collection, so
+# the shape reader reads both as unwrapped single objects. An allowlist built on
+# that reading would empty a real list response, and nothing in a firewall rule
+# needs withholding, so both pass the payload through as the API sends it.
+
+tools:
+  - name: vultr_network_load_balancers_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists Vultr load balancers in the active Vultr organization, with each
+      one's region, status, IPv4 and IPv6 addresses, attached instances,
+      health check, forwarding rules and whether TLS is configured.
+
+      Use this tool to list, find, count, or select load balancers, and to
+      report on how traffic is distributed.
+
+      Do not use this tool for NAT gateways, which give a VPC outbound
+      internet access and are a different product, or for Kubernetes services
+      of type LoadBalancer, which are listed by
+      vultr_kubernetes_clusters_resources_get.
+
+    operation: list-load-balancers
+
+    input:
+      type: object
+      properties:
+        label:
+          type: string
+          description: Case-insensitive text contained in the load balancer label.
+          filter:
+            field: label
+            match: contains_ci
+
+        region:
+          type: string
+          description: Vultr region ID the load balancer is in, such as ewr.
+          filter:
+            field: region
+            match: equals
+
+        status:
+          type: string
+          description: Load balancer status, such as active or pending.
+          filter:
+            field: status
+            match: equals
+
+        page_size:
+          type: integer
+          description: >-
+            Maximum number of results to return. When a filter is supplied the
+            server scans the account and returns up to this many matches,
+            reporting in meta.filtered how much it scanned.
+          default: 100
+          minimum: 1
+          maximum: 500
+          maps_to: per_page
+
+        cursor:
+          type: string
+          description: Cursor returned by a previous request for the next page.
+
+    output:
+      from_openapi: true
+      # ssl_cert_b64 is deliberately absent: it carries the private key.
+      include:
+        - id
+        - label
+        - region
+        - status
+        - ipv4
+        - ipv6
+        - cname
+        - has_ssl
+        - auto_ssl
+        - http2
+        - http3
+        - nodes
+        - node_ips
+        - instances
+        - health_check
+        - generic_info
+        - forward_rules
+        - firewall_rules
+        - global_cname
+        - global_regions
+        - global_parent_id
+        - global_children_ids
+        - pending_charges
+        - date_created
+        - meta
+
+    computed:
+      instance_count:
+        type: integer
+        description: Number of instances behind the load balancer.
+        from: length(instances)
+
+  - name: vultr_network_load_balancers_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets one Vultr load balancer by its ID, with its region, status,
+      addresses, attached instances, health check, forwarding rules and whether
+      TLS is configured.
+
+      Use this tool when a load balancer ID is already known. To find one, use
+      vultr_network_load_balancers_list first.
+
+      Do not use this tool for NAT gateways, which are a different product, or
+      for the TLS certificate and private key, which this layer does not
+      return -- see the note at the top of this file.
+
+    operation: get-load-balancer
+
+    input:
+      type: object
+      required:
+        - load_balancer_id
+      properties:
+        load_balancer_id:
+          type: string
+          description: >-
+            ID of the load balancer, as returned in the id field by
+            vultr_network_load_balancers_list.
+          maps_to: load-balancer-id
+
+    output:
+      from_openapi: true
+      # ssl_cert_b64 is deliberately absent: it carries the private key.
+      include:
+        - id
+        - label
+        - region
+        - status
+        - ipv4
+        - ipv6
+        - cname
+        - has_ssl
+        - auto_ssl
+        - http2
+        - http3
+        - nodes
+        - node_ips
+        - instances
+        - health_check
+        - generic_info
+        - forward_rules
+        - firewall_rules
+        - global_cname
+        - global_regions
+        - global_parent_id
+        - global_children_ids
+        - pending_charges
+        - date_created
+
+    computed:
+      instance_count:
+        type: integer
+        description: Number of instances behind the load balancer.
+        from: length(instances)
+
+  - name: vultr_network_load_balancer_forwarding_rules_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the forwarding rules on one Vultr load balancer, each mapping a
+      frontend protocol and port to a backend protocol and port.
+
+      Use this tool to find how a load balancer routes traffic to its
+      instances, or which ports it listens on.
+
+      Do not use this tool for the load balancer's firewall rules, which
+      restrict who may connect rather than where traffic goes, or for NAT
+      gateway port forwarding, which is a different product.
+
+    operation: list-load-balancer-forwarding-rules
+
+    input:
+      type: object
+      required:
+        - load_balancer_id
+      properties:
+        load_balancer_id:
+          type: string
+          description: >-
+            ID of the load balancer, as returned in the id field by
+            vultr_network_load_balancers_list.
+          maps_to: load-balancer-id
+
+        page_size:
+          type: integer
+          description: Maximum number of results to return.
+          default: 100
+          minimum: 1
+          maximum: 500
+          maps_to: per_page
+
+        cursor:
+          type: string
+          description: Cursor returned by a previous request for the next page.
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - frontend_protocol
+        - frontend_port
+        - backend_protocol
+        - backend_port
+        - meta
+
+  - name: vultr_network_load_balancer_forwarding_rules_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets one forwarding rule on a Vultr load balancer by its ID, with its
+      frontend and backend protocols and ports.
+
+      Use this tool when a forwarding rule ID is already known. To list them,
+      use vultr_network_load_balancer_forwarding_rules_list.
+
+      Do not use this tool for the load balancer's firewall rules, which
+      restrict who may connect rather than where traffic goes.
+
+    operation: get-load-balancer-forwarding-rule
+
+    input:
+      type: object
+      required:
+        - load_balancer_id
+        - forwarding_rule_id
+      properties:
+        load_balancer_id:
+          type: string
+          description: >-
+            ID of the load balancer, as returned in the id field by
+            vultr_network_load_balancers_list.
+          maps_to: load-balancer-id
+
+        forwarding_rule_id:
+          type: string
+          description: >-
+            ID of the forwarding rule, as returned in the id field by
+            vultr_network_load_balancer_forwarding_rules_list.
+          maps_to: forwarding-rule-id
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - frontend_protocol
+        - frontend_port
+        - backend_protocol
+        - backend_port
+
+  - name: vultr_network_load_balancer_firewall_rules_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the firewall rules on one Vultr load balancer, each with the port
+      it applies to, the source address range permitted, and whether it is an
+      IPv4 or IPv6 rule.
+
+      Use this tool to audit who may connect to a load balancer.
+
+      Do not use this tool for firewall groups, which protect instances and are
+      a separate product read by vultr_network_firewall_group_rules_list, or
+      for NAT gateway firewall rules, which belong to a VPC.
+
+    operation: list-loadbalancer-firewall-rules
+
+    input:
+      type: object
+      required:
+        - loadbalancer_id
+      properties:
+        loadbalancer_id:
+          type: string
+          description: >-
+            ID of the load balancer, as returned in the id field by
+            vultr_network_load_balancers_list.
+          maps_to: loadbalancer-id
+
+    # No `output` block; see the note at the top of this file on why the
+    # declared response shape cannot be shaped against.
+
+  - name: vultr_network_load_balancer_firewall_rules_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets one firewall rule on a Vultr load balancer by its ID, with its port,
+      permitted source range, and whether it is an IPv4 or IPv6 rule.
+
+      Use this tool when a rule ID is already known. To list them, use
+      vultr_network_load_balancer_firewall_rules_list.
+
+      Do not use this tool for firewall group rules, which protect instances
+      and are a separate product.
+
+    operation: get-loadbalancer-firewall-rule
+
+    input:
+      type: object
+      required:
+        - loadbalancer_id
+        - firewall_rule_id
+      properties:
+        loadbalancer_id:
+          type: string
+          description: >-
+            ID of the load balancer, as returned in the id field by
+            vultr_network_load_balancers_list.
+          maps_to: loadbalancer-id
+
+        firewall_rule_id:
+          type: string
+          description: >-
+            ID of the firewall rule, as returned in the id field by
+            vultr_network_load_balancer_firewall_rules_list.
+          maps_to: firewall-rule-id
+
+    # No `output` block, for the same reason as the list tool above.
+
+  - name: vultr_network_load_balancer_reverse_dns_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets the reverse DNS entries configured for one Vultr load balancer's
+      IPv4 and IPv6 addresses.
+
+      Use this tool to check what a load balancer's addresses resolve back to.
+
+      Do not use this tool for forward DNS records, which
+      vultr_network_dns_records_list returns, or for reverse DNS on a reserved
+      IP, which has its own tool.
+
+    operation: get-load-balancer-reverse-dns
+
+    input:
+      type: object
+      required:
+        - load_balancer_id
+      properties:
+        load_balancer_id:
+          type: string
+          description: >-
+            ID of the load balancer, as returned in the id field by
+            vultr_network_load_balancers_list.
+          maps_to: load-balancer-id
+
+    # No `output` block: the response carries ipv4 and ipv6 side by side with
+    # no declared item fields, so there is nothing to allowlist against.

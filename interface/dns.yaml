@@ -1,0 +1,281 @@
+product_area: dns
+family: network
+
+# Vultr's DNS is authoritative hosting for domains the account owns. The name
+# collision worth guarding against is reverse DNS: load balancers and reserved
+# IPs each have their own reverse-DNS operations, and none of them are records
+# in a zone hosted here. Each description says so.
+#
+# instances.yaml declines list-instance-ipv6-reverse on the grounds that reverse
+# DNS is a DNS concern. That decline stands, and this file does not cover it
+# either: it is per-instance IPv6 reverse DNS, reached from the instance, and
+# nothing here changes that it is still served by its generated tool.
+
+tools:
+  - name: vultr_network_dns_domains_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the DNS domains hosted on Vultr's authoritative nameservers for the
+      active Vultr organization, with each domain's DNSSEC setting and creation
+      date.
+
+      Use this tool to list, find, count, or select hosted domains.
+
+      Do not use this tool for domain registration, which Vultr does not do
+      here, or for reverse DNS on an IP address, which belongs to the load
+      balancer or reserved IP that owns it.
+
+    operation: list-dns-domains
+
+    input:
+      type: object
+      properties:
+        domain:
+          type: string
+          description: Case-insensitive text contained in the domain name.
+          filter:
+            field: domain
+            match: contains_ci
+
+        page_size:
+          type: integer
+          description: >-
+            Maximum number of results to return. When a filter is supplied the
+            server scans the account and returns up to this many matches,
+            reporting in meta.filtered how much it scanned.
+          default: 100
+          minimum: 1
+          maximum: 500
+          maps_to: per_page
+
+        cursor:
+          type: string
+          description: Cursor returned by a previous request for the next page.
+
+    output:
+      from_openapi: true
+      include:
+        - domain
+        - dns_sec
+        - date_created
+        - meta
+
+  - name: vultr_network_dns_domains_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets one DNS domain hosted on Vultr by name, with its DNSSEC setting and
+      creation date.
+
+      Use this tool when the domain name is already known. To find one, use
+      vultr_network_dns_domains_list first.
+
+      Do not use this tool for the domain's records, which
+      vultr_network_dns_records_list returns, or for its SOA or DNSSEC key
+      material, which have their own tools.
+
+    operation: get-dns-domain
+
+    input:
+      type: object
+      required:
+        - dns_domain
+      properties:
+        dns_domain:
+          type: string
+          description: >-
+            The domain name, as returned in the domain field by
+            vultr_network_dns_domains_list, such as example.com.
+          maps_to: dns-domain
+
+    output:
+      from_openapi: true
+      include:
+        - domain
+        - dns_sec
+        - date_created
+
+  - name: vultr_network_dns_records_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the DNS records in one domain hosted on Vultr, each with its type,
+      name, value, TTL and priority.
+
+      Use this tool to read a zone, to find where a hostname points, or to
+      audit the records on a domain.
+
+      Do not use this tool for reverse DNS, which belongs to the load balancer
+      or reserved IP that owns the address, and not for domains hosted
+      elsewhere, which Vultr's API cannot read.
+
+    operation: list-dns-domain-records
+
+    input:
+      type: object
+      required:
+        - dns_domain
+      properties:
+        dns_domain:
+          type: string
+          description: >-
+            The domain name, as returned in the domain field by
+            vultr_network_dns_domains_list, such as example.com.
+          maps_to: dns-domain
+
+        type:
+          type: string
+          description: >-
+            Record type to return, such as A, AAAA, CNAME, MX, TXT or NS.
+          filter:
+            field: type
+            match: equals
+
+        name:
+          type: string
+          description: >-
+            Case-insensitive text contained in the record name, the part before
+            the domain.
+          filter:
+            field: name
+            match: contains_ci
+
+        page_size:
+          type: integer
+          description: >-
+            Maximum number of results to return. When a filter is supplied the
+            server scans the zone and returns up to this many matches,
+            reporting in meta.filtered how much it scanned.
+          default: 100
+          minimum: 1
+          maximum: 500
+          maps_to: per_page
+
+        cursor:
+          type: string
+          description: Cursor returned by a previous request for the next page.
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - type
+        - name
+        - data
+        - ttl
+        - priority
+        - meta
+
+  - name: vultr_network_dns_records_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets one DNS record in a domain hosted on Vultr by its record ID, with
+      its type, name, value, TTL and priority.
+
+      Use this tool when a record ID is already known. To find one, use
+      vultr_network_dns_records_list first.
+
+      Do not use this tool to look up a hostname in the public DNS; this reads
+      the record as configured on Vultr's nameservers.
+
+    operation: get-dns-domain-record
+
+    input:
+      type: object
+      required:
+        - dns_domain
+        - record_id
+      properties:
+        dns_domain:
+          type: string
+          description: >-
+            The domain name, as returned in the domain field by
+            vultr_network_dns_domains_list, such as example.com.
+          maps_to: dns-domain
+
+        record_id:
+          type: string
+          description: >-
+            ID of the record, as returned in the id field by
+            vultr_network_dns_records_list.
+          maps_to: record-id
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - type
+        - name
+        - data
+        - ttl
+        - priority
+
+  - name: vultr_network_dns_soa_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets the SOA record for one domain hosted on Vultr: its primary
+      nameserver and the administrative contact email.
+
+      Use this tool to check a zone's authority settings, or to find who a
+      domain's DNS contact is.
+
+      Do not use this tool for the domain's ordinary records, which
+      vultr_network_dns_records_list returns.
+
+    operation: get-dns-domain-soa
+
+    input:
+      type: object
+      required:
+        - dns_domain
+      properties:
+        dns_domain:
+          type: string
+          description: >-
+            The domain name, as returned in the domain field by
+            vultr_network_dns_domains_list, such as example.com.
+          maps_to: dns-domain
+
+    output:
+      from_openapi: true
+      include:
+        - nsprimary
+        - email
+
+  - name: vultr_network_dns_dnssec_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets the DNSSEC records for one domain hosted on Vultr -- the DS and
+      DNSKEY entries to publish at the registrar so the zone validates.
+
+      Use this tool when setting up or verifying DNSSEC for a domain.
+
+      Do not use this tool to check whether DNSSEC is switched on, which is the
+      dns_sec field on vultr_network_dns_domains_get.
+
+    operation: get-dns-domain-dnssec
+
+    input:
+      type: object
+      required:
+        - dns_domain
+      properties:
+        dns_domain:
+          type: string
+          description: >-
+            The domain name, as returned in the domain field by
+            vultr_network_dns_domains_list, such as example.com.
+          maps_to: dns-domain
+
+    # No `output` block: dns_sec is a bare array of record strings, so there
+    # are no item fields to allowlist against.

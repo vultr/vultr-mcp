@@ -21,3 +21,7 @@ product_areas:
   kubernetes: kubernetes.yaml
   s3: s3.yaml
   vpcs: vpcs.yaml
+  dns: dns.yaml
+  firewall: firewall.yaml
+  load_balancer: load_balancer.yaml
+  reserved_ip: reserved_ip.yaml

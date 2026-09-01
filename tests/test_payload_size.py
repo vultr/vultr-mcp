@@ -56,19 +56,50 @@ async def test_output_schemas_are_stripped_by_default(spec):
     assert not with_schema, f"{len(with_schema)} tools still advertise outputSchema"
 
 
+def _schema_bytes(tools) -> int:
+    """How much of a listing is outputSchema, as it is serialised on the wire."""
+    return sum(
+        len(json.dumps(tool.outputSchema, separators=(",", ":")))
+        for tool in tools
+        if tool.outputSchema
+    )
+
+
 async def test_output_schemas_can_be_restored(spec, monkeypatch):
     """Opt back in via env, for clients that genuinely want structured output."""
     _, stripped_size = await _wire_listing(create_server(spec))
     monkeypatch.setenv("VULTR_MCP_OUTPUT_SCHEMAS", "true")
     tools, size = await _wire_listing(create_server(spec))
-    assert any(t.outputSchema for t in tools)
-    assert size > stripped_size * 2, "restoring schemas should grow the listing"
+    assert any(tool.outputSchema for tool in tools)
+    assert size > stripped_size, "restoring schemas should grow the listing"
 
 
-async def test_tool_count_is_unchanged_by_the_size_fix(spec, monkeypatch):
-    """Stripping outputSchema must not drop tools — only shrink their definitions."""
+async def test_stripping_removes_output_schemas_and_nothing_else(spec, monkeypatch):
+    """Stripping outputSchema must not drop tools — only shrink their definitions.
+
+    This used to assert the listing at least halved, which held while almost
+    every tool was generated. Hand-authored tools carry no outputSchema in
+    either listing, so each one added moves that ratio without anything
+    regressing; the threshold measured how much of the surface the interface
+    layer owns, not whether the size fix works.
+
+    What the fix actually claims is narrower and does not drift: the two
+    listings hold the same tools, and every byte of the difference between them
+    is outputSchema. The absolute ceiling that made this matter is pinned by
+    test_root_listing_fits_client_budgets.
+    """
     slim, slim_size = await _wire_listing(create_server(spec))
     monkeypatch.setenv("VULTR_MCP_OUTPUT_SCHEMAS", "true")
     full, full_size = await _wire_listing(create_server(spec))
-    assert {t.name for t in slim} == {t.name for t in full}
-    assert slim_size < full_size / 2, "expected the listing to at least halve"
+
+    assert {tool.name for tool in slim} == {tool.name for tool in full}
+
+    schemas = _schema_bytes(full)
+    growth = full_size - slim_size
+    # Each restored schema also costs its own `,"outputSchema":` key; nothing
+    # else may account for the difference.
+    overhead = 18 * sum(1 for tool in full if tool.outputSchema)
+    assert schemas <= growth <= schemas + overhead, (
+        f"listing grew by {growth:,} bytes but outputSchema accounts for "
+        f"{schemas:,} — something other than schemas changed"
+    )

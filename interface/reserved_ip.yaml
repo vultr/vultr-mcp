@@ -1,0 +1,153 @@
+product_area: reserved_ip
+family: network
+
+# Reserved IPs are addresses the account holds independently of any one server,
+# so they can be moved between instances. The distinction worth stating is
+# against the per-server address tools: vultr_compute_instances_ipv4_list
+# returns the addresses currently on an instance, which is a different question
+# from which addresses the account has reserved and where they point.
+
+tools:
+  - name: vultr_network_reserved_ips_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists Vultr reserved IPs in the active Vultr organization, each with its
+      region, address family, subnet, label, and the instance it is currently
+      attached to if any.
+
+      Use this tool to list, find, count, or select reserved IPs, or to find
+      one that is unattached and available to move.
+
+      Do not use this tool for the addresses assigned to a specific instance,
+      which vultr_compute_instances_ipv4_list returns, or for VPC private
+      addressing.
+
+    operation: list-reserved-ips
+
+    input:
+      type: object
+      properties:
+        label:
+          type: string
+          description: Case-insensitive text contained in the reserved IP label.
+          filter:
+            field: label
+            match: contains_ci
+
+        region:
+          type: string
+          description: Vultr region ID the reserved IP belongs to, such as ewr.
+          filter:
+            field: region
+            match: equals
+
+        ip_type:
+          type: string
+          description: Address family of the reserved IP.
+          enum:
+            - v4
+            - v6
+          filter:
+            field: ip_type
+            match: equals
+
+        page_size:
+          type: integer
+          description: >-
+            Maximum number of results to return. When a filter is supplied the
+            server scans the account and returns up to this many matches,
+            reporting in meta.filtered how much it scanned.
+          default: 100
+          minimum: 1
+          maximum: 500
+          maps_to: per_page
+
+        cursor:
+          type: string
+          description: Cursor returned by a previous request for the next page.
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - label
+        - region
+        - ip_type
+        - subnet
+        - subnet_size
+        - instance_id
+        - meta
+
+  - name: vultr_network_reserved_ips_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets one Vultr reserved IP by its ID, with its region, address family,
+      subnet, label, and the instance it is attached to if any.
+
+      Use this tool when a reserved IP ID is already known. To find one, use
+      vultr_network_reserved_ips_list first.
+
+      Do not use this tool for the addresses assigned to a specific instance,
+      which vultr_compute_instances_ipv4_list returns.
+
+    operation: get-reserved-ip
+
+    input:
+      type: object
+      required:
+        - reserved_ip
+      properties:
+        reserved_ip:
+          type: string
+          description: >-
+            ID of the reserved IP, as returned in the id field by
+            vultr_network_reserved_ips_list.
+          maps_to: reserved-ip
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - label
+        - region
+        - ip_type
+        - subnet
+        - subnet_size
+        - instance_id
+
+  - name: vultr_network_reserved_ip_reverse_dns_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets the reverse DNS entry configured for one Vultr reserved IP -- what
+      the address resolves back to.
+
+      Use this tool to check or verify the PTR record on a reserved IP, which
+      matters for mail delivery.
+
+      Do not use this tool for forward DNS records in a hosted zone, which
+      vultr_network_dns_records_list returns, or for a load balancer's reverse
+      DNS, which has its own tool.
+
+    operation: get-reserved-ip-reverse-dns
+
+    input:
+      type: object
+      required:
+        - reserved_ip
+      properties:
+        reserved_ip:
+          type: string
+          description: >-
+            ID of the reserved IP, as returned in the id field by
+            vultr_network_reserved_ips_list.
+          maps_to: reserved-ip
+
+    # No `output` block: the spec declares no readable 200 schema for this
+    # operation at all -- no envelope, no item fields -- so there is nothing to
+    # allowlist against and the payload passes through as the API sends it.

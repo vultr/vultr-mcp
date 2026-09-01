@@ -1,0 +1,231 @@
+product_area: firewall
+family: network
+
+# Firewall groups are the rule sets attached to instances and bare metal
+# servers. Two other Vultr products also call their rules "firewall rules":
+# load balancers have their own set, and NAT gateways have a third. An agent
+# asked to "check the firewall rules" has three plausible tools, so each of the
+# three says which one it is and names the others.
+
+tools:
+  - name: vultr_network_firewall_groups_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists Vultr firewall groups in the active Vultr organization, each with
+      its description, how many rules it holds, and how many instances it is
+      attached to.
+
+      Use this tool to list, find, count, or select firewall groups, or to find
+      an unused group.
+
+      Do not use this tool for load balancer firewall rules or NAT gateway
+      firewall rules, which belong to those products and have their own tools.
+
+    operation: list-firewall-groups
+
+    input:
+      type: object
+      properties:
+        description:
+          type: string
+          description: >-
+            Case-insensitive text contained in the firewall group description.
+          filter:
+            field: description
+            match: contains_ci
+
+        page_size:
+          type: integer
+          description: >-
+            Maximum number of results to return. When a filter is supplied the
+            server scans the account and returns up to this many matches,
+            reporting in meta.filtered how much it scanned.
+          default: 100
+          minimum: 1
+          maximum: 500
+          maps_to: per_page
+
+        cursor:
+          type: string
+          description: Cursor returned by a previous request for the next page.
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - description
+        - rule_count
+        - max_rule_count
+        - instance_count
+        - date_created
+        - date_modified
+        - meta
+
+  - name: vultr_network_firewall_groups_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets one Vultr firewall group by its ID, with its description, rule count
+      and how many instances it is attached to.
+
+      Use this tool when a firewall group ID is already known. To find one, use
+      vultr_network_firewall_groups_list first.
+
+      Do not use this tool for the rules themselves, which
+      vultr_network_firewall_group_rules_list returns, or for load balancer and
+      NAT gateway firewall rules, which are different products.
+
+    operation: get-firewall-group
+
+    input:
+      type: object
+      required:
+        - firewall_group_id
+      properties:
+        firewall_group_id:
+          type: string
+          description: >-
+            ID of the firewall group, as returned in the id field by
+            vultr_network_firewall_groups_list.
+          maps_to: firewall-group-id
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - description
+        - rule_count
+        - max_rule_count
+        - instance_count
+        - date_created
+        - date_modified
+
+  - name: vultr_network_firewall_group_rules_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the rules in one Vultr firewall group, each with its action,
+      protocol, port, source address range and notes, for IPv4 or IPv6.
+
+      Use this tool to audit what traffic instances behind a firewall group
+      accept, or to find an overly permissive rule.
+
+      Do not use this tool for load balancer firewall rules, which
+      vultr_network_load_balancer_firewall_rules_list returns, or for NAT
+      gateway firewall rules, which belong to a VPC.
+
+    operation: list-firewall-group-rules
+
+    input:
+      type: object
+      required:
+        - firewall_group_id
+      properties:
+        firewall_group_id:
+          type: string
+          description: >-
+            ID of the firewall group, as returned in the id field by
+            vultr_network_firewall_groups_list.
+          maps_to: firewall-group-id
+
+        ip_type:
+          type: string
+          description: Address family the rule applies to.
+          enum:
+            - v4
+            - v6
+          filter:
+            field: ip_type
+            match: equals
+
+        protocol:
+          type: string
+          description: >-
+            Protocol the rule applies to, such as tcp, udp, icmp or gre.
+          filter:
+            field: protocol
+            match: equals
+
+        page_size:
+          type: integer
+          description: >-
+            Maximum number of results to return. When a filter is supplied the
+            server scans the group and returns up to this many matches,
+            reporting in meta.filtered how much it scanned.
+          default: 100
+          minimum: 1
+          maximum: 500
+          maps_to: per_page
+
+        cursor:
+          type: string
+          description: Cursor returned by a previous request for the next page.
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - action
+        - type
+        - ip_type
+        - protocol
+        - port
+        - subnet
+        - subnet_size
+        - source
+        - notes
+        - meta
+
+  - name: vultr_network_firewall_group_rules_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets one rule in a Vultr firewall group by its ID, with its action,
+      protocol, port, source address range and notes.
+
+      Use this tool when a firewall rule ID is already known. To list them, use
+      vultr_network_firewall_group_rules_list.
+
+      Do not use this tool for load balancer or NAT gateway firewall rules,
+      which belong to those products and have their own tools.
+
+    operation: get-firewall-group-rule
+
+    input:
+      type: object
+      required:
+        - firewall_group_id
+        - firewall_rule_id
+      properties:
+        firewall_group_id:
+          type: string
+          description: >-
+            ID of the firewall group, as returned in the id field by
+            vultr_network_firewall_groups_list.
+          maps_to: firewall-group-id
+
+        firewall_rule_id:
+          type: string
+          description: >-
+            ID of the firewall rule, as returned in the id field by
+            vultr_network_firewall_group_rules_list.
+          maps_to: firewall-rule-id
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - action
+        - type
+        - ip_type
+        - protocol
+        - port
+        - subnet
+        - subnet_size
+        - source
+        - notes
