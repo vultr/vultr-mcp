@@ -7,9 +7,10 @@ family: account
 #
 # It went unnoticed because the response is the resource itself rather than a
 # wrapper around it, and the shape reader used to treat that as "no readable
-# schema". Nothing to allowlist against meant nothing was withheld. The rest of
-# this product area is still unreviewed and still served by generated tools;
-# this covers the one operation that could not wait for that review.
+# schema". Nothing to allowlist against meant nothing was withheld.
+#
+# The rest of the area is covered now. One operation is declined below because
+# the spec gives it no way to work, not because nobody looked.
 
 tools:
   - name: vultr_account_bgp_get
@@ -38,3 +39,148 @@ tools:
       include:
         - asn
         - enabled
+
+  - name: vultr_account_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets the active Vultr account: the account name and email, the current
+      balance, pending charges, the last payment amount and date, and the
+      permissions the calling credential holds.
+
+      Use this tool to identify which account or organization a request is
+      acting on, to check the balance, or to see what the current API key is
+      allowed to do.
+
+      Do not use this tool for a line-by-line billing history or invoices, or
+      for managing users and their permissions.
+
+    operation: get-account
+
+    input:
+      type: object
+      properties: {}
+
+    output:
+      from_openapi: true
+      include:
+        - name
+        - email
+        - acls
+        - balance
+        - pending_charges
+        - last_payment_amount
+        - last_payment_date
+
+  - name: vultr_account_bandwidth_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets account-wide bandwidth usage: the previous month, the current month
+      to date, and a projection for the current month, each with the gigabytes
+      used and the cost.
+
+      Use this tool to report on overall bandwidth consumption or to check
+      whether the account is heading past its allowance this month.
+
+      Do not use this tool for the bandwidth of a single instance or bare metal
+      server, which have their own tools, or for cluster GPU and fabric
+      metrics.
+
+    operation: get-account-bandwidth
+
+    input:
+      type: object
+      properties: {}
+
+    output:
+      from_openapi: true
+      include:
+        - previous_month
+        - current_month_to_date
+        - current_month_projected
+
+  - name: vultr_account_bgp_prefixes_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the IP prefixes announced over BGP for the active Vultr account,
+      each with the date it was added and its RPKI validation status.
+
+      Use this tool to report which prefixes the account advertises or to check
+      the RPKI status of one of them.
+
+      Do not use this tool for whether BGP is enabled or which ASN the account
+      uses, which vultr_account_bgp_get returns, and not for reserved IPs or
+      the addresses assigned to an instance.
+
+    operation: bgp-prefix-list
+
+    input:
+      type: object
+      properties: {}
+
+    output:
+      from_openapi: true
+      include:
+        - prefix
+        - rpki_status
+        - date_added
+        - meta
+
+  - name: vultr_account_custom_subscriptions_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists custom subscriptions billed to the active Vultr account --
+      negotiated or non-standard line items rather than ordinary products --
+      with each one's description, region, cost, pending charges and status.
+
+      Use this tool to account for charges that do not correspond to an
+      instance, bare metal server, or other listable resource.
+
+      Do not use this tool for ordinary product subscriptions such as instances
+      or Object Storage, which have their own tools, or for invoices and
+      payment history.
+
+    operation: list-custom-subscriptions
+
+    input:
+      type: object
+      properties:
+        label:
+          type: string
+          description: Filter results to custom subscriptions with this label.
+
+        region:
+          type: string
+          description: >-
+            Filter results to a Vultr region ID, such as ewr.
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - label
+        - description
+        - type
+        - region
+        - cost
+        - pending_charges
+        - status
+        - date_created
+        - meta
+
+declined:
+  get-custom-subscription:
+    reason: >-
+      GET /account/custom-subscriptions/{custom-id} declares no parameters at
+      all -- not on the operation and not on the path item -- so {custom-id}
+      cannot be filled and the layer has no way to build a working URL. The
+      list tool above returns every field this one does for all subscriptions,
+      so nothing is lost meanwhile. Reported upstream; revisit if the spec
+      grows the parameter.
