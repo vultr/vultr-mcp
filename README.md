@@ -94,7 +94,7 @@ Because these tools filter client-side, a filtered search pages through the coll
 
 The rule is "GET, plus an explicit allowlist". Everything else is excluded — including Vultr's two `OPTIONS` routes, which mint container-registry Docker credentials despite the verb. The allowlist (`READ_ONLY_METHOD_OVERRIDES` in `server.py`) currently holds one entry: `POST /databases/{database-id}/alerts`, which only lists a database's existing alerts but takes its filter in a request body.
 
-This cuts the root listing from 409 tools / ~265KB to **180 tools / ~75KB** (~19k tokens), which comfortably fits clients that previously choked on the full surface.
+This cuts the root listing from the full generated surface to **188 tools** (~19k tokens), which comfortably fits clients that previously choked on it.
 
 Enable writes for local use:
 
@@ -123,7 +123,9 @@ The smoke test needs a `VULTR_API_KEY` secret and is skipped without one. Use a 
 
 ### Excluded categories
 
-Identity and credential-management categories are **excluded by default** so they stay out of agent reach (the same posture as the GitHub/Stripe/DigitalOcean MCPs): `api-keys`, `users`, `iam`, `scim`, `organizations`, `oidc`. Enforcement of these permissions belongs in the IAM policy attached to the OAuth client app; excluding the tools is UX-layer hygiene.
+Identity and credential-management categories are **excluded by default** so they stay out of agent reach (the same posture as the GitHub/Stripe/DigitalOcean MCPs): `api-keys`, `users`, `iam`, `scim`, `organizations`, `oidc`, `oauth`, `logs`. Enforcement of these permissions belongs in the IAM policy attached to the OAuth client app; excluding the tools is UX-layer hygiene.
+
+The last two joined with the 2026-08-28 spec. `oauth` covers OAuth client management, whose write half mints and regenerates client secrets. `logs` is blunter: `ListAuditLogs` returns `s3_access_key` and `s3_secret_key` for the audit-log delivery bucket, so the generated tool hands an agent a live credential pair. Excluding `logs` costs the useful `list-logs` read, and the right fix is a hand-authored tool that shapes the keys out — an interface tool replaces the generated one — after which the category can be re-admitted.
 
 Override with `VULTR_MCP_EXCLUDED_CATEGORIES` (comma-separated tags; empty string keeps everything — appropriate for local STDIO use).
 
