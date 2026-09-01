@@ -53,10 +53,17 @@ async def test_default_surface_is_read_only(spec):
     leaked = [n for n in names if n.startswith(WRITE_TOOL_PREFIXES)]
     assert not leaked, f"write tools exposed on the default surface: {leaked}"
 
-    # And the read surface is genuinely intact, not just empty.
+    # And the read surface is genuinely intact, not just empty. These two are
+    # generated: their product areas have no hand-authored file, so they prove
+    # from_openapi still populates the surface.
     joined = " ".join(names)
-    for hint in ("get_account", "list_regions", "list_plans"):
+    for hint in ("list_regions", "list_plans"):
         assert hint in joined, f"expected read tool '{hint}'"
+
+    # The account is reachable too, but under the interface layer's name: a
+    # hand-authored tool replaces its generated twin, so get_account is gone by
+    # design rather than missing.
+    assert "vultr_account_get" in names
 
     # Instances are still reachable, under whichever name owns them: the
     # interface layer replaces the generated list_instances with a

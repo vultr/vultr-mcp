@@ -95,8 +95,13 @@ async def test_authorization_header_forwarded_to_vultr(server):
         )
         async with Client(transport) as client:
             tools = await client.list_tools()
+            # The interface layer owns GET /account and replaces the
+            # generated tool, so the hand-authored name is the one to call.
+            # Both take no arguments, so the probe is unchanged.
             account_tool = next(
-                t.name for t in tools if t.name in ("get-account", "get_account")
+                t.name
+                for t in tools
+                if t.name in ("vultr_account_get", "get-account", "get_account")
             )
             result = await client.call_tool(account_tool, {}, raise_on_error=False)
 

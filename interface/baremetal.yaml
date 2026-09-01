@@ -15,6 +15,13 @@ family: compute
 # operation whose entire output is the URL: an agent reaches it only by deciding
 # to, and a tool that returned it with the URL removed would be pointless.
 # Different exposure, different answer.
+#
+# get-bare-metal-userdata gets the same treatment for the same reason. User data
+# often carries bootstrap secrets, but it is its own operation returning one
+# field, and a tool that withheld that field would have nothing left to return.
+# Declining it would not have hidden anything either: a declined operation keeps
+# its generated tool, so the choice was only ever between a good description and
+# a generated one.
 
 declined:
   list-baremetal-vpcs:
@@ -194,3 +201,235 @@ tools:
         - user_scheme
         - vpcs
         - date_created
+
+  - name: vultr_compute_baremetal_ipv4_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists every IPv4 address assigned to one Vultr Bare Metal server, with
+      each address's netmask, gateway, MAC address, reverse DNS entry, and
+      whether it is the main address or an additional one.
+
+      Use this tool when a server has more than one address, or when the
+      netmask, gateway, MAC or reverse DNS is needed.
+      vultr_compute_baremetal_get returns only the main address.
+
+      Do not use this tool for cloud compute instances, which have their own
+      tool, or for reserved IPs that are not yet attached to a server.
+
+    operation: get-ipv4-baremetal
+
+    input:
+      type: object
+      required:
+        - baremetal_id
+      properties:
+        baremetal_id:
+          type: string
+          description: >-
+            ID of the bare metal server, as returned in the id field by
+            vultr_compute_baremetal_list.
+          maps_to: baremetal-id
+
+    output:
+      from_openapi: true
+      include:
+        - ip
+        - netmask
+        - gateway
+        - type
+        - reverse
+        - mac_address
+        - meta
+
+  - name: vultr_compute_baremetal_ipv6_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists every IPv6 address assigned to one Vultr Bare Metal server, with
+      each address's network and prefix size.
+
+      Use this tool to report a server's IPv6 configuration or to check whether
+      IPv6 is assigned at all.
+
+      Do not use this tool for IPv4 addresses, which
+      vultr_compute_baremetal_ipv4_list returns, or for cloud compute
+      instances, which have their own tool.
+
+    operation: get-ipv6-baremetal
+
+    input:
+      type: object
+      required:
+        - baremetal_id
+      properties:
+        baremetal_id:
+          type: string
+          description: >-
+            ID of the bare metal server, as returned in the id field by
+            vultr_compute_baremetal_list.
+          maps_to: baremetal-id
+
+    output:
+      from_openapi: true
+      include:
+        - ip
+        - network
+        - network_size
+        - type
+        - meta
+
+  - name: vultr_compute_baremetal_bandwidth_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets daily bandwidth usage for one Vultr Bare Metal server, as incoming
+      and outgoing bytes per day.
+
+      Use this tool to report how much traffic a specific server has moved, or
+      to find which day drove a spike.
+
+      Do not use this tool for account-wide bandwidth across every product,
+      which vultr_account_bandwidth_get returns, or for cloud compute
+      instances, which have their own tool.
+
+    operation: get-bandwidth-baremetal
+
+    input:
+      type: object
+      required:
+        - baremetal_id
+      properties:
+        baremetal_id:
+          type: string
+          description: >-
+            ID of the bare metal server, as returned in the id field by
+            vultr_compute_baremetal_list.
+          maps_to: baremetal-id
+
+    # No `output` block. The response is a map with one key per day, and the
+    # spec models it by hard-coding two example dates -- 2020-10-10 and
+    # 2020-10-11 -- as literal property names. Allowlisting against those would
+    # filter every real response down to nothing.
+
+  - name: vultr_compute_baremetal_upgrades_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets the operating systems and marketplace applications one Vultr Bare
+      Metal server can be upgraded or changed to.
+
+      Use this tool to find out what a specific server can move to before
+      planning an OS change or application switch.
+
+      Do not use this tool for the server's current operating system, which
+      vultr_compute_baremetal_get returns, or to browse the marketplace and OS
+      catalogs in general, which are not specific to one server.
+
+    operation: get-bare-metals-upgrades
+
+    input:
+      type: object
+      required:
+        - baremetal_id
+      properties:
+        baremetal_id:
+          type: string
+          description: >-
+            ID of the bare metal server, as returned in the id field by
+            vultr_compute_baremetal_list.
+          maps_to: baremetal-id
+
+        type:
+          type: string
+          description: >-
+            Limit the answer to one kind of upgrade. Omit for everything
+            available.
+          # The spec leaves this a bare string and names the three values only
+          # in prose; stating them as an enum is what stops an agent guessing.
+          enum:
+            - all
+            - applications
+            - os
+
+    output:
+      from_openapi: true
+      include:
+        - os
+        - applications
+
+  - name: vultr_compute_baremetal_userdata_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets the user data configured for one Vultr Bare Metal server -- the
+      cloud-init or startup configuration supplied at deployment -- returned
+      base64-encoded.
+
+      Use this tool to inspect or reproduce how a server was configured at
+      first boot.
+
+      Do not use this tool for startup scripts, which are a separate Vultr
+      resource with their own tools, or for cloud compute instances, which have
+      their own tool.
+
+    operation: get-bare-metal-userdata
+
+    input:
+      type: object
+      required:
+        - baremetal_id
+      properties:
+        baremetal_id:
+          type: string
+          description: >-
+            ID of the bare metal server, as returned in the id field by
+            vultr_compute_baremetal_list.
+          maps_to: baremetal-id
+
+    output:
+      from_openapi: true
+      include:
+        - data
+
+  - name: vultr_compute_baremetal_vnc_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets the VNC console URL for one Vultr Bare Metal server, giving
+      out-of-band access to the machine's screen and keyboard.
+
+      Use this tool when someone asks for console or out-of-band access to a
+      specific server, typically because it is unreachable over the network.
+
+      Do not use this tool for ordinary status checks, which
+      vultr_compute_baremetal_get answers, or for cloud compute instances,
+      whose console link is a different field on a different tool.
+
+    operation: get-bare-metal-vnc
+
+    input:
+      type: object
+      required:
+        - baremetal_id
+      properties:
+        baremetal_id:
+          type: string
+          description: >-
+            ID of the bare metal server, as returned in the id field by
+            vultr_compute_baremetal_list.
+          maps_to: baremetal-id
+
+    output:
+      from_openapi: true
+      # The URL is the entire point of the operation; see the note at the top
+      # of this file on why the console link is shaped out of listings but kept
+      # here.
+      include:
+        - url
