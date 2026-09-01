@@ -1,0 +1,134 @@
+product_area: s3
+family: storage
+
+# Vultr's OpenAPI tag is `s3`, which tells an agent nothing; the product is
+# Object Storage, and the tool names say so.
+#
+# Both tools here withhold s3_access_key and s3_secret_key. Together those are a
+# working credential for the bucket -- not a reference to one, the actual pair --
+# and the generated tools returned them on every row of every listing. An agent
+# asked to report on storage usage got the keys whether or not anyone wanted
+# them, which is the shape of accident this layer exists to prevent.
+#
+# s3_hostname is kept. It is the endpoint, not a secret, and it is what someone
+# needs to know where a subscription lives.
+#
+# Anyone who genuinely needs the keys can read them in the customer portal,
+# where getting them is a deliberate act by a person rather than a field an
+# agent was handed.
+
+tools:
+  - name: vultr_storage_object_storage_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists Vultr Object Storage subscriptions, S3-compatible storage, in the
+      active Vultr organization, with their region, tier, and status.
+
+      Use this tool to list, find, count, or select Object Storage
+      subscriptions, and to report on where storage is provisioned.
+
+      Do not use this tool for Block Storage volumes, for the Vultr File System,
+      or for buckets and objects inside a subscription, which are reached with
+      an S3 client rather than this API.
+
+    operation: list-object-storages
+
+    input:
+      type: object
+      properties:
+        # GET /object-storage accepts only paging, so every search below is
+        # applied here against the fetched rows.
+        label_contains:
+          type: string
+          description: >-
+            Case-insensitive text contained in the subscription label.
+          filter:
+            field: label
+            match: contains_ci
+
+        region:
+          type: string
+          description: Vultr region ID the subscription is hosted in, such as ewr.
+          filter:
+            field: region
+            match: equals
+
+        status:
+          type: string
+          description: Provisioning status of the subscription.
+          filter:
+            field: status
+            match: equals
+
+        page_size:
+          type: integer
+          description: >-
+            Maximum number of results to return. When a filter is supplied the
+            server scans the account and returns up to this many matches,
+            reporting in meta.filtered how much it scanned.
+          default: 100
+          minimum: 1
+          maximum: 500
+          maps_to: per_page
+
+        cursor:
+          type: string
+          description: Cursor returned by a previous request for the next page.
+
+    output:
+      from_openapi: true
+      # s3_access_key and s3_secret_key are deliberately absent.
+      include:
+        - id
+        - label
+        - region
+        - cluster_id
+        - tier
+        - status
+        - s3_hostname
+        - pending_charges
+        - date_created
+        - meta
+
+  - name: vultr_storage_object_storage_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets one Vultr Object Storage subscription by its ID, including its
+      region, endpoint hostname, status, and pending charges.
+
+      Use this tool when a subscription ID is already known. To find one, use
+      vultr_storage_object_storage_list first.
+
+      Do not use this tool to read the contents of a bucket, which needs an S3
+      client pointed at the subscription's endpoint.
+
+    operation: get-object-storage
+
+    input:
+      type: object
+      required:
+        - object_storage_id
+      properties:
+        object_storage_id:
+          type: string
+          description: >-
+            ID of the Object Storage subscription, as returned in the id field
+            by vultr_storage_object_storage_list.
+          maps_to: object-storage-id
+
+    output:
+      from_openapi: true
+      # The same credential pair is withheld here.
+      include:
+        - id
+        - label
+        - region
+        - cluster_id
+        - status
+        - s3_hostname
+        - pending_charges
+        - date_created

@@ -1,0 +1,196 @@
+product_area: baremetal
+family: compute
+
+# Bare Metal is the product instances descriptions keep disclaiming, so the two
+# files have to be read together: each says plainly what it is not, and the
+# names differ at the resource segment rather than only in prose.
+#
+# default_password is withheld from both tools here for the same reason it is
+# withheld from instances -- it is a real credential, live for a window after
+# deployment, and no question about a server needs it.
+#
+# The console link is deliberately left alone. On instances it is the `kvm`
+# field, volunteered on every row of every listing whether or not anyone asked,
+# which is why that one is shaped out. Here it is get-bare-metal-vnc, a separate
+# operation whose entire output is the URL: an agent reaches it only by deciding
+# to, and a tool that returned it with the URL removed would be pointless.
+# Different exposure, different answer.
+
+declined:
+  list-baremetal-vpcs:
+    reason: >-
+      VPC membership belongs with the VPCs product area, which will cover
+      attachment from the network side rather than duplicating it per compute
+      product.
+
+tools:
+  - name: vultr_compute_baremetal_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists Vultr Bare Metal servers, dedicated physical machines, in the
+      active Vultr organization.
+
+      Use this tool to list, find, count, or select bare metal servers, and to
+      answer questions about their power state, region, plan, or operating
+      system.
+
+      Do not use this tool for Vultr cloud compute instances, which are virtual
+      machines and have their own tools, nor for Vultr Kubernetes Engine nodes
+      or Compute Cluster members.
+
+    operation: list-baremetals
+
+    input:
+      type: object
+      properties:
+        # The API filters on these itself: one request, accurate across pages.
+        label:
+          type: string
+          description: >-
+            Exact server label. The API filters on this directly, so prefer it
+            when the full label is known.
+
+        main_ip:
+          type: string
+          description: Main IPv4 address of the server.
+
+        region:
+          type: string
+          description: Vultr region ID, such as ewr.
+
+        # The API cannot filter on these, so the server does, which makes the
+        # call scan the account instead of fetching one page.
+        label_contains:
+          type: string
+          description: >-
+            Case-insensitive text contained in the server label, for finding
+            servers by part of a name. Slower than label.
+          filter:
+            field: label
+            match: contains_ci
+
+        power_status:
+          type: string
+          description: Whether the server is powered on.
+          enum:
+            - running
+            - stopped
+          filter:
+            field: power_status
+            match: equals
+
+        plan:
+          type: string
+          description: Vultr bare metal plan ID, such as vbm-4c-32gb.
+          filter:
+            field: plan
+            match: equals
+
+        page_size:
+          type: integer
+          description: >-
+            Maximum number of results to return. When label_contains,
+            power_status, or plan is supplied, the server scans the account and
+            returns up to this many matches, reporting in meta.filtered how
+            much it scanned.
+          default: 100
+          minimum: 1
+          maximum: 500
+          maps_to: per_page
+
+        cursor:
+          type: string
+          description: Cursor returned by a previous request for the next page.
+
+    output:
+      from_openapi: true
+      # default_password is absent deliberately. Everything the agent can filter
+      # on is present, so it can see what it selected by.
+      include:
+        - id
+        - label
+        - region
+        - plan
+        - status
+        - power_status
+        - main_ip
+        - os
+        - cpu_count
+        - ram
+        - disk
+        - tags
+        - date_created
+        - meta
+
+    computed:
+      display_name:
+        type: string
+        description: >-
+          Label if the server has one, otherwise its main IP address. Bare
+          metal servers are often deployed without a label.
+        from: coalesce(label, main_ip)
+
+  - name: vultr_compute_baremetal_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets one Vultr Bare Metal server by its ID, including its plan, operating
+      system, network addresses, region, and power state.
+
+      Use this tool when a server ID is already known. To find one by label,
+      IP, or region, use vultr_compute_baremetal_list first.
+
+      Do not use this tool for Vultr cloud compute instances, which are virtual
+      machines with their own tools.
+
+    operation: get-baremetal
+
+    input:
+      type: object
+      required:
+        - baremetal_id
+      properties:
+        baremetal_id:
+          type: string
+          description: >-
+            ID of the bare metal server, as returned in the id field by
+            vultr_compute_baremetal_list.
+          maps_to: baremetal-id
+
+    output:
+      from_openapi: true
+      # A single server is cheap to return in full, so this keeps the network
+      # and image detail the list drops -- everything except default_password.
+      # Note the IPv6 fields here are the flat ones the API actually sends;
+      # the instance schema documents a v6_networks array instead and never
+      # sends it, which is a spec bug on that side rather than this one.
+      include:
+        - id
+        - label
+        - region
+        - plan
+        - status
+        - power_status
+        - main_ip
+        - netmask_v4
+        - gateway_v4
+        - internal_ip
+        - mac_address
+        - v6_main_ip
+        - v6_network
+        - v6_network_size
+        - os
+        - os_id
+        - app_id
+        - image_id
+        - snapshot_id
+        - cpu_count
+        - ram
+        - disk
+        - tags
+        - user_scheme
+        - vpcs
+        - date_created
