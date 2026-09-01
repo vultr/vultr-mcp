@@ -103,3 +103,143 @@ tools:
         type: integer
         description: Number of instances associated with the cluster.
         from: length(instances)
+
+  - name: vultr_compute_clusters_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets one Vultr Compute Cluster by its ID: its region, plan, pool counts,
+      status and state, the instance template its nodes are built from, and the
+      instances currently in it.
+
+      Use this tool when a cluster ID is already known. To find one, use
+      vultr_compute_clusters_list first.
+
+      Do not use this tool for Vultr Kubernetes Engine clusters, which have
+      their own tools, or for Object Storage clusters. The type field says which
+      kind of cluster a result is.
+
+    operation: get-cluster
+
+    input:
+      type: object
+      required:
+        - cluster_id
+      properties:
+        cluster_id:
+          type: string
+          description: >-
+            ID of the Compute Cluster, as returned in the id field by
+            vultr_compute_clusters_list.
+          maps_to: cluster-id
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - label
+        - hostname
+        - region
+        - plan
+        - type
+        - cluster_type
+        - status
+        - state
+        - min_pool_count
+        - desired_pool_count
+        - head_node_instance_template_id
+        - instance_template
+        - instances
+        - vpc_networks
+        - vfs
+        - date_created
+
+    computed:
+      instance_count:
+        type: integer
+        description: Number of instances currently in the cluster.
+        from: length(instances)
+
+  - name: vultr_compute_cluster_availability_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets the regions where one Compute Cluster plan is available, separating
+      regions that support GPU fabric from those that do not.
+
+      Use this tool when a plan ID is already known and the question is where
+      that specific plan can be deployed.
+
+      Do not use this tool to list Vultr regions in general, or to check
+      availability of plans outside Compute Clusters.
+
+    operation: get-cluster-availability-by-plan
+
+    input:
+      type: object
+      required:
+        - plan_id
+      properties:
+        plan_id:
+          type: string
+          description: >-
+            ID of the Compute Cluster plan, as returned by
+            vultr_compute_cluster_availability_list.
+          maps_to: plan-id
+
+    # No `output` block: the response is two sibling arrays, locations and
+    # fabric_locations, and shaping applies to only one container. Both are
+    # short lists of region IDs with nothing worth trimming or withholding, so
+    # the whole payload is passed through rather than claiming a shape the
+    # layer cannot honour.
+
+  - name: vultr_compute_cluster_metrics_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets time-series performance metrics for one Compute Cluster, per
+      instance: GPU temperature, utilization, memory and power, and fabric
+      throughput where the cluster has a GPU fabric.
+
+      Use this tool to report on cluster load, GPU usage, or thermal and power
+      behaviour over a period.
+
+      Do not use this tool for the cluster's configuration or node list, which
+      vultr_compute_clusters_get returns, or for account bandwidth usage.
+
+    operation: get-cluster-metrics
+
+    input:
+      type: object
+      required:
+        - cluster_id
+      properties:
+        cluster_id:
+          type: string
+          description: >-
+            ID of the Compute Cluster, as returned in the id field by
+            vultr_compute_clusters_list.
+          maps_to: cluster-id
+
+        period:
+          type: string
+          description: >-
+            Time period the metrics cover, such as -1days or -7days. Defaults
+            to -1days.
+
+    output:
+      # metrics.instances is a map keyed by instance ID, so there are no item
+      # fields to allowlist against.
+      from_openapi: true
+
+declined:
+  get-cluster-availability:
+    reason: >-
+      GET /clusters/availability requires a JSON request body with a required
+      `region` field -- the spec says so in prose and declares the requestBody
+      -- and the interface runtime does not build request bodies yet, so the
+      validator rejects any tool for it. Revisit when the request-body engine
+      lands; until then the generated tool remains the only way to reach it.
