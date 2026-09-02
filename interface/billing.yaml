@@ -7,10 +7,20 @@ family: account
 # area where that assumption should be checked rather than assumed. The API
 # exposes amounts and descriptions only.
 #
-# The pending-charges rows are the one shape here that has not been pinned down:
-# the spec's field names for them are wrong, and what the API really sends is
-# not yet known. Its tool therefore claims no specific fields, in the
-# description or in an allowlist, rather than naming six that never arrive.
+# The spec has the wrong schema attached to pending-charges, and it is a mix-up
+# rather than a missing field. It declares the billing-history shape -- id, date,
+# type, description, amount, balance, the same six as GET /billing/history.
+# Production returns the invoice-item shape instead: product, unit_type,
+# unit_price, units, total, start_date, end_date, description. Confirmed
+# 2026-09-02.
+#
+# So pending charges are uninvoiced *line items*, priced per unit, and not
+# account-level charge entries at all. The description says so.
+#
+# Its tool can carry no allowlist, and that is forced rather than chosen:
+# `include` is resolved against the declared 200 schema, so naming the fields
+# the API really sends would fail the build, and naming the declared ones shaped
+# every row to {} -- which is what it did until this was found.
 #
 # There is no tool for the pending-charges CSV export, and the reason is in the
 # declined block rather than in a comment nobody would find.
@@ -192,15 +202,17 @@ tools:
     enabled: true
 
     description: |
-      Lists the charges accrued on the active Vultr organization since its last
-      invoice -- what the next bill will contain, as the API reports it.
+      Lists what the active Vultr organization has accrued since its last
+      invoice, as line items: each with its product, unit type, unit price,
+      number of units, total, and the period it covers.
 
-      Use this tool to report what is accruing right now, before it is
-      invoiced.
+      Use this tool to report what the next bill will contain, or to break
+      current spend down by product before it is invoiced.
 
       Do not use this tool for charges already invoiced, which
-      vultr_account_billing_history_list and vultr_account_invoices_list
-      return.
+      vultr_account_invoice_items_list returns in this same line-item shape for
+      a given invoice, nor for the account-level ledger of charges and
+      payments, which vultr_account_billing_history_list returns.
 
     operation: pending-charges
 
