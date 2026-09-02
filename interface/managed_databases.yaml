@@ -33,6 +33,24 @@ family: database
 # vultr_kubernetes_clusters_list is the family prefix doing exactly the job it
 # was added for.
 
+# The one read in this area with no tool, and it is not an oversight.
+#
+# list-service-alerts is a read: it lists a database's existing alerts and
+# creates nothing. server.py already knows that -- READ_ONLY_METHOD_OVERRIDES
+# keeps it on the read-only surface despite the verb. But the interface layer
+# cannot express it twice over, and neither blocker is ours to remove.
+declined:
+  list-service-alerts:
+    reason: >-
+      A read served over POST /databases/{database-id}/alerts. The compiler
+      requires `access` to agree with the HTTP method, so a tool for it would
+      have to declare `access: write` and would then be dropped from the
+      read-only surface -- the opposite of what it is. It also requires a JSON
+      request body with a required `period`, which the runtime does not build.
+      server.py's READ_ONLY_METHOD_OVERRIDES already exempts it so the generated
+      tool stays reachable; revisit when the request-body engine lands and the
+      access check can take an override.
+
 tools:
   - name: vultr_database_clusters_list
     access: read

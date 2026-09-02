@@ -70,6 +70,9 @@ class Result:
         # "no sample" can be reported as what it is rather than as an empty
         # result.
         self.scalar_rows: bool = False
+        # Set when the spec's container key is not in the response at all, which
+        # disables shaping and filtering without raising anything.
+        self.shape_mismatch: str | None = None
 
     @property
     def ok(self) -> bool:
@@ -118,6 +121,20 @@ async def _run(tool: CompiledTool, arguments: dict, client) -> Result:
             return result
         container = _container(tool)
         body = payload.get(container) if container else None
+        if container and container not in payload:
+            # The spec named a container the API does not send. Nothing raises:
+            # shape_response returns the payload untouched, so `include` never
+            # trims and -- worse -- declared filters never run, and the tool
+            # answers a filtered question with every row it has. /plans-metal
+            # returns `plans_metal` where the spec says `plans`, which is how
+            # this was found: silent, and wrong in the direction nobody checks.
+            others = sorted(
+                key for key, value in payload.items() if isinstance(value, list)
+            )
+            result.shape_mismatch = (
+                f"declared container {container!r} absent from the response"
+                + (f"; it sends {', '.join(others)}" if others else "")
+            )
         if isinstance(body, list):
             result.items = len(body)
             # Not every collection holds records. get-instance-neighbors returns
@@ -161,12 +178,49 @@ def _check_shaping(result: Result) -> list[str]:
     return notes
 
 
+def _announce(index: int, total: int, tool: CompiledTool) -> None:
+    """Name the tool before the call, so a stall is attributable to one of them.
+
+    At 24 tools a silent run finished before anyone wondered. At 180, with a
+    per-call timeout of 30s, silence is indistinguishable from a hang -- and
+    which tool is hanging is exactly what you need to know.
+    """
+    print(f"[{index:>3}/{total}] {tool.name:<46}", end="", flush=True)
+
+
+def _report(result: "Result") -> None:
+    """One line per tool, printed as it finishes rather than banked to the end."""
+    mark = {"ok": "PASS", "skipped": "skip"}.get(result.status, result.status.upper())
+    rows = "" if result.items is None else f"{result.items} row(s)"
+    print(f" {mark:>9} {result.seconds:5.2f}s  {rows}", flush=True)
+    if result.detail:
+        print(f"            {result.detail}", flush=True)
+    if result.shape_mismatch:
+        print(f"            SHAPE-MISMATCH: {result.shape_mismatch}", flush=True)
+    if result.ok:
+        for note in _check_shaping(result):
+            print(f"            note: {note}", flush=True)
+
+
 async def main() -> int:
     interface = compile_interface(REPO / "interface", load_spec())
     tools = [tool for tool in interface.tools if not tool.is_write]
 
-    print(f"interface {interface.version}: {len(tools)} read tool(s)")
+    # An optional substring narrows the run to one area or one tool. A full
+    # sweep is 180 live calls; verifying a single change should not need it.
+    only = sys.argv[1] if len(sys.argv) > 1 else None
+    if only:
+        tools = [t for t in tools if only in t.name or only == t.product_area]
+        if not tools:
+            print(f"no read tool matches {only!r}")
+            return 1
+
+    print(
+        f"interface {interface.version}: {len(tools)} read tool(s)"
+        + (f" matching {only!r}" if only else "")
+    )
     print(f"target: {VULTR_API_BASE}")
+    print(f"per-call timeout: {TIMEOUT:g}s (SMOKE_TIMEOUT to change)")
     if not os.environ.get("VULTR_API_KEY"):
         print("warning: VULTR_API_KEY is not set; expect 401s\n")
 
@@ -190,14 +244,22 @@ async def main() -> int:
     harvested: dict[str, dict] = {}
     results: list[Result] = []
 
+    total = len(searches) + len(by_id)
+    done = 0
+
     async with client:
         for tool in searches:
+            done += 1
+            _announce(done, total, tool)
             result = await _run(tool, dict(SMOKE_ARGUMENTS.get(tool.name, {})), client)
             results.append(result)
+            _report(result)
             if result.ok and result.sample:
                 _harvest(harvested, tool, result.sample)
 
         for tool in by_id:
+            done += 1
+            _announce(done, total, tool)
             arguments, missing = _fill_path(tool, harvested)
             if missing:
                 result = Result(tool)
@@ -207,30 +269,26 @@ async def main() -> int:
                     + ", ".join(missing)
                 )
                 results.append(result)
+                _report(result)
                 continue
             result = await _run(tool, arguments, client)
             results.append(result)
+            _report(result)
             if result.ok and result.sample:
                 _harvest(harvested, tool, result.sample)
 
-    print()
-    layer_bugs = 0
-    for result in results:
-        mark = {"ok": "PASS", "skipped": "skip"}.get(result.status, result.status.upper())
-        rows = "" if result.items is None else f"{result.items} row(s)"
-        print(f"[{mark:>9}] {result.tool.name:<34} {result.seconds:5.2f}s  {rows}")
-        if result.detail:
-            print(f"            {result.detail}")
-        if result.status == "LAYER-BUG":
-            layer_bugs += 1
-        if result.ok:
-            for note in _check_shaping(result):
-                print(f"            note: {note}")
-
+    layer_bugs = sum(1 for r in results if r.status == "LAYER-BUG")
     passed = sum(1 for r in results if r.ok)
     print(f"\n{passed}/{len(results)} returned successfully; {layer_bugs} layer bug(s)")
 
-    if layer_bugs:
+    mismatches = [r for r in results if r.shape_mismatch]
+    for r in mismatches:
+        print(f"  shape mismatch: {r.tool.name}: {r.shape_mismatch}")
+
+    # A mismatch means a tool is quietly not doing what its definition says --
+    # no error, no exception, just unshaped rows and filters that never ran --
+    # so it fails the run the same way a layer bug does.
+    if layer_bugs or mismatches:
         return 1
     # A credential was supplied and nothing worked: a wrong key, an unreachable
     # host, an IP allowlist. That must not pass quietly in CI, where nobody

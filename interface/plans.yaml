@@ -81,9 +81,11 @@ tools:
 
     output:
       from_openapi: true
+      # `name` is declared on the plan schema and never arrives -- confirmed
+      # against production 2026-09-02, where every row came back without it.
+      # Including it was a claim about the spec rather than about the API.
       include:
         - id
-        - name
         - type
         - vcpu_count
         - ram
@@ -120,32 +122,19 @@ tools:
 
     input:
       type: object
-      properties:
-        region:
-          type: string
-          description: >-
-            Vultr region ID the plan must be available in, such as ewr.
-          filter:
-            field: locations
-            match: contains
+      # No `region` filter either, for the same reason as the missing output
+      # block below. Filtering is applied to the rows inside the container, and
+      # the runtime returns early when the declared container is absent -- so a
+      # filter here would accept a region, ignore it, and hand back every plan
+      # as though it had matched. Silently returning the wrong rows is worse
+      # than not offering the filter. `locations` is on every row for an agent
+      # to read directly.
+      properties: {}
 
-    output:
-      from_openapi: true
-      include:
-        - id
-        - type
-        - cpu_count
-        - cpu_model
-        - cpu_threads
-        - ram
-        - disk
-        - disk_count
-        - bandwidth
-        - gpu_brand
-        - monthly_cost
-        - hourly_cost
-        - monthly_cost_preemptible
-        - hourly_cost_preemptible
-        - invoice_type
-        - locations
-        - meta
+    # No `output` block, and not by choice. GET /plans-metal returns its rows
+    # under `plans_metal`; the spec declares the container as `plans`, which is
+    # the key its sibling /plans uses. The runtime finds the declared key
+    # missing and passes the payload through untouched, so an include list here
+    # would be shaping that silently never runs -- worse than none, because the
+    # file would claim a trimming that does not happen. Restore the allowlist
+    # when the spec names the right container.
