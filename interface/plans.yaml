@@ -1,0 +1,151 @@
+product_area: plans
+family: catalog
+
+# Two plan lists, and Vultr splits them by product rather than by shape: /plans
+# is cloud compute, /plans-metal is bare metal. They are not merged here, and
+# each says which product it covers, because "what plans are there" is a
+# question an agent will otherwise answer with half the catalogue.
+#
+# Managed databases, Kubernetes and Compute Clusters each have their own plan
+# lists elsewhere. Neither tool here returns those.
+
+tools:
+  - name: vultr_catalog_plans_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists Vultr cloud compute plans -- virtual machines -- each with its vCPU
+      count, RAM, disk, bandwidth, GPU where present, hourly and monthly cost,
+      and the regions it is available in.
+
+      Use this tool to compare instance plans, to price an instance before
+      creating it, or to find which plans exist in a region.
+
+      Do not use this tool for bare metal plans, which
+      vultr_catalog_metal_plans_list returns, nor for managed database,
+      Kubernetes or Compute Cluster plans, which are separate lists.
+
+    operation: list-plans
+
+    input:
+      type: object
+      properties:
+        type:
+          type: string
+          description: >-
+            Limit results to one plan family, such as vc2 for regular
+            performance or vhf for high frequency.
+          enum:
+            - all
+            - vc2
+            - vdc
+            - vhf
+            - vhp
+            - voc
+            - voc-g
+            - voc-c
+            - voc-m
+            - voc-s
+            - vcg
+
+        os:
+          type: string
+          description: >-
+            Limit results to plans that support one operating system family.
+          enum:
+            - windows
+
+        region:
+          type: string
+          description: >-
+            Vultr region ID the plan must be available in, such as ewr.
+          filter:
+            field: locations
+            match: contains
+
+        page_size:
+          type: integer
+          description: >-
+            Maximum number of results to return. When a filter is supplied the
+            server scans the catalogue and returns up to this many matches,
+            reporting in meta.filtered how much it scanned.
+          default: 100
+          minimum: 1
+          maximum: 500
+          maps_to: per_page
+
+        cursor:
+          type: string
+          description: Cursor returned by a previous request for the next page.
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - name
+        - type
+        - vcpu_count
+        - ram
+        - disk
+        - disk_count
+        - bandwidth
+        - gpu_brand
+        - monthly_cost
+        - hourly_cost
+        - monthly_cost_preemptible
+        - hourly_cost_preemptible
+        - invoice_type
+        - locations
+        - location_cost
+        - meta
+
+  - name: vultr_catalog_metal_plans_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists Vultr bare metal plans -- dedicated physical machines -- each with
+      its CPU model, core and thread counts, RAM, disk, bandwidth, GPU where
+      present, hourly and monthly cost, and the regions it is available in.
+
+      Use this tool to compare bare metal plans or to price a server before
+      creating it.
+
+      Do not use this tool for cloud compute plans, which
+      vultr_catalog_plans_list returns, or for Compute Cluster plans, which are
+      GPU fabric hardware with their own availability tool.
+
+    operation: list-metal-plans
+
+    input:
+      type: object
+      properties:
+        region:
+          type: string
+          description: >-
+            Vultr region ID the plan must be available in, such as ewr.
+          filter:
+            field: locations
+            match: contains
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - type
+        - cpu_count
+        - cpu_model
+        - cpu_threads
+        - ram
+        - disk
+        - disk_count
+        - bandwidth
+        - gpu_brand
+        - monthly_cost
+        - hourly_cost
+        - monthly_cost_preemptible
+        - hourly_cost_preemptible
+        - invoice_type
+        - locations
+        - meta

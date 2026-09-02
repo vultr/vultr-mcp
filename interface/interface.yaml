@@ -30,3 +30,12 @@ product_areas:
   backup: backup.yaml
   vfs: vfs.yaml
   storage_gateways: storage_gateways.yaml
+  region: region.yaml
+  plans: plans.yaml
+  os: os.yaml
+  application: application.yaml
+  iso: iso.yaml
+  instance_templates: instance_templates.yaml
+  startup: startup.yaml
+  ssh: ssh.yaml
+  subaccount: subaccount.yaml

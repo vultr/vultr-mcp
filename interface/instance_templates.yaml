@@ -1,0 +1,118 @@
+product_area: instance_templates
+family: compute
+
+# Instance templates are the reusable deployment recipe -- plan, OS, SSH keys,
+# startup script, user data -- that Compute Clusters build their nodes from.
+# clusters.yaml returns one inline on every cluster, so these tools are how you
+# read a template on its own.
+#
+# `user_data` is kept, on the same reasoning as the instance and bare metal user
+# data tools: it is a declared field of the resource, an agent reaches a
+# template deliberately, and a template with its user data removed does not
+# describe the deployment it defines. `ssh_keys` here is a list of IDs and
+# names, not key material.
+#
+# The `include_all` parameter is worth surfacing rather than defaulting: without
+# it the ephemeral templates that Compute Clusters create for their own head
+# nodes are hidden, and their absence is confusing when a cluster plainly
+# references one.
+
+tools:
+  - name: vultr_compute_instance_templates_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists Vultr instance templates in the active Vultr organization -- saved
+      deployment recipes naming a plan, operating system or marketplace app,
+      SSH keys, startup script and user data.
+
+      Use this tool to find a template before deploying from it, or to resolve
+      the template a Compute Cluster builds its nodes from.
+
+      Do not use this tool for the instances themselves, which
+      vultr_compute_instances_list returns, or for snapshots, which are disk
+      images rather than deployment recipes.
+
+    operation: list-instance-templates
+
+    input:
+      type: object
+      properties:
+        include_all:
+          type: boolean
+          description: >-
+            Include ephemeral templates that Compute Clusters create for their
+            own nodes. These are hidden by default, which makes a cluster look
+            like it references a template that does not exist.
+
+        label:
+          type: string
+          description: Case-insensitive text contained in the template label.
+          filter:
+            field: label
+            match: contains_ci
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - label
+        - plan
+        - os
+        - marketplace_app
+        - marketplace_image
+        - snapshot
+        - iso
+        - ssh_keys
+        - startup_script
+        - user_data
+        - disk_config
+        - ephemeral
+
+  - name: vultr_compute_instance_templates_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets one Vultr instance template by its ID, with its plan and plan
+      details, operating system or marketplace app, SSH keys, startup script,
+      user data and disk configuration.
+
+      Use this tool when a template ID is already known. To find one, use
+      vultr_compute_instance_templates_list first.
+
+      Do not use this tool for an instance deployed from the template, which
+      vultr_compute_instances_get returns.
+
+    operation: get-instance-template
+
+    input:
+      type: object
+      required:
+        - instancetemplate_id
+      properties:
+        instancetemplate_id:
+          type: string
+          description: >-
+            ID of the instance template, as returned in the id field by
+            vultr_compute_instance_templates_list.
+          maps_to: instancetemplate-id
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - label
+        - plan
+        - plan_details
+        - os
+        - marketplace_app
+        - marketplace_image
+        - snapshot
+        - iso
+        - ssh_keys
+        - startup_script
+        - user_data
+        - disk_config
+        - ephemeral

@@ -52,8 +52,17 @@ async def test_public_endpoint_call_in_process(server):
     """End-to-end tool call through the generated stack (no auth needed)."""
     async with Client(server) as client:
         tools = await client.list_tools()
+        # The interface layer owns GET /regions now, so its name no longer
+        # begins with the operationId's verb. Prefer the hand-authored tool and
+        # fall back to a generated one, so this keeps working whichever serves.
+        names = [t.name for t in tools]
         regions_tool = next(
-            t.name for t in tools if "regions" in t.name and t.name.startswith(("list", "get"))
+            (
+                name
+                for name in names
+                if name == "vultr_catalog_regions_list"
+                or ("regions" in name and name.startswith(("list", "get")))
+            ),
         )
         result = await client.call_tool(regions_tool, {})
 

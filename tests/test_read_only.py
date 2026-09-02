@@ -53,17 +53,21 @@ async def test_default_surface_is_read_only(spec):
     leaked = [n for n in names if n.startswith(WRITE_TOOL_PREFIXES)]
     assert not leaked, f"write tools exposed on the default surface: {leaked}"
 
-    # And the read surface is genuinely intact, not just empty. These two are
-    # generated: their product areas have no hand-authored file, so they prove
-    # from_openapi still populates the surface.
-    joined = " ".join(names)
-    for hint in ("list_regions", "list_plans"):
-        assert hint in joined, f"expected read tool '{hint}'"
+    # And the read surface is genuinely intact, not just empty.
+    assert len(names) > 150, f"read surface collapsed to {len(names)} tools"
 
-    # The account is reachable too, but under the interface layer's name: a
-    # hand-authored tool replaces its generated twin, so get_account is gone by
-    # design rather than missing.
+    # The interface layer is serving. Naming a generated tool here does not
+    # work any more: as the layer covers an area its hand-authored tools
+    # replace the generated ones, so every such canary eventually disappears by
+    # design -- get_account, then list_regions and list_plans, each in turn.
     assert "vultr_account_get" in names
+
+    # from_openapi still populates the surface, pinned to an operation that
+    # cannot stop being generated: get-cluster-availability is declined, and
+    # declining deliberately keeps the generated tool.
+    assert "get_cluster_availability" in names
+
+    joined = " ".join(names)
 
     # Instances are still reachable, under whichever name owns them: the
     # interface layer replaces the generated list_instances with a

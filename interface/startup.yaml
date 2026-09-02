@@ -1,0 +1,120 @@
+product_area: startup
+family: compute
+
+# The listing withholds `script` and the by-id get returns it. That split is the
+# same judgement the instances file makes about `kvm` and the bare metal file
+# makes about the VNC URL: what is volunteered on every row of a listing is a
+# different exposure from what one deliberate call returns.
+#
+# A startup script is arbitrary shell run as root at first boot, and in practice
+# it is where people put the token that registers a node, the password that
+# joins a cluster, the key that pulls a private image. An agent asked "what
+# startup scripts do we have" wants names, not bodies, and the generated tool
+# handed it every body. Asking for one script by ID is a deliberate act, and
+# there the script is the entire point.
+
+tools:
+  - name: vultr_compute_startup_scripts_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists Vultr startup scripts in the active Vultr organization, with each
+      one's name, type, and when it was created and last modified.
+
+      Use this tool to find what startup scripts exist, or to resolve a script
+      ID to a name. It does not return script bodies: to read one, use
+      vultr_compute_startup_scripts_get with the ID.
+
+      Do not use this tool for an instance's user data, which is set at
+      deployment and read by vultr_compute_instances_userdata_get, or for
+      marketplace application variables.
+
+    operation: list-startup-scripts
+
+    input:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Case-insensitive text contained in the script name.
+          filter:
+            field: name
+            match: contains_ci
+
+        type:
+          type: string
+          description: >-
+            Kind of startup script: boot runs at every boot, pxe runs at
+            network boot.
+          enum:
+            - boot
+            - pxe
+          filter:
+            field: type
+            match: equals
+
+        page_size:
+          type: integer
+          description: >-
+            Maximum number of results to return. When a filter is supplied the
+            server scans the account and returns up to this many matches,
+            reporting in meta.filtered how much it scanned.
+          default: 100
+          minimum: 1
+          maximum: 500
+          maps_to: per_page
+
+        cursor:
+          type: string
+          description: Cursor returned by a previous request for the next page.
+
+    output:
+      from_openapi: true
+      # `script` is deliberately absent; see the note at the top of this file.
+      include:
+        - id
+        - name
+        - type
+        - date_created
+        - date_modified
+        - meta
+
+  - name: vultr_compute_startup_scripts_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets one Vultr startup script by its ID, including the script body,
+      base64-encoded, along with its name and type.
+
+      Use this tool when someone needs to read or reproduce what a specific
+      startup script does. To find a script ID, use
+      vultr_compute_startup_scripts_list.
+
+      Do not use this tool to survey the scripts an account has; the list tool
+      answers that without returning script bodies.
+
+    operation: get-startup-script
+
+    input:
+      type: object
+      required:
+        - startup_id
+      properties:
+        startup_id:
+          type: string
+          description: >-
+            ID of the startup script, as returned in the id field by
+            vultr_compute_startup_scripts_list.
+          maps_to: startup-id
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - name
+        - type
+        - script
+        - date_created
+        - date_modified

@@ -1,0 +1,76 @@
+product_area: os
+family: catalog
+
+# One operation, one tool. The distinction worth drawing is against the three
+# other things an instance can boot from, each of which has its own tool: a
+# marketplace application, an uploaded ISO, or a snapshot.
+
+tools:
+  - name: vultr_catalog_operating_systems_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the operating systems Vultr can install on an instance or bare
+      metal server, each with its name, family and CPU architecture.
+
+      Use this tool to find an OS ID before deploying, or to resolve the os_id
+      on an existing instance, snapshot or backup to a name.
+
+      Do not use this tool for marketplace applications, which
+      vultr_catalog_applications_list returns, for uploaded or public ISOs,
+      which have their own tools, or for managed database engine versions.
+
+    operation: list-os
+
+    input:
+      type: object
+      properties:
+        name:
+          type: string
+          description: >-
+            Case-insensitive text contained in the operating system name, such
+            as ubuntu.
+          filter:
+            field: name
+            match: contains_ci
+
+        family:
+          type: string
+          description: >-
+            Operating system family as the API reports it, such as ubuntu,
+            debian or windows.
+          filter:
+            field: family
+            match: equals
+
+        arch:
+          type: string
+          description: CPU architecture, such as x64 or arm64.
+          filter:
+            field: arch
+            match: equals
+
+        page_size:
+          type: integer
+          description: >-
+            Maximum number of results to return. When a filter is supplied the
+            server scans the catalogue and returns up to this many matches,
+            reporting in meta.filtered how much it scanned.
+          default: 100
+          minimum: 1
+          maximum: 500
+          maps_to: per_page
+
+        cursor:
+          type: string
+          description: Cursor returned by a previous request for the next page.
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - name
+        - family
+        - arch
+        - meta

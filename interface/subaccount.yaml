@@ -1,0 +1,66 @@
+product_area: subaccount
+family: account
+
+# Sub-accounts are the reseller feature: separately billed accounts under one
+# parent. This is a listing of accounts, not of users, and the distinction
+# matters because the users, IAM and organizations categories are excluded from
+# this server entirely -- an agent that reaches here looking for "the account's
+# users" has the wrong tool and the description says so.
+#
+# `email` and `balance` are kept: they are what identifies a sub-account and
+# what the question about one usually is. No credential is present.
+
+tools:
+  - name: vultr_account_subaccounts_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the sub-accounts under the active Vultr organization, each with its
+      name, email, balance, pending charges and whether it is activated.
+
+      Use this tool to report on resold or delegated accounts and what each
+      one owes.
+
+      Do not use this tool for users or IAM identities on the account, which
+      this server does not expose, or for the account's own balance, which
+      vultr_account_get returns.
+
+    operation: list-subaccounts
+
+    input:
+      type: object
+      properties:
+        subaccount_name:
+          type: string
+          description: Case-insensitive text contained in the sub-account name.
+          filter:
+            field: subaccount_name
+            match: contains_ci
+
+        page_size:
+          type: integer
+          description: >-
+            Maximum number of results to return. When a filter is supplied the
+            server scans the account and returns up to this many matches,
+            reporting in meta.filtered how much it scanned.
+          default: 100
+          minimum: 1
+          maximum: 500
+          maps_to: per_page
+
+        cursor:
+          type: string
+          description: Cursor returned by a previous request for the next page.
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - subaccount_id
+        - subaccount_name
+        - email
+        - balance
+        - pending_charges
+        - activated
+        - meta

@@ -1,0 +1,146 @@
+product_area: iso
+family: catalog
+
+# Two different collections behind one product tag: /iso is the account's own
+# uploaded ISOs, /iso-public is Vultr's library. An agent asked "what ISOs are
+# available" can reasonably mean either, so the two tools say which they are in
+# their first line rather than leaving it to be inferred from a name.
+
+tools:
+  - name: vultr_catalog_isos_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the ISO images uploaded to the active Vultr organization, each with
+      its filename, description, size, upload status and checksums.
+
+      Use this tool to find an account's own uploaded ISOs, or to check whether
+      an upload has finished processing.
+
+      Do not use this tool for Vultr's public ISO library, which
+      vultr_catalog_public_isos_list returns, or for which ISO is attached to
+      an instance, which vultr_compute_instances_iso_get answers.
+
+    operation: list-isos
+
+    input:
+      type: object
+      properties:
+        filename:
+          type: string
+          description: Case-insensitive text contained in the ISO filename.
+          filter:
+            field: filename
+            match: contains_ci
+
+        status:
+          type: string
+          description: Upload status, such as complete or pending.
+          filter:
+            field: status
+            match: equals
+
+        page_size:
+          type: integer
+          description: >-
+            Maximum number of results to return. When a filter is supplied the
+            server scans the account and returns up to this many matches,
+            reporting in meta.filtered how much it scanned.
+          default: 100
+          minimum: 1
+          maximum: 500
+          maps_to: per_page
+
+        cursor:
+          type: string
+          description: Cursor returned by a previous request for the next page.
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - filename
+        - description
+        - size
+        - status
+        - md5sum
+        - sha512sum
+        - date_created
+        - meta
+
+  - name: vultr_catalog_isos_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets one uploaded ISO image by its ID, with its filename, description,
+      size, upload status and checksums.
+
+      Use this tool when an ISO ID is already known. To find one, use
+      vultr_catalog_isos_list first.
+
+      Do not use this tool for Vultr's public ISO library, which has no by-id
+      operation and is read by vultr_catalog_public_isos_list.
+
+    operation: iso-get
+
+    input:
+      type: object
+      required:
+        - iso_id
+      properties:
+        iso_id:
+          type: string
+          description: >-
+            ID of the ISO, as returned in the id field by
+            vultr_catalog_isos_list.
+          maps_to: iso-id
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - filename
+        - description
+        - size
+        - status
+        - md5sum
+        - sha512sum
+        - date_created
+
+  - name: vultr_catalog_public_isos_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the public ISO images Vultr hosts and any instance can boot from,
+      each with its name, description and checksum.
+
+      Use this tool to find a ready-made ISO to boot an instance from, such as
+      a rescue or installer image.
+
+      Do not use this tool for ISOs the account uploaded itself, which
+      vultr_catalog_isos_list returns, or for operating systems installed
+      normally, which vultr_catalog_operating_systems_list returns.
+
+    operation: list-public-isos
+
+    input:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Case-insensitive text contained in the public ISO name.
+          filter:
+            field: name
+            match: contains_ci
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - name
+        - description
+        - md5sum
+        - meta

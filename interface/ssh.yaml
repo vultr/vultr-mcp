@@ -1,0 +1,94 @@
+product_area: ssh
+family: account
+
+# `ssh_key` is the public half of the pair and is kept. Vultr never holds the
+# private key, so there is nothing here to withhold -- worth stating explicitly,
+# because "SSH key" reads like a credential and the reflex in this codebase is
+# to shape those out. The reflex is wrong in this one case.
+
+tools:
+  - name: vultr_account_ssh_keys_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the SSH public keys registered on the active Vultr organization,
+      each with its name, the public key itself, and when it was added.
+
+      Use this tool to find which keys can be installed on a new instance, or
+      to resolve an SSH key ID to a name.
+
+      Do not use this tool for the keys actually present on a running server,
+      which Vultr's API cannot read, or for API keys and access tokens.
+
+    operation: list-ssh-keys
+
+    input:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Case-insensitive text contained in the key name.
+          filter:
+            field: name
+            match: contains_ci
+
+        page_size:
+          type: integer
+          description: >-
+            Maximum number of results to return. When a filter is supplied the
+            server scans the account and returns up to this many matches,
+            reporting in meta.filtered how much it scanned.
+          default: 100
+          minimum: 1
+          maximum: 500
+          maps_to: per_page
+
+        cursor:
+          type: string
+          description: Cursor returned by a previous request for the next page.
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - name
+        - ssh_key
+        - date_created
+        - meta
+
+  - name: vultr_account_ssh_keys_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets one registered SSH public key by its ID, with its name, the public
+      key itself, and when it was added.
+
+      Use this tool when an SSH key ID is already known. To find one, use
+      vultr_account_ssh_keys_list first.
+
+      Do not use this tool for the keys present on a running server, which
+      Vultr's API cannot read.
+
+    operation: get-ssh-key
+
+    input:
+      type: object
+      required:
+        - ssh_key_id
+      properties:
+        ssh_key_id:
+          type: string
+          description: >-
+            ID of the SSH key, as returned in the id field by
+            vultr_account_ssh_keys_list.
+          maps_to: ssh-key-id
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - name
+        - ssh_key
+        - date_created

@@ -1,0 +1,121 @@
+product_area: application
+family: catalog
+
+# These are the applications you can deploy on an instance -- the one-click and
+# marketplace images. The neighbouring product area, `marketplace`, is the
+# vendor side of the same catalogue: builds, gallery images and the variables a
+# vendor manages. This area answers "what can I deploy and what does it need
+# configured"; that one answers "how is this app published".
+#
+# The variables tool matters more than its size suggests. A marketplace app is
+# deployed with variables, and getting them wrong is the usual reason a
+# deployment comes up broken.
+
+tools:
+  - name: vultr_catalog_applications_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the applications Vultr can deploy on an instance -- one-click and
+      marketplace images -- each with its name, short name, deploy name,
+      vendor, type and image ID.
+
+      Use this tool to find an application to deploy, or to resolve the app_id
+      or image_id on an existing instance, snapshot or backup to a name.
+
+      Do not use this tool for plain operating systems, which
+      vultr_catalog_operating_systems_list returns, or for the vendor-side view
+      of a marketplace app, which vultr_marketplace_apps_get returns.
+
+    operation: list-applications
+
+    input:
+      type: object
+      properties:
+        type:
+          type: string
+          description: >-
+            Kind of application: one-click images Vultr maintains, or
+            marketplace images published by vendors.
+          enum:
+            - all
+            - one-click
+            - marketplace
+
+        name:
+          type: string
+          description: Case-insensitive text contained in the application name.
+          filter:
+            field: name
+            match: contains_ci
+
+        vendor:
+          type: string
+          description: Publisher of the application, as the API reports it.
+          filter:
+            field: vendor
+            match: equals
+
+        page_size:
+          type: integer
+          description: >-
+            Maximum number of results to return. When a filter is supplied the
+            server scans the catalogue and returns up to this many matches,
+            reporting in meta.filtered how much it scanned.
+          default: 100
+          minimum: 1
+          maximum: 500
+          maps_to: per_page
+
+        cursor:
+          type: string
+          description: Cursor returned by a previous request for the next page.
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - name
+        - short_name
+        - deploy_name
+        - type
+        - vendor
+        - image_id
+        - meta
+
+  - name: vultr_catalog_application_variables_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the configuration variables one marketplace application accepts at
+      deployment, each with its name, description and whether it is required.
+
+      Use this tool before deploying a marketplace application, to find what
+      must be supplied for the deployment to succeed.
+
+      Do not use this tool for the variables a vendor manages on a published
+      app, which vultr_marketplace_app_manage_variables_list returns, or for an
+      instance's user data.
+
+    operation: list-app-variables
+
+    input:
+      type: object
+      required:
+        - image_id
+      properties:
+        image_id:
+          type: string
+          description: >-
+            Image ID of the application, as returned in the image_id field by
+            vultr_catalog_applications_list.
+          maps_to: image-id
+
+    output:
+      from_openapi: true
+      include:
+        - name
+        - description
+        - required

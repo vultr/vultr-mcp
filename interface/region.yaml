@@ -1,0 +1,118 @@
+product_area: region
+family: catalog
+
+# The region list is the one every other product's `region` field points at, so
+# it is worth being precise that this is the general Vultr region list and not
+# one of the several product-specific ones: Object Storage has clusters, the
+# file system has its own region list, and the container registry has another.
+# Each of those is a different set.
+
+tools:
+  - name: vultr_catalog_regions_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists Vultr regions, the data centre locations resources can be deployed
+      in, each with its city, country, continent and the product options
+      available there.
+
+      Use this tool to resolve a region ID such as ewr to a place, to find
+      where a product is offered, or to choose a region before deploying.
+
+      Do not use this tool for Object Storage clusters, Vultr File System
+      regions or container registry regions, which are shorter product-specific
+      lists with their own tools.
+
+    operation: list-regions
+
+    input:
+      type: object
+      properties:
+        country:
+          type: string
+          description: Two-letter country code, such as US.
+          filter:
+            field: country
+            match: equals
+
+        continent:
+          type: string
+          description: Continent name as the API reports it, such as North America.
+          filter:
+            field: continent
+            match: equals
+
+        page_size:
+          type: integer
+          description: >-
+            Maximum number of results to return. When a filter is supplied the
+            server scans the list and returns up to this many matches,
+            reporting in meta.filtered how much it scanned.
+          default: 100
+          minimum: 1
+          maximum: 500
+          maps_to: per_page
+
+        cursor:
+          type: string
+          description: Cursor returned by a previous request for the next page.
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - city
+        - country
+        - continent
+        - options
+        - connectivity
+        - meta
+
+  - name: vultr_catalog_region_availability_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the plan IDs available in one Vultr region, separating plans that
+      require a VPC from those that do not.
+
+      Use this tool to check whether a specific plan can be deployed in a
+      region before trying, or to find what a region can host.
+
+      Do not use this tool for plan specifications and prices, which
+      vultr_catalog_plans_list returns, or for Compute Cluster plan
+      availability, which has its own tool.
+
+    operation: list-available-plans-region
+
+    input:
+      type: object
+      required:
+        - region_id
+      properties:
+        region_id:
+          type: string
+          description: >-
+            Vultr region ID, as returned in the id field by
+            vultr_catalog_regions_list, such as ewr.
+          maps_to: region-id
+
+        type:
+          type: string
+          description: >-
+            Limit the answer to one plan family. Omit for everything available
+            in the region.
+          enum:
+            - all
+            - vc2
+            - vdc
+            - vhf
+            - vhp
+            - voc
+            - vcg
+            - vbm
+
+    # No `output` block: the response carries available_plans and
+    # available_vpc_only_plans side by side, and shaping applies to a single
+    # container. Both are bare arrays of plan IDs.
