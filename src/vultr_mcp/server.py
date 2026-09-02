@@ -507,43 +507,7 @@ def create_server(
     for tool in interface_tools:
         server.add_tool(InterfaceTool.build(tool, client))
 
-    # TEMPORARY. Diagnostic for the OAuth org-binding bug; see debug.py. Gated
-    # off by default so it cannot ship enabled, and it never returns the token
-    # itself -- only the claims, with credential-shaped ones masked.
-    from vultr_mcp.debug import debug_claims_enabled
-
-    if debug_claims_enabled():
-        _register_debug_claims(server)
-
     return server
-
-
-def _register_debug_claims(server: FastMCP) -> None:
-    """Expose the acting token's claims as a tool. TEMPORARY -- see debug.py."""
-    from vultr_mcp.debug import decode_claims, summarise
-
-    @server.tool(
-        name="vultr_debug_token_claims",
-        description=(
-            "TEMPORARY DIAGNOSTIC. Decodes the claims of the OAuth token this "
-            "request is authenticated with and reports which account it names, "
-            "to determine whether the org-binding bug is at token issuance or "
-            "at request-side resolution. Returns claims only, never the token. "
-            "Do not use this tool to answer questions about Vultr resources."
-        ),
-    )
-    def vultr_debug_token_claims() -> dict:
-        token = ""
-        try:
-            from fastmcp.server.dependencies import get_access_token
-
-            access = get_access_token()
-            if access is not None:
-                token = getattr(access, "token", "") or ""
-        except Exception as error:  # noqa: BLE001 - a diagnostic must not raise
-            return {"claims": {"error": f"no access token available: {error}"}}
-
-        return summarise(decode_claims(token))
 
 
 def main() -> None:
