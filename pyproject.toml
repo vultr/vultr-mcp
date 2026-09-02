@@ -1,6 +1,6 @@
 [project]
 name = "vultr-mcp"
-version = "2.1.1"
+version = "2.1.2"
 description = "Python MCP (Model Context Protocol) server for the Vultr cloud platform, built on FastMCP"
 requires-python = ">=3.12"
 dependencies = [

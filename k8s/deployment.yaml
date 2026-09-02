@@ -22,7 +22,7 @@ spec:
         - name: vcr-creds
       containers:
         - name: vultr-mcp
-          image: atl.vultrcr.com/vrnd/vultr-mcp:2.1.1
+          image: atl.vultrcr.com/vrnd/vultr-mcp:2.1.2
           imagePullPolicy: Always
           ports:
             - containerPort: 8080
