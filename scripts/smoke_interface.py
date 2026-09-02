@@ -66,6 +66,10 @@ class Result:
         self.items: int | None = None
         self.seconds = 0.0
         self.sample: dict | None = None
+        # True when the collection came back as scalars rather than records, so
+        # "no sample" can be reported as what it is rather than as an empty
+        # result.
+        self.scalar_rows: bool = False
 
     @property
     def ok(self) -> bool:
@@ -116,7 +120,13 @@ async def _run(tool: CompiledTool, arguments: dict, client) -> Result:
         body = payload.get(container) if container else None
         if isinstance(body, list):
             result.items = len(body)
-            result.sample = body[0] if body else None
+            # Not every collection holds records. get-instance-neighbors returns
+            # instance ids, list-available-versions returns version strings,
+            # get-dns-domain-dnssec returns DNS records as text. `sample` is a
+            # row to inspect fields on, so a scalar row is no sample at all --
+            # taking one regardless is how this crashed on `row.items()`.
+            result.sample = body[0] if body and isinstance(body[0], dict) else None
+            result.scalar_rows = bool(body) and not isinstance(body[0], dict)
         elif isinstance(body, dict):
             result.items = 1
             result.sample = body
@@ -132,6 +142,8 @@ def _check_shaping(result: Result) -> list[str]:
     notes = []
     tool, sample = result.tool, result.sample
     if not sample:
+        if result.scalar_rows:
+            return [f"{result.items} scalar row(s), no fields to shape"]
         return ["no rows returned, shaping unexercised"]
 
     include = tool.output.item_include if tool.output else None
