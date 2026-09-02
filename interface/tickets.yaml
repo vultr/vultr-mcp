@@ -150,6 +150,12 @@ tools:
 
     output:
       from_openapi: true
+      # `attachments` is kept although a production reply came back without it.
+      # The sample was one reply that had none, and the field is how an agent
+      # learns an attachment exists at all: vultr_account_ticket_attachments_get
+      # takes an index into this array. Dropping a name that is merely unset on
+      # the row sampled would make that tool unreachable, which is the opposite
+      # error to the one made with pending charges.
       include:
         - index
         - date

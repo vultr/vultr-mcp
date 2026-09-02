@@ -26,11 +26,20 @@ family: network
 # vultr_network_load_balancer_forwarding_rules_list, which both descriptions
 # point at.
 #
-# The two load balancer firewall tools declare no output block. The spec gives
-# "List Firewall Rules" the shape of a single rule rather than a collection, so
-# the shape reader reads both as unwrapped single objects. An allowlist built on
-# that reading would empty a real list response, and nothing in a firewall rule
-# needs withholding, so both pass the payload through as the API sends it.
+# The two load balancer firewall tools declare no output block, and the live run
+# turned the reasoning from a precaution into a proof.
+#
+# The spec gives "List Firewall Rules" the shape of a single rule, so the shape
+# reader treats it as an unwrapped object. The API in fact returns a perfectly
+# ordinary envelope: `{firewall_rules: [...], meta: {...}}`. Because the declared
+# shape is unwrapped, an allowlist would be applied to that envelope rather than
+# to the rules inside it -- and id, ip_type, port and source are not envelope
+# keys, so every response would shape down to {}. That is the same mechanism
+# that emptied pending charges, reached by a different spec error.
+#
+# Nothing in a firewall rule needs withholding, so both pass the payload through
+# as the API sends it. An allowlist becomes possible once the spec describes the
+# collection.
 
 tools:
   - name: vultr_network_load_balancers_list

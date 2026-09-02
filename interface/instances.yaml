@@ -321,13 +321,17 @@ tools:
 
     output:
       from_openapi: true
+      # mac_address is declared and never sent. A production instance returned
+      # gateway, ip, netmask, reverse and type, and nothing else. The bare metal
+      # tool keeps it: that schema has been the trustworthy one of the pair
+      # before -- it is where the flat IPv6 fields are documented correctly --
+      # and no bare metal server was available to check against.
       include:
         - ip
         - netmask
         - gateway
         - type
         - reverse
-        - mac_address
         - meta
 
   - name: vultr_compute_instances_ipv6_list
