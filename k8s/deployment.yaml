@@ -22,7 +22,7 @@ spec:
         - name: vcr-creds
       containers:
         - name: vultr-mcp
-          image: atl.vultrcr.com/vrnd/vultr-mcp:2.0.1
+          image: atl.vultrcr.com/vrnd/vultr-mcp:2.1.0
           imagePullPolicy: Always
           ports:
             - containerPort: 8080
@@ -34,7 +34,12 @@ spec:
                 name: vultr-mcp-secrets
           resources:
             requests:
-              cpu: 200m
+              # 500m rather than 200m. Startup is CPU-bound tool generation and
+              # scales almost linearly: 302s at 0.2 CPU, ~60s at a full core.
+              # 200m made a rolling restart take five minutes per pod even when
+              # it succeeded. The limit stays at 1, so a pod still bursts to a
+              # full core when the node has room.
+              cpu: 500m
               memory: 256Mi
             limits:
               cpu: "1"
@@ -45,12 +50,20 @@ spec:
           # and crash-looped (exit 137). startupProbe gives it up to 150s to come
           # up and suppresses liveness until it does; liveness then guards the
           # steady state as before.
+          # 5s x 90 = 450s. Measured, not guessed: the image needs ~45-60s to
+          # boot with a full core and 302s throttled to 0.2 CPU, which is the
+          # guaranteed share the request below buys. The previous 30 (150s) was
+          # set when the surface was smaller and killed every pod of the 2.1.0
+          # rollout at exactly 150s, with no logs -- boot is silent until
+          # uvicorn binds, so a pod dying inside this window says nothing about
+          # why. Sized for the fully-throttled worst case, because that is the
+          # case that actually happens under node contention.
           startupProbe:
             httpGet:
               path: /healthz
               port: 8080
             periodSeconds: 5
-            failureThreshold: 30
+            failureThreshold: 90
           livenessProbe:
             httpGet:
               path: /healthz

@@ -6,6 +6,14 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 WORKDIR /app
 
+# Precompile dependencies to .pyc at build time. Without this the image ships
+# 3035 .py files and zero .pyc, so every container start compiles the whole
+# dependency tree from source before uvicorn can bind -- ~45s on an idle
+# machine and 302s throttled to 0.2 CPU, which is what killed the 2.1.0
+# rollout against a 150s startup probe. Building the tool surface, the thing
+# that looks expensive, takes 4s.
+ENV UV_COMPILE_BYTECODE=1
+
 # Install deps first (cached layer) using the lockfile, then the source.
 COPY pyproject.toml uv.lock ./
 RUN --mount=type=cache,target=/root/.cache/uv \

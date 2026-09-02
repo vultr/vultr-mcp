@@ -6,6 +6,11 @@ metadata:
     app: vultr-mcp
 data:
   VULTR_MCP_TRANSPORT: "http"
+  # Without this, Python block-buffers stdout to a pipe and a pod that dies
+  # during startup produces no logs at all -- which is exactly when you need
+  # them. Cost is negligible; the alternative is diagnosing a boot failure
+  # blind.
+  PYTHONUNBUFFERED: "1"
   SSL_VERIFY: "true"
   REDIS_HOST: "redis"
   REDIS_PORT: "6379"
