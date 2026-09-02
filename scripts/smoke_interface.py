@@ -168,6 +168,12 @@ def _check_shaping(result: Result) -> list[str]:
         return ["no rows returned, shaping unexercised"]
 
     include = tool.output.item_include if tool.output else None
+    if not include:
+        # Shaping is off for this tool, usually because the spec was wrong about
+        # the shape. Print what the API actually sends, so whoever restores the
+        # allowlist has the field names rather than the spec's guess.
+        return [f"no allowlist; the row carries: {', '.join(sorted(sample))}"]
+
     if include:
         leaked = sorted(set(sample) - set(include) - {p.name for p in tool.computed})
         if leaked:
@@ -180,7 +186,7 @@ def _check_shaping(result: Result) -> list[str]:
             # The absent names alone cannot tell you whether the field was
             # renamed, nested, or is simply not set on this row, so say what the
             # row actually carries.
-            notes.append(f"  the row carries: {', '.join(sorted(sample)[:14])}")
+            notes.append(f"  the row carries: {', '.join(sorted(sample))}")
 
     for plan in tool.computed:
         if plan.name not in sample:

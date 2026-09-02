@@ -18,6 +18,14 @@ family: network
 # firewall.yaml's belong to a firewall group protecting instances, and vpcs.yaml
 # has a third set on NAT gateways. Each says so.
 #
+# `forward_rules` is not in either include list, though the spec declares it on
+# the load balancer object and even shows it in the example. Two load balancers
+# in production returned every other declared field and never that one, while
+# `firewall_rules` beside it arrived normally -- so the omission is the field's,
+# not the endpoint's. The forwarding rules are real and are returned by
+# vultr_network_load_balancer_forwarding_rules_list, which both descriptions
+# point at.
+#
 # The two load balancer firewall tools declare no output block. The spec gives
 # "List Firewall Rules" the shape of a single rule rather than a collection, so
 # the shape reader reads both as unwrapped single objects. An allowlist built on
@@ -32,7 +40,7 @@ tools:
     description: |
       Lists Vultr load balancers in the active Vultr organization, with each
       one's region, status, IPv4 and IPv6 addresses, attached instances,
-      health check, forwarding rules and whether TLS is configured.
+      health check, firewall rules and whether TLS is configured.
 
       Use this tool to list, find, count, or select load balancers, and to
       report on how traffic is distributed.
@@ -103,7 +111,6 @@ tools:
         - instances
         - health_check
         - generic_info
-        - forward_rules
         - firewall_rules
         - global_cname
         - global_regions
@@ -125,8 +132,9 @@ tools:
 
     description: |
       Gets one Vultr load balancer by its ID, with its region, status,
-      addresses, attached instances, health check, forwarding rules and whether
-      TLS is configured.
+      addresses, attached instances, health check, firewall rules and whether
+      TLS is configured. It does not return forwarding rules; those come from
+      vultr_network_load_balancer_forwarding_rules_list.
 
       Use this tool when a load balancer ID is already known. To find one, use
       vultr_network_load_balancers_list first.
@@ -169,7 +177,6 @@ tools:
         - instances
         - health_check
         - generic_info
-        - forward_rules
         - firewall_rules
         - global_cname
         - global_regions
