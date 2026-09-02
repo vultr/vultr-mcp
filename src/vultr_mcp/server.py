@@ -31,7 +31,6 @@ from fastmcp.server.providers.openapi import MCPType, RouteMap
 
 from vultr_mcp.interface.compiler import CompiledInterface, compile_interface
 from vultr_mcp.interface.tools import InterfaceTool
-from vultr_mcp.debug import debug_claims_enabled, decode_claims, summarise
 
 VULTR_API_BASE = os.environ.get("VULTR_API_BASE_URL", "https://api.vultr.com/v2")
 
@@ -511,6 +510,8 @@ def create_server(
     # TEMPORARY. Diagnostic for the OAuth org-binding bug; see debug.py. Gated
     # off by default so it cannot ship enabled, and it never returns the token
     # itself -- only the claims, with credential-shaped ones masked.
+    from vultr_mcp.debug import debug_claims_enabled
+
     if debug_claims_enabled():
         _register_debug_claims(server)
 
@@ -519,6 +520,7 @@ def create_server(
 
 def _register_debug_claims(server: FastMCP) -> None:
     """Expose the acting token's claims as a tool. TEMPORARY -- see debug.py."""
+    from vultr_mcp.debug import decode_claims, summarise
 
     @server.tool(
         name="vultr_debug_token_claims",

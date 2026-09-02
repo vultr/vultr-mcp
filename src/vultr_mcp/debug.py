@@ -138,3 +138,29 @@ def summarise(claims: dict[str, Any]) -> dict[str, Any]:
         "reading": reading,
         "all_claims": claims,
     }
+
+
+def _main() -> int:
+    """Decode a token from the environment and print its claims.
+
+    The point of reading it from the environment rather than argv is that a
+    token is a live credential: this way it never lands in shell history, and
+    whoever runs it never has to paste it anywhere. The output is claims only.
+
+        VULTR_DEBUG_TOKEN=<token> uv run python -m vultr_mcp.debug
+    """
+    token = os.environ.get("VULTR_DEBUG_TOKEN", "")
+    if not token:
+        print(
+            "Set VULTR_DEBUG_TOKEN to the OAuth access token to inspect.\n"
+            "  PowerShell:  $env:VULTR_DEBUG_TOKEN = '<token>'\n"
+            "               uv run python -m vultr_mcp.debug\n\n"
+            "Claims only are printed; the token itself is never echoed."
+        )
+        return 1
+    print(json.dumps(summarise(decode_claims(token)), indent=2))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(_main())
