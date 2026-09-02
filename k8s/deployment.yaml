@@ -22,7 +22,7 @@ spec:
         - name: vcr-creds
       containers:
         - name: vultr-mcp
-          image: atl.vultrcr.com/vrnd/vultr-mcp:2.1.0
+          image: atl.vultrcr.com/vrnd/vultr-mcp:2.1.1
           imagePullPolicy: Always
           ports:
             - containerPort: 8080
@@ -50,14 +50,19 @@ spec:
           # and crash-looped (exit 137). startupProbe gives it up to 150s to come
           # up and suppresses liveness until it does; liveness then guards the
           # steady state as before.
-          # 5s x 90 = 450s. Measured, not guessed: the image needs ~45-60s to
-          # boot with a full core and 302s throttled to 0.2 CPU, which is the
-          # guaranteed share the request below buys. The previous 30 (150s) was
-          # set when the surface was smaller and killed every pod of the 2.1.0
-          # rollout at exactly 150s, with no logs -- boot is silent until
-          # uvicorn binds, so a pod dying inside this window says nothing about
-          # why. Sized for the fully-throttled worst case, because that is the
-          # case that actually happens under node contention.
+          # 5s x 90 = 450s. Measured: boot is 38s on an idle full core and
+          # ~300s throttled to 0.2 CPU, the guaranteed share the request below
+          # buys. The previous 30 (150s) killed every pod of the 2.1.0 rollout
+          # at exactly 150s, with no logs -- boot is silent until uvicorn binds,
+          # so a pod dying inside this window says nothing about why.
+          #
+          # The cost is create_http_app constructing 42 FastMCP servers, root
+          # plus one per category tag, each from_openapi over a 500-operation
+          # spec. Precompiled bytecode was tried and moved it 302s -> 309s, so
+          # it is not that. VULTR_MCP_CATEGORY_ENDPOINTS is the lever that would
+          # actually shorten this, at the cost of dropping category endpoints.
+          # Sized for the fully-throttled worst case, because that is the case
+          # that happens under node contention.
           startupProbe:
             httpGet:
               path: /healthz

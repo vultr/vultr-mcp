@@ -36,7 +36,23 @@ from vultr_mcp.server import (
     read_only_from_env,
 )
 
-VERSION = "2.0.1"
+def _version() -> str:
+    """The installed package version, so /healthz reports what is deployed.
+
+    This was hard-coded at "2.0.1" and drifted: the 2.1.0 rollout shipped and
+    healthz still said 2.0.1, which made "did the new image actually land?"
+    unanswerable from outside the cluster. Reading the installed metadata means
+    a version bump in pyproject.toml is the single place it lives.
+    """
+    try:
+        from importlib.metadata import version
+
+        return version("vultr-mcp")
+    except Exception:  # noqa: BLE001 - a health endpoint must never fail to answer
+        return "unknown"
+
+
+VERSION = _version()
 
 _LANDING_PATH = Path(__file__).resolve().parent / "static" / "index.html"
 

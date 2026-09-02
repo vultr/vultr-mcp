@@ -11,6 +11,13 @@ data:
   # them. Cost is negligible; the alternative is diagnosing a boot failure
   # blind.
   PYTHONUNBUFFERED: "1"
+
+  # TEMPORARY -- remove once the OAuth org-binding bug is diagnosed.
+  # Exposes vultr_debug_token_claims, which decodes the acting token's claims
+  # so we can tell whether the wrong org comes from token issuance or from
+  # request-side resolution. Claims only; the token itself is never returned,
+  # and credential-shaped claims are masked. See src/vultr_mcp/debug.py.
+  VULTR_MCP_DEBUG_CLAIMS: "true"
   SSL_VERIFY: "true"
   REDIS_HOST: "redis"
   REDIS_PORT: "6379"
