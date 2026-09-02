@@ -39,3 +39,7 @@ product_areas:
   startup: startup.yaml
   ssh: ssh.yaml
   subaccount: subaccount.yaml
+  cdns: cdns.yaml
+  billing: billing.yaml
+  tickets: tickets.yaml
+  marketplace: marketplace.yaml

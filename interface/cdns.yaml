@@ -1,0 +1,369 @@
+product_area: cdns
+family: network
+
+# purge-pullzone is declined, and it is the most important line in this file.
+#
+# GET /cdns/pull-zones/{pullzone-id}/purge empties a pull zone's cache. It is a
+# GET, so every automatic classification in this codebase calls it a read: the
+# read-only surface serves it, and a hand-authored tool for it would have
+# validated as `access: read` because the compiler checks the declared access
+# against the HTTP method and the method says GET.
+#
+# This is the same trap as the two OPTIONS routes that mint registry
+# credentials, in the other direction. There the verb was unusual and the effect
+# was a write; here the verb is the most ordinary read there is and the effect is
+# still a write. Neither is something the method can tell you.
+#
+# Declining does not stop the generated tool serving it -- nothing in this layer
+# can -- so this is a marker, not a fix. It belongs behind the write gate, and
+# the gate cannot see it.
+
+declined:
+  purge-pullzone:
+    reason: >-
+      Empties the pull zone's cache, which is a state change served over GET.
+      The read-only gate classifies by HTTP method and therefore treats it as a
+      read, so giving it a tool here would put a cache-purge action on the safe
+      surface with `access: read` and the validator would agree. It needs the
+      write gate to learn about it before it can have a tool; until then this
+      records that somebody looked and said no on purpose.
+
+tools:
+  - name: vultr_network_cdn_pull_zones_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists Vultr CDN pull zones in the active Vultr organization -- caches in
+      front of an origin server you already run -- each with its CDN URL,
+      origin, cache size, request and byte counters, and protection settings.
+
+      Use this tool to list, find, count, or select pull zones, or to report
+      CDN traffic and cache size.
+
+      Do not use this tool for push zones, where files are uploaded to Vultr
+      rather than fetched from an origin, and which
+      vultr_network_cdn_push_zones_list returns.
+
+    operation: list-pullzones
+
+    input:
+      type: object
+      properties:
+        # GET /cdns/pull-zones declares no parameters, so both searches below
+        # are applied here against the fetched rows.
+        label:
+          type: string
+          description: Case-insensitive text contained in the pull zone label.
+          filter:
+            field: label
+            match: contains_ci
+
+        status:
+          type: string
+          description: Pull zone status, as the API reports it.
+          filter:
+            field: status
+            match: equals
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - label
+        - status
+        - cdn_url
+        - vanity_domain
+        - origin_domain
+        - origin_scheme
+        - regions
+        - cache_size
+        - requests
+        - in_bytes
+        - out_bytes
+        - packets_per_sec
+        - gzip
+        - cors
+        - block_ai
+        - block_bad_bots
+        - last_purge
+        - date_created
+        - meta
+
+  - name: vultr_network_cdn_pull_zones_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets one Vultr CDN pull zone by its ID, with its CDN URL, origin, cache
+      size, traffic counters, protection settings and when it was last purged.
+
+      Use this tool when a pull zone ID is already known. To find one, use
+      vultr_network_cdn_pull_zones_list first.
+
+      Do not use this tool for push zones, which host files uploaded to Vultr
+      and have their own tools.
+
+    operation: get-pullzone
+
+    input:
+      type: object
+      required:
+        - pullzone_id
+      properties:
+        pullzone_id:
+          type: string
+          description: >-
+            ID of the pull zone, as returned in the id field by
+            vultr_network_cdn_pull_zones_list.
+          maps_to: pullzone-id
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - label
+        - status
+        - cdn_url
+        - vanity_domain
+        - origin_domain
+        - origin_scheme
+        - regions
+        - cache_size
+        - requests
+        - in_bytes
+        - out_bytes
+        - packets_per_sec
+        - gzip
+        - cors
+        - block_ai
+        - block_bad_bots
+        - last_purge
+        - date_created
+
+  - name: vultr_network_cdn_push_zones_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists Vultr CDN push zones in the active Vultr organization -- storage
+      you upload files to and Vultr serves directly -- each with its CDN URL,
+      size, traffic counters and protection settings.
+
+      Use this tool to list, find, count, or select push zones, or to report
+      CDN traffic.
+
+      Do not use this tool for pull zones, which cache an origin server you
+      run, or for Object Storage, which is S3-compatible storage rather than a
+      CDN.
+
+    operation: list-pushzones
+
+    input:
+      type: object
+      properties:
+        label:
+          type: string
+          description: Case-insensitive text contained in the push zone label.
+          filter:
+            field: label
+            match: contains_ci
+
+        status:
+          type: string
+          description: Push zone status, as the API reports it.
+          filter:
+            field: status
+            match: equals
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - label
+        - status
+        - cdn_url
+        - vanity_domain
+        - regions
+        - cache_size
+        - requests
+        - in_bytes
+        - out_bytes
+        - packets_per_sec
+        - gzip
+        - cors
+        - block_ai
+        - block_bad_bots
+        - date_created
+        - meta
+
+  - name: vultr_network_cdn_push_zones_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets one Vultr CDN push zone by its ID, with its CDN URL, size, traffic
+      counters and protection settings.
+
+      Use this tool when a push zone ID is already known. To find one, use
+      vultr_network_cdn_push_zones_list first.
+
+      Do not use this tool for the files inside the zone, which
+      vultr_network_cdn_push_zone_files_list returns.
+
+    operation: get-pushzone
+
+    input:
+      type: object
+      required:
+        - pushzone_id
+      properties:
+        pushzone_id:
+          type: string
+          description: >-
+            ID of the push zone, as returned in the id field by
+            vultr_network_cdn_push_zones_list.
+          maps_to: pushzone-id
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - label
+        - status
+        - cdn_url
+        - vanity_domain
+        - regions
+        - cache_size
+        - requests
+        - in_bytes
+        - out_bytes
+        - packets_per_sec
+        - gzip
+        - cors
+        - block_ai
+        - block_bad_bots
+        - date_created
+
+  - name: vultr_network_cdn_push_zone_files_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the files in one Vultr CDN push zone, each with its name, size and
+      last modified time, alongside the zone's total file count and size.
+
+      Use this tool to find what a push zone is serving, or to locate a file by
+      name before reading it.
+
+      Do not use this tool to read a file's contents, which
+      vultr_network_cdn_push_zone_files_get returns, or for Object Storage
+      buckets, which need an S3 client.
+
+    operation: get-pushzone-files
+
+    input:
+      type: object
+      required:
+        - pushzone_id
+      properties:
+        pushzone_id:
+          type: string
+          description: >-
+            ID of the push zone, as returned in the id field by
+            vultr_network_cdn_push_zones_list.
+          maps_to: pushzone-id
+
+    output:
+      from_openapi: true
+      include:
+        - name
+        - size
+        - last_modified
+        - count
+        - total_size
+
+  - name: vultr_network_cdn_push_zone_files_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets one file from a Vultr CDN push zone by name, including its contents
+      along with its MIME type, size and last modified time.
+
+      Use this tool when a file name is already known and its contents are
+      wanted. To list the files, use vultr_network_cdn_push_zone_files_list.
+
+      Do not use this tool to survey a zone's files; the list tool answers that
+      without returning any file bodies.
+
+    operation: get-pushzone-file
+
+    input:
+      type: object
+      required:
+        - pushzone_id
+        - file_name
+      properties:
+        pushzone_id:
+          type: string
+          description: >-
+            ID of the push zone, as returned in the id field by
+            vultr_network_cdn_push_zones_list.
+          maps_to: pushzone-id
+
+        file_name:
+          type: string
+          description: >-
+            Name of the file, as returned in the name field by
+            vultr_network_cdn_push_zone_files_list.
+          maps_to: file-name
+
+    output:
+      from_openapi: true
+      include:
+        - name
+        - mime
+        - size
+        - last_modified
+        - content
+
+  - name: vultr_network_cdn_push_zone_file_status_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets the deployment status of one file in a Vultr CDN push zone -- how
+      far it has propagated across the CDN edge.
+
+      Use this tool to check whether a newly uploaded file is live yet.
+
+      Do not use this tool for the file's contents or size, which
+      vultr_network_cdn_push_zone_files_get returns.
+
+    operation: get-pushzone-file-deployment-status
+
+    input:
+      type: object
+      required:
+        - pushzone_id
+        - file_name
+      properties:
+        pushzone_id:
+          type: string
+          description: >-
+            ID of the push zone, as returned in the id field by
+            vultr_network_cdn_push_zones_list.
+          maps_to: pushzone-id
+
+        file_name:
+          type: string
+          description: >-
+            Name of the file, as returned in the name field by
+            vultr_network_cdn_push_zone_files_list.
+          maps_to: file-name
+
+    output:
+      from_openapi: true
+      include:
+        - deployment_status

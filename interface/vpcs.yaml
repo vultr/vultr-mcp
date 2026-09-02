@@ -14,6 +14,14 @@ family: network
 # Vultr also has a retired VPC2 family and a deprecated "private networks" tag
 # covering the same ground. Those stay on the generated surface and are declined
 # in instances.yaml; nothing here should be confused for them.
+#
+# The private Networks tag has no product area file of its own, and that is
+# deliberate rather than an omission. Both of its operations -- list-networks
+# and get-network -- are marked deprecated in the spec, superseded by the VPC
+# operations here, so neither should get a tool. A file recording only that
+# would be the natural place to say so, but the schema requires at least one
+# tool per area, so the reasoning lives here instead, beside the product that
+# replaced them.
 
 tools:
   - name: vultr_network_vpcs_list

@@ -1,0 +1,236 @@
+product_area: billing
+family: account
+
+# Billing reads money out of the account: history, invoices, and charges not yet
+# invoiced. Nothing here carries a payment instrument -- no card, no bank
+# detail, no billing address -- which is worth stating because it is the kind of
+# area where that assumption should be checked rather than assumed. The API
+# exposes amounts and descriptions only.
+#
+# The CSV tool declares no output block: its response is a CSV document rather
+# than JSON, so the spec gives it no readable schema and there is nothing to
+# allowlist against.
+
+tools:
+  - name: vultr_account_billing_history_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists billing history for the active Vultr organization -- charges,
+      payments and credits -- each with its date, type, description, amount and
+      the running balance.
+
+      Use this tool to report what an account has been charged and paid over
+      time, or to explain a balance.
+
+      Do not use this tool for charges not yet invoiced, which
+      vultr_account_pending_charges_list returns, or for the current balance
+      alone, which vultr_account_get returns.
+
+    operation: list-billing-history
+
+    input:
+      type: object
+      properties:
+        # GET /billing/history declares no parameters, so this search is
+        # applied here against the fetched rows.
+        description:
+          type: string
+          description: >-
+            Case-insensitive text contained in the entry description.
+          filter:
+            field: description
+            match: contains_ci
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - date
+        - type
+        - description
+        - amount
+        - balance
+        - meta
+
+  - name: vultr_account_invoices_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists invoices issued to the active Vultr organization, each with its
+      date, description, amount and the balance at the time.
+
+      Use this tool to find an invoice, or to report what has been invoiced
+      over a period.
+
+      Do not use this tool for the line items on an invoice, which
+      vultr_account_invoice_items_list returns, or for charges not yet
+      invoiced.
+
+    operation: list-invoices
+
+    input:
+      type: object
+      properties: {}
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - date
+        - description
+        - amount
+        - balance
+        - meta
+
+  - name: vultr_account_invoices_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets one Vultr invoice by its ID, with its date, description, amount and
+      the balance at the time.
+
+      Use this tool when an invoice ID is already known. To find one, use
+      vultr_account_invoices_list first.
+
+      Do not use this tool for the invoice's line items, which
+      vultr_account_invoice_items_list returns -- this is the summary only.
+
+    operation: get-invoice
+
+    input:
+      type: object
+      required:
+        - invoice_id
+      properties:
+        invoice_id:
+          type: string
+          description: >-
+            ID of the invoice, as returned in the id field by
+            vultr_account_invoices_list.
+          maps_to: invoice-id
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - date
+        - description
+        - amount
+        - balance
+
+  - name: vultr_account_invoice_items_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the line items on one Vultr invoice, each with its product,
+      description, unit price, unit type, quantity, total and the period it
+      covers.
+
+      Use this tool to break an invoice down by product, or to explain what
+      drove a bill.
+
+      Do not use this tool for the invoice total alone, which
+      vultr_account_invoices_get returns, or for charges not yet invoiced.
+
+    operation: get-invoice-items
+
+    input:
+      type: object
+      required:
+        - invoice_id
+      properties:
+        invoice_id:
+          type: string
+          description: >-
+            ID of the invoice, as returned in the id field by
+            vultr_account_invoices_list.
+          maps_to: invoice-id
+
+        product:
+          type: string
+          description: >-
+            Case-insensitive text contained in the product name, to narrow a
+            long invoice to one product.
+          filter:
+            field: product
+            match: contains_ci
+
+    output:
+      from_openapi: true
+      include:
+        - product
+        - description
+        - unit_type
+        - unit_price
+        - units
+        - total
+        - start_date
+        - end_date
+        - meta
+
+  - name: vultr_account_pending_charges_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists charges accrued on the active Vultr organization since the last
+      invoice, each with its date, type, description and amount.
+
+      Use this tool to report what the next bill will contain, or what is
+      accruing right now.
+
+      Do not use this tool for charges already invoiced, which
+      vultr_account_billing_history_list and vultr_account_invoices_list
+      return.
+
+    operation: pending-charges
+
+    input:
+      type: object
+      properties:
+        description:
+          type: string
+          description: >-
+            Case-insensitive text contained in the charge description.
+          filter:
+            field: description
+            match: contains_ci
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - date
+        - type
+        - description
+        - amount
+        - balance
+
+  - name: vultr_account_pending_charges_csv_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets the active Vultr organization's pending charges as a CSV document
+      rather than structured data.
+
+      Use this tool only when someone has asked for a CSV export or a
+      spreadsheet-ready file of upcoming charges.
+
+      Do not use this tool to read or reason about pending charges, which
+      vultr_account_pending_charges_list returns as structured data that is far
+      easier to work with.
+
+    operation: pending-charges-csv
+
+    input:
+      type: object
+      properties: {}
+
+    # No `output` block: the response is a CSV document, so the spec declares
+    # no JSON schema and there is nothing to allowlist against.
