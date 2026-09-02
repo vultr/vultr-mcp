@@ -7,9 +7,23 @@ family: account
 # area where that assumption should be checked rather than assumed. The API
 # exposes amounts and descriptions only.
 #
-# The CSV tool declares no output block: its response is a CSV document rather
-# than JSON, so the spec gives it no readable schema and there is nothing to
-# allowlist against.
+# The pending-charges rows are the one shape here that has not been pinned down:
+# the spec's field names for them are wrong, and what the API really sends is
+# not yet known. Its tool therefore claims no specific fields, in the
+# description or in an allowlist, rather than naming six that never arrive.
+#
+# There is no tool for the pending-charges CSV export, and the reason is in the
+# declined block rather than in a comment nobody would find.
+
+declined:
+  pending-charges-csv:
+    reason: >-
+      Returns a CSV document, and `runtime.call_api` ends every request with
+      `response.json()`, so a tool for it raises JSONDecodeError on every call.
+      Confirmed against production 2026-09-02, where the smoke run reported
+      bad-json for it. A tool that cannot succeed is worse than none;
+      vultr_account_pending_charges_list answers the same question as data.
+      Revisit if the runtime learns to pass a non-JSON body through.
 
 tools:
   - name: vultr_account_billing_history_list
@@ -178,11 +192,11 @@ tools:
     enabled: true
 
     description: |
-      Lists charges accrued on the active Vultr organization since the last
-      invoice, each with its date, type, description and amount.
+      Lists the charges accrued on the active Vultr organization since its last
+      invoice -- what the next bill will contain, as the API reports it.
 
-      Use this tool to report what the next bill will contain, or what is
-      accruing right now.
+      Use this tool to report what is accruing right now, before it is
+      invoiced.
 
       Do not use this tool for charges already invoiced, which
       vultr_account_billing_history_list and vultr_account_invoices_list
@@ -192,45 +206,16 @@ tools:
 
     input:
       type: object
-      properties:
-        description:
-          type: string
-          description: >-
-            Case-insensitive text contained in the charge description.
-          filter:
-            field: description
-            match: contains_ci
-
-    output:
-      from_openapi: true
-      include:
-        - id
-        - date
-        - type
-        - description
-        - amount
-        - balance
-
-  - name: vultr_account_pending_charges_csv_get
-    access: read
-    enabled: true
-
-    description: |
-      Gets the active Vultr organization's pending charges as a CSV document
-      rather than structured data.
-
-      Use this tool only when someone has asked for a CSV export or a
-      spreadsheet-ready file of upcoming charges.
-
-      Do not use this tool to read or reason about pending charges, which
-      vultr_account_pending_charges_list returns as structured data that is far
-      easier to work with.
-
-    operation: pending-charges-csv
-
-    input:
-      type: object
+      # No description filter. Filtering compares a field on each row, and the
+      # rows do not carry the fields the spec says they do -- see the output
+      # note below -- so the filter would silently match nothing.
       properties: {}
 
-    # No `output` block: the response is a CSV document, so the spec declares
-    # no JSON schema and there is nothing to allowlist against.
+    # No `output` block. The spec gives each pending charge id, date, type,
+    # description, amount and balance. Against production on 2026-09-02 the
+    # rows carried none of those six: the container was found and every declared
+    # name was absent. Because `include` is an allowlist and nothing matched,
+    # the tool was returning one empty object per charge -- five rows of
+    # nothing, reported as success. Passing the payload through is correct until
+    # the real field names are known; restore an allowlist then.
+

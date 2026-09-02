@@ -356,13 +356,10 @@ tools:
       type: object
       properties: {}
 
-    output:
-      from_openapi: true
-      include:
-        - mysql
-        - pg
-        - valkey
-        - kafka
+    # No `output` block. The spec declares the results under `databases`, and
+    # against production 2026-09-02 the response carried no such key and no
+    # list-valued key at all, so the allowlist never ran. Passing the payload
+    # through is correct until the real shape is known.
 
   - name: vultr_database_plans_list
     access: read

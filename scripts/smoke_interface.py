@@ -128,12 +128,16 @@ async def _run(tool: CompiledTool, arguments: dict, client) -> Result:
             # answers a filtered question with every row it has. /plans-metal
             # returns `plans_metal` where the spec says `plans`, which is how
             # this was found: silent, and wrong in the direction nobody checks.
-            others = sorted(
+            lists = sorted(
                 key for key, value in payload.items() if isinstance(value, list)
             )
+            keys = sorted(payload)
             result.shape_mismatch = (
                 f"declared container {container!r} absent from the response"
-                + (f"; it sends {', '.join(others)}" if others else "")
+                + (f"; the collection is {', '.join(lists)}" if lists else "")
+                # Without the actual keys a mismatch says only that something is
+                # wrong, and the fix needs to know what the payload really is.
+                + f"; top-level keys: {', '.join(keys[:12]) or '(none)'}"
             )
         if isinstance(body, list):
             result.items = len(body)
@@ -170,7 +174,13 @@ def _check_shaping(result: Result) -> list[str]:
             notes.append(f"fields outside include leaked: {', '.join(leaked[:6])}")
         missing = sorted(set(include) - set(sample))
         if missing:
-            notes.append(f"include names absent from the response: {', '.join(missing[:6])}")
+            notes.append(
+                f"include names absent from the response: {', '.join(missing[:6])}"
+            )
+            # The absent names alone cannot tell you whether the field was
+            # renamed, nested, or is simply not set on this row, so say what the
+            # row actually carries.
+            notes.append(f"  the row carries: {', '.join(sorted(sample)[:14])}")
 
     for plan in tool.computed:
         if plan.name not in sample:

@@ -28,33 +28,9 @@ tools:
     input:
       type: object
       properties:
-        label:
-          type: string
-          description: Case-insensitive text contained in the gateway label.
-          filter:
-            field: label
-            match: contains_ci
-
-        region:
-          type: string
-          description: Vultr region ID the gateway is in, such as ewr.
-          filter:
-            field: region
-            match: equals
-
-        status:
-          type: string
-          description: Gateway status, such as active or pending.
-          filter:
-            field: status
-            match: equals
-
         page_size:
           type: integer
-          description: >-
-            Maximum number of results to return. When a filter is supplied the
-            server scans the account and returns up to this many matches,
-            reporting in meta.filtered how much it scanned.
+          description: Maximum number of results to return.
           default: 100
           minimum: 1
           maximum: 500
@@ -64,21 +40,13 @@ tools:
           type: string
           description: Cursor returned by a previous request for the next page.
 
-    output:
-      from_openapi: true
-      include:
-        - id
-        - label
-        - type
-        - region
-        - status
-        - health
-        - export_config
-        - network_config
-        - tags
-        - pending_charges
-        - date_created
-        - meta
+    # No filters and no `output` block, and not by choice. GET /storage-gateways
+    # returns its rows under `storage_gateways`; the spec declares the container
+    # as `storage_gateway`, singular. The runtime returns the payload untouched
+    # when the declared container is absent -- before filters are applied -- so
+    # a label, region or status filter here would accept a value, ignore it, and
+    # hand back every gateway as though it had matched. Confirmed live
+    # 2026-09-02. Restore both when the spec names the right container.
 
   - name: vultr_storage_gateways_get
     access: read
