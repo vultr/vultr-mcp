@@ -137,7 +137,11 @@ async def _run(tool: CompiledTool, arguments: dict, client) -> Result:
                 + (f"; the collection is {', '.join(lists)}" if lists else "")
                 # Without the actual keys a mismatch says only that something is
                 # wrong, and the fix needs to know what the payload really is.
-                + f"; top-level keys: {', '.join(keys[:12]) or '(none)'}"
+                + "; the response is "
+                + (
+                    ", ".join(f"{key}={_describe(payload[key])}" for key in keys[:8])
+                    or "(empty)"
+                )
             )
         if isinstance(body, list):
             result.items = len(body)
@@ -313,6 +317,24 @@ async def main() -> int:
         print("a key was supplied but nothing succeeded; treating that as failure")
         return 1
     return 0
+
+
+def _describe(value: object) -> str:
+    """A one-line shape for a response value, enough to fix a spec against.
+
+    Top-level key names alone were not enough twice over: /databases/
+    available-services sends `available_services`, and knowing only the name
+    left the question of what is inside it open for another run.
+    """
+    if isinstance(value, dict):
+        keys = sorted(value)
+        shown = ", ".join(keys[:8]) + ("..." if len(keys) > 8 else "")
+        return f"object{{{shown}}}"
+    if isinstance(value, list):
+        if value and isinstance(value[0], dict):
+            return f"list[{len(value)}] of object{{{', '.join(sorted(value[0])[:8])}}}"
+        return f"list[{len(value)}]"
+    return type(value).__name__
 
 
 def _harvest(store: dict, tool: CompiledTool, row: dict) -> None:

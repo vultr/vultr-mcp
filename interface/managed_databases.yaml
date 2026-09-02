@@ -356,10 +356,15 @@ tools:
       type: object
       properties: {}
 
-    # No `output` block. The spec declares the results under `databases`, and
-    # against production 2026-09-02 the response carried no such key and no
-    # list-valued key at all, so the allowlist never ran. Passing the payload
-    # through is correct until the real shape is known.
+    # No `output` block, and none is possible. The response is
+    # `{available_services: ...}`; the spec declares the results under
+    # `databases`. Confirmed live 2026-09-02.
+    #
+    # An allowlist cannot be written even knowing that, which is the part worth
+    # recording: `include` is resolved against the *declared* schema, whose only
+    # container is `databases`, so naming the real key fails the build and
+    # naming the declared one never matches. Passing the payload through is the
+    # only correct behaviour until the spec names what the API sends.
 
   - name: vultr_database_plans_list
     access: read
