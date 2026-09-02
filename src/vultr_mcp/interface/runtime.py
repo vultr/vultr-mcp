@@ -324,7 +324,19 @@ async def execute(
             break
 
     merged = dict(payload)
-    if container:
+    # Only write the collection back where the API actually put one. When the
+    # spec names a container the response does not carry -- /plans-metal sends
+    # `plans_metal` against a declared `plans`, /storage-gateways sends
+    # `storage_gateways` against a declared `storage_gateway` -- `collected`
+    # stayed empty because nothing matched, and assigning it here would add a
+    # fabricated empty key beside the real collection. The agent would then see
+    # both an invented `plans: []` and the genuine `plans_metal`, with nothing
+    # raised and nothing logged.
+    #
+    # Passing the payload straight through is what shape_response already does
+    # for the single-call path in the same situation, so the two agree: a
+    # container the API does not send means no shaping, not invented data.
+    if container and container in payload:
         merged[container] = collected
     return shape_response(
         merged, tool, arguments, scan={"pages": pages, "complete": complete}

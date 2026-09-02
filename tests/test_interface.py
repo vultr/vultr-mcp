@@ -647,6 +647,76 @@ async def test_paging_stops_at_the_cap_and_says_so(cluster_tool, monkeypatch):
     assert "partial" in result["meta"]["filtered"]["note"]
 
 
+async def test_a_container_the_api_does_not_send_is_not_invented(cluster_tool):
+    """A wrong container in the spec must not become a fabricated empty field.
+
+    Three live endpoints declare a container they do not send. Auto-paging
+    collects `payload[container]` across pages and writes the result back, so
+    with the wrong name it collected nothing and then assigned that nothing.
+
+    Writing the empty list is what does the damage: it makes the declared
+    container present, so shaping proceeds and the envelope allowlist then
+    drops the collection the API really sent, under a name no include list
+    knows. The rows do not survive, and nothing raises.
+    """
+    def handler(request):
+        # The collection is here under a name the tool does not expect.
+        return httpx.Response(
+            200,
+            json={
+                "clusters_v2": [_cluster("prod-1")],
+                "meta": {"total": 1, "links": {"next": "", "prev": ""}},
+            },
+        )
+
+    async with _client(handler) as client:
+        result = await runtime.execute(cluster_tool, {"label": "prod"}, client)
+
+    assert "clusters" not in result, "invented the declared container as an empty list"
+    assert result["clusters_v2"] == [_cluster("prod-1")], "real collection altered"
+
+
+async def test_a_missing_container_is_not_reported_as_a_filtered_scan(cluster_tool):
+    """No shaping happened, so meta must not claim a filter ran.
+
+    A fabricated `filtered` block would say the collection was scanned and
+    nothing matched, which reads as "you have no production clusters" when the
+    truth is that the tool could not find the rows at all.
+    """
+    def handler(request):
+        return httpx.Response(
+            200,
+            json={
+                "clusters_v2": [_cluster("prod-1")],
+                "meta": {"total": 1, "links": {"next": "", "prev": ""}},
+            },
+        )
+
+    async with _client(handler) as client:
+        result = await runtime.execute(cluster_tool, {"label": "prod"}, client)
+
+    assert "filtered" not in result.get("meta", {})
+
+
+async def test_the_container_is_still_written_back_when_it_is_present(cluster_tool):
+    """The guard must not disturb the case it was added to protect."""
+    pages = [
+        _payload("alpha", "prod-1", next_cursor="page2"),
+        _payload("beta", "prod-2", next_cursor=""),
+    ]
+    seen = []
+
+    def handler(request):
+        seen.append(request.url.params.get("cursor"))
+        return httpx.Response(200, json=pages[len(seen) - 1])
+
+    async with _client(handler) as client:
+        result = await runtime.execute(cluster_tool, {"label": "prod"}, client)
+
+    assert [item["label"] for item in result["clusters"]] == ["prod-1", "prod-2"]
+    assert result["meta"]["filtered"]["pages_fetched"] == 2
+
+
 async def test_an_explicit_cursor_disables_auto_paging(cluster_tool):
     """A cursor means the agent is walking pages itself; don't scan under it."""
     calls = []
