@@ -41,12 +41,20 @@ tools:
           description: Cursor returned by a previous request for the next page.
 
     # No filters and no `output` block, and not by choice. GET /storage-gateways
-    # returns its rows under `storage_gateways`; the spec declares the container
-    # as `storage_gateway`, singular. The runtime returns the payload untouched
-    # when the declared container is absent -- before filters are applied -- so
-    # a label, region or status filter here would accept a value, ignore it, and
-    # hand back every gateway as though it had matched. Confirmed live
-    # 2026-09-02. Restore both when the spec names the right container.
+    # returns `{meta, storage_gateways}`; the spec declares the container as
+    # `storage_gateway`, singular. Confirmed live 2026-09-02.
+    #
+    # Two consequences, and the second is why the filters had to go rather than
+    # just the allowlist. The runtime returns the payload untouched when the
+    # declared container is absent, so a label, region or status filter would
+    # accept a value, ignore it, and hand back every gateway as though it had
+    # matched. And a filter is also what switches on auto-pagination, which
+    # collects `payload[container]` across pages and writes the result back --
+    # with the wrong container that would add a bogus empty `storage_gateway`
+    # key beside the real one. Silently wrong rows, then a fabricated field.
+    #
+    # So do not re-add a filter here before the spec names the right container,
+    # even one that looks harmless. Restore both together.
 
   - name: vultr_storage_gateways_get
     access: read
