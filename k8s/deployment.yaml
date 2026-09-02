@@ -34,12 +34,10 @@ spec:
                 name: vultr-mcp-secrets
           resources:
             requests:
-              # 500m rather than 200m. Startup is CPU-bound tool generation and
-              # scales almost linearly: 302s at 0.2 CPU, ~60s at a full core.
-              # 200m made a rolling restart take five minutes per pod even when
-              # it succeeded. The limit stays at 1, so a pod still bursts to a
-              # full core when the node has room.
-              cpu: 500m
+              # Back to 200m. It was raised to 500m to buy a faster boot when
+              # boot was ~38s of redundant recompilation; at ~4.5s the extra
+              # guaranteed CPU no longer earns its scheduling cost.
+              cpu: 200m
               memory: 256Mi
             limits:
               cpu: "1"
@@ -50,25 +48,23 @@ spec:
           # and crash-looped (exit 137). startupProbe gives it up to 150s to come
           # up and suppresses liveness until it does; liveness then guards the
           # steady state as before.
-          # 5s x 90 = 450s. Measured: boot is 38s on an idle full core and
-          # ~300s throttled to 0.2 CPU, the guaranteed share the request below
-          # buys. The previous 30 (150s) killed every pod of the 2.1.0 rollout
-          # at exactly 150s, with no logs -- boot is silent until uvicorn binds,
-          # so a pod dying inside this window says nothing about why.
+          # 5s x 30 = 150s, back where it was. It was briefly raised to 450s
+          # for a boot that took 38s on a full core and ~300s throttled, before
+          # that turned out to be the interface layer recompiling once per
+          # server: 35 servers, identical result each time. Caching it (see
+          # load_interface) took boot to ~4.5s, so the headroom is no longer
+          # needed and a slow start should fail loudly again rather than be
+          # absorbed.
           #
-          # The cost is create_http_app constructing 42 FastMCP servers, root
-          # plus one per category tag, each from_openapi over a 500-operation
-          # spec. Precompiled bytecode was tried and moved it 302s -> 309s, so
-          # it is not that. VULTR_MCP_CATEGORY_ENDPOINTS is the lever that would
-          # actually shorten this, at the cost of dropping category endpoints.
-          # Sized for the fully-throttled worst case, because that is the case
-          # that happens under node contention.
+          # Do not trim below this without measuring: boot is silent until
+          # uvicorn binds, so a pod killed inside this window leaves no logs
+          # saying why -- which is exactly how the 2.1.0 rollout failed.
           startupProbe:
             httpGet:
               path: /healthz
               port: 8080
             periodSeconds: 5
-            failureThreshold: 90
+            failureThreshold: 30
           livenessProbe:
             httpGet:
               path: /healthz

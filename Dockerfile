@@ -11,11 +11,9 @@ WORKDIR /app
 # about what it does NOT buy: boot at 0.2 CPU measured 302s before this change
 # and 309s after. Bytecode compilation was not the cost.
 #
-# The cost is create_http_app building 42 FastMCP servers -- the root plus one
-# per category tag -- each running from_openapi over a 500-operation spec. That
-# is 38s on an idle full core and ~300s throttled, and it is why the startup
-# probe in k8s/deployment.yaml is sized the way it is. VULTR_MCP_CATEGORY_ENDPOINTS
-# trims the category list and is the real lever if boot time needs to come down.
+# The boot cost that mattered was the interface layer being recompiled once per
+# server -- 35 servers, 0.6s each, identical result every time. load_interface
+# caches it now and boot is ~4.5s. from_openapi itself is 0.1s per server.
 ENV UV_COMPILE_BYTECODE=1
 
 # Install deps first (cached layer) using the lockfile, then the source.

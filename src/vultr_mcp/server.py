@@ -366,6 +366,32 @@ def interface_dir_from_env() -> Path | None:
     return Path(__file__).resolve().parent.parent.parent / "interface"
 
 
+# One compiled interface per (directory, spec), reused across servers.
+#
+# create_http_app builds 35 FastMCP servers — the root plus one per category —
+# and each called compile_interface again: 30 YAML files parsed and every field
+# re-validated against the spec, for an identical result every time. That was
+# 0.60s of the 0.82s each server cost, so ~21s of a ~26s boot was the same work
+# done 35 times. Caching it takes boot to ~4.7s.
+#
+# Keyed on the resolved directory, and the cached spec is compared by identity
+# rather than stored as a key: a dict is unhashable, and holding the reference
+# keeps the comparison sound (an id could otherwise be reused after collection).
+# A different spec object recompiles, which is what tests that build a scratch
+# spec rely on.
+_INTERFACE_CACHE: dict[str, tuple[dict, CompiledInterface]] = {}
+
+
+def clear_interface_cache() -> None:
+    """Drop the compiled-interface cache.
+
+    For tests that rewrite definitions on disk under a path they have already
+    loaded. Nothing in the server's own lifecycle needs it: the directory does
+    not change under a running process.
+    """
+    _INTERFACE_CACHE.clear()
+
+
 def load_interface(spec: dict, interface_dir: Path | None) -> CompiledInterface:
     """Compile the interface layer, or return an empty one when absent.
 
@@ -373,10 +399,22 @@ def load_interface(spec: dict, interface_dir: Path | None) -> CompiledInterface:
     still works without it. A *broken* one is: compile_interface raises, because
     a layer that half-loads means the agent-facing surface is not the reviewed
     one, and silently serving the generated tools instead would hide that.
+
+    The result is cached and shared. That is safe because every compiled type is
+    a frozen dataclass and InterfaceTool.build only reads from it, so two
+    servers holding the same CompiledInterface cannot affect each other.
     """
     if interface_dir is None or not (interface_dir / "interface.yaml").exists():
         return CompiledInterface(version="none")
-    return compile_interface(interface_dir, spec)
+
+    key = str(interface_dir.resolve())
+    cached = _INTERFACE_CACHE.get(key)
+    if cached is not None and cached[0] is spec:
+        return cached[1]
+
+    compiled = compile_interface(interface_dir, spec)
+    _INTERFACE_CACHE[key] = (spec, compiled)
+    return compiled
 
 
 def _build_route_maps(
