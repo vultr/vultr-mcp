@@ -25,3 +25,8 @@ product_areas:
   firewall: firewall.yaml
   load_balancer: load_balancer.yaml
   reserved_ip: reserved_ip.yaml
+  block: block.yaml
+  snapshot: snapshot.yaml
+  backup: backup.yaml
+  vfs: vfs.yaml
+  storage_gateways: storage_gateways.yaml

@@ -1,0 +1,124 @@
+product_area: storage_gateways
+family: storage
+
+# Storage gateways front Vultr storage with a network protocol -- NFS and
+# similar -- so a client that does not speak S3 can reach it. Both tools keep
+# export_config and network_config whole: they are declared objects describing
+# exports and addressing, and neither carries a credential field.
+
+tools:
+  - name: vultr_storage_gateways_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists Vultr storage gateways in the active Vultr organization, each with
+      its type, region, status, health, export configuration and network
+      configuration.
+
+      Use this tool to list, find, count, or select storage gateways, or to
+      find how storage is exported to clients that cannot speak S3.
+
+      Do not use this tool for the Object Storage subscriptions behind a
+      gateway, for Block Storage volumes, or for the Vultr File System, which
+      are separate products with their own tools.
+
+    operation: list-storage-gateways
+
+    input:
+      type: object
+      properties:
+        label:
+          type: string
+          description: Case-insensitive text contained in the gateway label.
+          filter:
+            field: label
+            match: contains_ci
+
+        region:
+          type: string
+          description: Vultr region ID the gateway is in, such as ewr.
+          filter:
+            field: region
+            match: equals
+
+        status:
+          type: string
+          description: Gateway status, such as active or pending.
+          filter:
+            field: status
+            match: equals
+
+        page_size:
+          type: integer
+          description: >-
+            Maximum number of results to return. When a filter is supplied the
+            server scans the account and returns up to this many matches,
+            reporting in meta.filtered how much it scanned.
+          default: 100
+          minimum: 1
+          maximum: 500
+          maps_to: per_page
+
+        cursor:
+          type: string
+          description: Cursor returned by a previous request for the next page.
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - label
+        - type
+        - region
+        - status
+        - health
+        - export_config
+        - network_config
+        - tags
+        - pending_charges
+        - date_created
+        - meta
+
+  - name: vultr_storage_gateways_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets one Vultr storage gateway by its ID, with its type, region, status,
+      health, export configuration and network configuration.
+
+      Use this tool when a storage gateway ID is already known. To find one,
+      use vultr_storage_gateways_list first.
+
+      Do not use this tool for the storage behind the gateway, which is an
+      Object Storage subscription with its own tools.
+
+    operation: get-storage-gateway
+
+    input:
+      type: object
+      required:
+        - storage_gateway_id
+      properties:
+        storage_gateway_id:
+          type: string
+          description: >-
+            ID of the storage gateway, as returned in the id field by
+            vultr_storage_gateways_list.
+          maps_to: storage-gateway-id
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - label
+        - type
+        - region
+        - status
+        - health
+        - export_config
+        - network_config
+        - tags
+        - pending_charges
+        - date_created

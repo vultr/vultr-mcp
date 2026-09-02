@@ -1,0 +1,118 @@
+product_area: snapshot
+family: compute
+
+# Snapshots here are point-in-time images of an instance's own disk, taken on
+# demand. They live in the compute family deliberately: the other thing Vultr
+# calls a snapshot is a snapshot of a block storage volume, which is
+# vultr_storage_block_snapshots_* in block.yaml. One prefix apart, and each
+# description names the other.
+#
+# The neighbouring distinction is backups: those are the automatic ones Vultr
+# takes on a schedule, in backup.yaml. A snapshot is something a person asked
+# for; a backup is something that happened on a cadence.
+
+tools:
+  - name: vultr_compute_snapshots_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists Vultr snapshots, on-demand disk images of an instance, in the
+      active Vultr organization, each with its description, size, status,
+      source operating system or application, and expiry date.
+
+      Use this tool to find restore points somebody created deliberately, or to
+      report what snapshot storage is costing.
+
+      Do not use this tool for automatic scheduled backups, which
+      vultr_compute_backups_list returns, or for block storage volume
+      snapshots, which vultr_storage_block_snapshots_list returns.
+
+    operation: list-snapshots
+
+    input:
+      type: object
+      properties:
+        description:
+          type: string
+          description: >-
+            Filter results by snapshot description. The API applies this
+            itself.
+
+        status:
+          type: string
+          description: Snapshot status, such as complete or pending.
+          filter:
+            field: status
+            match: equals
+
+        page_size:
+          type: integer
+          description: >-
+            Maximum number of results to return. When a filter is supplied the
+            server scans the account and returns up to this many matches,
+            reporting in meta.filtered how much it scanned.
+          default: 100
+          minimum: 1
+          maximum: 500
+          maps_to: per_page
+
+        cursor:
+          type: string
+          description: Cursor returned by a previous request for the next page.
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - description
+        - status
+        - size
+        - os_id
+        - app_id
+        - pending_charges
+        - date_created
+        - date_expires
+        - meta
+
+  - name: vultr_compute_snapshots_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets one Vultr snapshot by its ID, with its description, size, status,
+      source operating system or application, and expiry date.
+
+      Use this tool when a snapshot ID is already known. To find one, use
+      vultr_compute_snapshots_list first.
+
+      Do not use this tool for automatic scheduled backups, which
+      vultr_compute_backups_get returns, or for block storage volume snapshots,
+      which vultr_storage_block_snapshots_get returns.
+
+    operation: get-snapshot
+
+    input:
+      type: object
+      required:
+        - snapshot_id
+      properties:
+        snapshot_id:
+          type: string
+          description: >-
+            ID of the snapshot, as returned in the id field by
+            vultr_compute_snapshots_list.
+          maps_to: snapshot-id
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - description
+        - status
+        - size
+        - os_id
+        - app_id
+        - pending_charges
+        - date_created
+        - date_expires

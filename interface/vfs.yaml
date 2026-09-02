@@ -1,0 +1,222 @@
+product_area: vfs
+family: storage
+
+# The Vultr File System is shared network storage that several instances mount
+# at once, which is what distinguishes it from block storage (one instance at a
+# time) and Object Storage (S3, not a filesystem). All three descriptions here
+# name the other two, because "storage" alone does not pick between them.
+#
+# getVFS declares no output block. The shape reader picks `tags` -- an array
+# nested inside the subscription -- as the container rather than the
+# subscription itself, so a declared shape would describe the tags. Nothing in
+# the payload needs trimming or withholding, so it passes through whole. The
+# same misreading is handled the same way in container_registry.yaml.
+
+tools:
+  - name: vultr_storage_vfs_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists Vultr File System subscriptions, shared network storage, in the
+      active Vultr organization, each with its region, disk type, provisioned
+      and used storage, status and billing.
+
+      Use this tool to list, find, count, or select file system subscriptions,
+      or to report how much of the provisioned storage is actually used.
+
+      Do not use this tool for Block Storage volumes, which attach to one
+      instance at a time, or for Object Storage, which is S3-compatible rather
+      than a filesystem. Both have their own tools.
+
+    operation: listVFS
+
+    input:
+      type: object
+      properties:
+        # GET /vfs declares no parameters at all, not even paging, so every
+        # search below is applied here against the fetched rows.
+        label:
+          type: string
+          description: Case-insensitive text contained in the subscription label.
+          filter:
+            field: label
+            match: contains_ci
+
+        region:
+          type: string
+          description: Vultr region ID the file system is in, such as ewr.
+          filter:
+            field: region
+            match: equals
+
+        status:
+          type: string
+          description: Subscription status, such as active or pending.
+          filter:
+            field: status
+            match: equals
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - label
+        - region
+        - disk_type
+        - status
+        - storage_size
+        - storage_used
+        - billing
+        - tags
+        - date_created
+
+  - name: vultr_storage_vfs_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets one Vultr File System subscription by its ID, with its region, disk
+      type, provisioned and used storage, status and billing.
+
+      Use this tool when a file system ID is already known. To find one, use
+      vultr_storage_vfs_list first.
+
+      Do not use this tool for what is mounted on the file system, which
+      vultr_storage_vfs_attachments_list returns, or for Block Storage and
+      Object Storage, which are different products.
+
+    operation: getVFS
+
+    input:
+      type: object
+      required:
+        - vfs_id
+      properties:
+        vfs_id:
+          type: string
+          description: >-
+            ID of the file system subscription, as returned in the id field by
+            vultr_storage_vfs_list.
+
+    # No `output` block; see the note at the top of this file.
+
+  - name: vultr_storage_vfs_attachments_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the instances attached to one Vultr File System, each with its
+      target ID and label, the mount tag it is exposed under, and the state of
+      the attachment.
+
+      Use this tool to find which servers share a file system, or to diagnose
+      an attachment that is not mounting.
+
+      Do not use this tool for VPC attachments, which are network membership
+      and are answered by vultr_network_vpc_attachments_list, or for block
+      storage, which reports its attachment on the volume itself.
+
+    operation: listVFSAttachments
+
+    input:
+      type: object
+      required:
+        - vfs_id
+      properties:
+        vfs_id:
+          type: string
+          description: >-
+            ID of the file system subscription, as returned in the id field by
+            vultr_storage_vfs_list.
+
+        state:
+          type: string
+          description: Attachment state, such as attached or pending.
+          filter:
+            field: state
+            match: equals
+
+    output:
+      from_openapi: true
+      include:
+        - vfs_id
+        - target_id
+        - target_label
+        - mount_tag
+        - state
+
+  - name: vultr_storage_vfs_attachments_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets the attachment between one Vultr File System and one instance, with
+      the mount tag it is exposed under and the state of the attachment.
+
+      Use this tool when both the file system ID and the instance ID are
+      already known. To list a file system's attachments, use
+      vultr_storage_vfs_attachments_list.
+
+      Do not use this tool for VPC membership, which is a different kind of
+      attachment with its own tools.
+
+    operation: getVFSAttachment
+
+    input:
+      type: object
+      required:
+        - vfs_id
+        - vps_id
+      properties:
+        vfs_id:
+          type: string
+          description: >-
+            ID of the file system subscription, as returned in the id field by
+            vultr_storage_vfs_list.
+
+        vps_id:
+          type: string
+          description: >-
+            ID of the instance, as returned in the id field by
+            vultr_compute_instances_list.
+
+    output:
+      from_openapi: true
+      include:
+        - vfs_id
+        - target_id
+        - target_label
+        - mount_tag
+        - state
+
+  - name: vultr_storage_vfs_regions_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the regions the Vultr File System can be deployed in, each with its
+      continent and country, the minimum subscription size, and the price per
+      gigabyte.
+
+      Use this tool to find where a file system can be created and what it
+      would cost.
+
+      Do not use this tool for Vultr regions in general, which cover compute
+      and are a longer list with its own tool, or for Object Storage clusters.
+
+    operation: listRegions
+
+    input:
+      type: object
+      properties: {}
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - description
+        - continent
+        - country
+        - min_size_gb
+        - price_per_gb

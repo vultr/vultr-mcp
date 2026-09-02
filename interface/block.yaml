@@ -1,0 +1,253 @@
+product_area: block
+family: storage
+
+# Block storage is the volume product: disks attached to one instance at a time.
+#
+# Vultr has two unrelated things called snapshots, and they are in different
+# product areas. The ones here are snapshots of a block storage volume, and are
+# named vultr_storage_block_snapshots_*. Snapshots of an instance's own disk are
+# vultr_compute_snapshots_* in snapshot.yaml. The family prefix is doing the
+# same job it does for clusters.
+
+tools:
+  - name: vultr_storage_blocks_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists Vultr Block Storage volumes in the active Vultr organization, each
+      with its size, region, type, cost, status and the instance it is attached
+      to if any.
+
+      Use this tool to list, find, count, or select block storage volumes, to
+      find unattached volumes still being billed, or to report on provisioned
+      storage.
+
+      Do not use this tool for Object Storage, which is S3-compatible and has
+      its own tools, for the Vultr File System, or for an instance's own boot
+      disk, which is part of its plan.
+
+    operation: list-blocks
+
+    input:
+      type: object
+      properties:
+        label:
+          type: string
+          description: Case-insensitive text contained in the volume label.
+          filter:
+            field: label
+            match: contains_ci
+
+        region:
+          type: string
+          description: Vultr region ID the volume is in, such as ewr.
+          filter:
+            field: region
+            match: equals
+
+        status:
+          type: string
+          description: Volume status, such as active or pending.
+          filter:
+            field: status
+            match: equals
+
+        attached_to_instance:
+          type: string
+          description: >-
+            ID of the instance the volume is attached to. Match on an empty
+            string is not supported; to find unattached volumes, list them and
+            look for a blank attached_to_instance.
+          filter:
+            field: attached_to_instance
+            match: equals
+
+        page_size:
+          type: integer
+          description: >-
+            Maximum number of results to return. When a filter is supplied the
+            server scans the account and returns up to this many matches,
+            reporting in meta.filtered how much it scanned.
+          default: 100
+          minimum: 1
+          maximum: 500
+          maps_to: per_page
+
+        cursor:
+          type: string
+          description: Cursor returned by a previous request for the next page.
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - label
+        - region
+        - size_gb
+        - block_type
+        - status
+        - attached_to_instance
+        - attached_to_instance_label
+        - attached_to_instance_ip
+        - mount_id
+        - bootable
+        - os_id
+        - snapshot_id
+        - cost
+        - pending_charges
+        - date_created
+        - meta
+
+  - name: vultr_storage_blocks_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets one Vultr Block Storage volume by its ID, with its size, region,
+      type, cost, status, mount ID and the instance it is attached to if any.
+
+      Use this tool when a volume ID is already known. To find one, use
+      vultr_storage_blocks_list first.
+
+      Do not use this tool for Object Storage subscriptions or Vultr File
+      System volumes, which are different products.
+
+    operation: get-block
+
+    input:
+      type: object
+      required:
+        - block_id
+      properties:
+        block_id:
+          type: string
+          description: >-
+            ID of the block storage volume, as returned in the id field by
+            vultr_storage_blocks_list.
+          maps_to: block-id
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - label
+        - region
+        - size_gb
+        - block_type
+        - status
+        - attached_to_instance
+        - attached_to_instance_label
+        - attached_to_instance_ip
+        - mount_id
+        - bootable
+        - os_id
+        - snapshot_id
+        - cost
+        - pending_charges
+        - date_created
+
+  - name: vultr_storage_block_snapshots_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists snapshots of Vultr Block Storage volumes in the active Vultr
+      organization, each with the volume it came from, its size, state, and
+      next invoice date and price.
+
+      Use this tool to find restore points for a block storage volume, or to
+      report what snapshot storage is costing.
+
+      Do not use this tool for snapshots of an instance's own disk, which are a
+      different product listed by vultr_compute_snapshots_list, or for instance
+      backups.
+
+    operation: list-block-snapshots
+
+    input:
+      type: object
+      properties:
+        block_id:
+          type: string
+          description: >-
+            ID of the block storage volume the snapshot was taken from, as
+            returned by vultr_storage_blocks_list.
+          filter:
+            field: block_id
+            match: equals
+
+        state:
+          type: string
+          description: Snapshot state, such as available or pending.
+          filter:
+            field: state
+            match: equals
+
+        page_size:
+          type: integer
+          description: >-
+            Maximum number of results to return. When a filter is supplied the
+            server scans the account and returns up to this many matches,
+            reporting in meta.filtered how much it scanned.
+          default: 100
+          minimum: 1
+          maximum: 500
+          maps_to: per_page
+
+        cursor:
+          type: string
+          description: Cursor returned by a previous request for the next page.
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - block_id
+        - size
+        - state
+        - next_invoice_date
+        - next_invoice_price
+        - added_at
+        - updated_at
+        - meta
+
+  - name: vultr_storage_block_snapshots_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets one Vultr Block Storage volume snapshot by its ID, with the volume
+      it came from, its size, state, and next invoice date and price.
+
+      Use this tool when a block snapshot ID is already known. To find one, use
+      vultr_storage_block_snapshots_list first.
+
+      Do not use this tool for snapshots of an instance's own disk, which
+      vultr_compute_snapshots_get returns.
+
+    operation: get-block-snapshot
+
+    input:
+      type: object
+      required:
+        - snapshot_id
+      properties:
+        snapshot_id:
+          type: string
+          description: >-
+            ID of the block storage snapshot, as returned in the id field by
+            vultr_storage_block_snapshots_list.
+          maps_to: snapshot-id
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - block_id
+        - size
+        - state
+        - next_invoice_date
+        - next_invoice_price
+        - added_at
+        - updated_at

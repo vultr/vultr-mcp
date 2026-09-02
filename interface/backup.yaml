@@ -1,0 +1,106 @@
+product_area: backup
+family: compute
+
+# Backups are the automatic images Vultr takes on a schedule. Three neighbours
+# an agent has to be kept away from:
+#
+#   snapshots        on-demand images somebody asked for (snapshot.yaml)
+#   block snapshots  images of a block storage volume (block.yaml)
+#   backup schedule  the cadence itself rather than the images it produced,
+#                    which is vultr_compute_instances_backup_schedule_get
+#
+# The last is the easiest to get wrong, because "show me the backups for this
+# instance" and "show me the backup settings for this instance" are one word
+# apart in English and two different tools here.
+
+tools:
+  - name: vultr_compute_backups_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists Vultr automatic backups in the active Vultr organization, each with
+      its description, size, status, source operating system or application,
+      and creation date, optionally narrowed to one instance.
+
+      Use this tool to find what automatic restore points exist, and when the
+      most recent one was taken.
+
+      Do not use this tool for the backup schedule itself, which is
+      vultr_compute_instances_backup_schedule_get, nor for on-demand snapshots,
+      which vultr_compute_snapshots_list returns.
+
+    operation: list-backups
+
+    input:
+      type: object
+      properties:
+        instance_id:
+          type: string
+          description: >-
+            Return only backups of this instance, as returned in the id field
+            by vultr_compute_instances_list. The API applies this itself.
+
+        page_size:
+          type: integer
+          description: Maximum number of results to return.
+          default: 100
+          minimum: 1
+          maximum: 500
+          maps_to: per_page
+
+        cursor:
+          type: string
+          description: Cursor returned by a previous request for the next page.
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - description
+        - status
+        - size
+        - os_id
+        - app_id
+        - date_created
+        - meta
+
+  - name: vultr_compute_backups_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets one Vultr automatic backup by its ID, with its description, size,
+      status, source operating system or application, and creation date.
+
+      Use this tool when a backup ID is already known. To find one, use
+      vultr_compute_backups_list first.
+
+      Do not use this tool for the backup schedule itself, which is
+      vultr_compute_instances_backup_schedule_get, nor for on-demand snapshots,
+      which vultr_compute_snapshots_get returns.
+
+    operation: get-backup
+
+    input:
+      type: object
+      required:
+        - backup_id
+      properties:
+        backup_id:
+          type: string
+          description: >-
+            ID of the backup, as returned in the id field by
+            vultr_compute_backups_list.
+          maps_to: backup-id
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - description
+        - status
+        - size
+        - os_id
+        - app_id
+        - date_created
