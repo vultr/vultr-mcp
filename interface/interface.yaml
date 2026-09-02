@@ -5,7 +5,7 @@
 # openapi.json stays the source of truth for the REST API; this layer only
 # controls what the agent sees.
 
-version: 2026.09.5
+version: 2026.09.6
 
 schema: schema/interface.schema.json
 

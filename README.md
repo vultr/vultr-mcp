@@ -38,13 +38,15 @@ Serves Streamable HTTP on port 8080 (configurable via `SERVER_PORT`), plus `/hea
 
 ## Tool Surface
 
-Most tools are generated from `openapi.json` via `FastMCP.from_openapi()`. A small, growing set is defined by hand in `interface/` and **replaces** the generated tool for the same operation — see below.
+Tools come from two places. `FastMCP.from_openapi()` generates them from `openapi.json`; `interface/` defines them by hand, and a hand-authored tool **replaces** the generated one for the same operation — see below.
+
+Every read operation the server exposes is now hand-authored. The read-only surface is 192 tools: 180 from `interface/`, and 12 generated ones belonging to operations that were reviewed and deliberately declined. The count did not move as the layer grew, because the replacement is one-for-one.
 
 ### Interface layer
 
 Generated tool definitions inherit whatever the spec says, which is written for developers reading docs, not for an agent choosing between 180 tools. That ambiguity has a measurable cost: asked to add a node to a Compute Cluster, Claude picked a VKE tool.
 
-`interface/` is a versioned set of reviewed YAML files that decide what the agent sees — tool name, description, input schema, response shape — while `openapi.json` stays the source of truth for the HTTP call itself. One tool maps to exactly one `operationId`.
+`interface/` is a versioned set of reviewed YAML files that decide what the agent sees — tool name, description, input schema, response shape — while `openapi.json` stays the source of truth for the HTTP call itself. One tool maps to exactly one `operationId`. It covers 30 product areas.
 
 ```yaml
 - name: vultr_compute_clusters_list     # vultr_<family>_<resource>_<verb>
