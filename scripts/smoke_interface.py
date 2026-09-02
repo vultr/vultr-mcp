@@ -73,6 +73,12 @@ class Result:
         # Set when the spec's container key is not in the response at all, which
         # disables shaping and filtering without raising anything.
         self.shape_mismatch: str | None = None
+        # Rows to take ids from. More than one, because a collection is not
+        # always homogeneous: /applications mixes one-click entries, whose
+        # image_id is empty, with marketplace ones that have a real id. Sampling
+        # only the first row meant whichever kind came first decided whether the
+        # by-id tools could run at all.
+        self.harvest_rows: list = []
 
     @property
     def ok(self) -> bool:
@@ -117,6 +123,7 @@ async def _run(tool: CompiledTool, arguments: dict, client) -> Result:
             # The payload is the resource, not a wrapper around one.
             result.items = 1
             result.sample = payload if isinstance(payload, dict) else None
+            result.harvest_rows = [payload] if isinstance(payload, dict) else []
             result.seconds = time.monotonic() - started
             return result
         container = _container(tool)
@@ -152,9 +159,11 @@ async def _run(tool: CompiledTool, arguments: dict, client) -> Result:
             # taking one regardless is how this crashed on `row.items()`.
             result.sample = body[0] if body and isinstance(body[0], dict) else None
             result.scalar_rows = bool(body) and not isinstance(body[0], dict)
+            result.harvest_rows = [row for row in body[:8] if isinstance(row, dict)]
         elif isinstance(body, dict):
             result.items = 1
             result.sample = body
+            result.harvest_rows = [body]
         filtered = (payload.get("meta") or {}).get("filtered")
         if filtered:
             result.detail = f"meta.filtered={json.dumps(filtered)}"
@@ -274,8 +283,9 @@ async def main() -> int:
             result = await _run(tool, dict(SMOKE_ARGUMENTS.get(tool.name, {})), client)
             results.append(result)
             _report(result)
-            if result.ok and result.sample:
-                _harvest(harvested, tool, result.sample)
+            if result.ok:
+                for row in result.harvest_rows:
+                    _harvest(harvested, tool, row)
 
         for tool in by_id:
             done += 1
@@ -294,8 +304,9 @@ async def main() -> int:
             result = await _run(tool, arguments, client)
             results.append(result)
             _report(result)
-            if result.ok and result.sample:
-                _harvest(harvested, tool, result.sample)
+            if result.ok:
+                for row in result.harvest_rows:
+                    _harvest(harvested, tool, row)
 
     layer_bugs = sum(1 for r in results if r.status == "LAYER-BUG")
     passed = sum(1 for r in results if r.ok)
@@ -345,7 +356,13 @@ def _harvest(store: dict, tool: CompiledTool, row: dict) -> None:
     *location* id to the subscription tool earns a 400, which reads like a
     broken tool and is really a broken harness.
     """
-    scalars = {k: v for k, v in row.items() if isinstance(v, (str, int))}
+    # Empty strings are not ids, and feeding one back builds a path with a gap
+    # in it -- /applications//variables, which answers 404 and reads like a
+    # broken tool. Vultr's one-click applications carry image_id: "" because the
+    # field only applies to marketplace ones. Zero is kept: it is a real id.
+    scalars = {
+        k: v for k, v in row.items() if isinstance(v, (str, int)) and v != ""
+    }
     if scalars:
         container = tool.output.container_key if tool.output else None
         store.setdefault(tool.product_area, []).append((container or tool.name, scalars))

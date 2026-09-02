@@ -93,7 +93,9 @@ tools:
       deployment, each with its name, description and whether it is required.
 
       Use this tool before deploying a marketplace application, to find what
-      must be supplied for the deployment to succeed.
+      must be supplied for the deployment to succeed. It applies only to
+      applications of type marketplace: one-click applications take no
+      variables and carry an empty image_id, so there is nothing to look up.
 
       Do not use this tool for the variables a vendor manages on a published
       app, which vultr_marketplace_app_manage_variables_list returns, or for an
@@ -110,7 +112,9 @@ tools:
           type: string
           description: >-
             Image ID of the application, as returned in the image_id field by
-            vultr_catalog_applications_list.
+            vultr_catalog_applications_list, such as openlitespeed-wordpress.
+            Only marketplace applications have one; a one-click application
+            returns an empty image_id and cannot be looked up here.
           maps_to: image-id
 
     output:
