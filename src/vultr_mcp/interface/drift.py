@@ -11,6 +11,7 @@ states, and only the last is worth anyone's attention:
     served       a tool the agent can call
     drafted      a tool in the file, still disabled
     declined     reviewed and deliberately left to the generated surface
+    excluded     removed from the surface entirely, generated tool included
     unreviewed   nobody has looked
 
 Without the declined state this report would be unreadable -- instances alone
@@ -59,6 +60,7 @@ class AreaDrift:
     served: int
     drafted: int
     declined: int
+    excluded: int = 0
     unreviewed_reads: tuple[OperationRef, ...] = ()
     unreviewed_writes: tuple[OperationRef, ...] = ()
     stale: tuple[str, ...] = ()
@@ -125,10 +127,14 @@ def _area_drift(
 ) -> AreaDrift:
     tools = document.get("tools") or []
     declined = document.get("declined") or {}
+    excluded = document.get("excluded") or {}
 
     served = {tool["operation"] for tool in tools if tool.get("enabled", True)}
     drafted = {tool["operation"] for tool in tools if not tool.get("enabled", True)}
-    accounted = served | drafted | set(declined)
+    # Excluded counts as accounted, and emphatically so: it is the strongest
+    # decision in the layer, so reporting it as "nobody has looked" would be
+    # backwards.
+    accounted = served | drafted | set(declined) | set(excluded)
 
     stale = tuple(sorted(op for op in accounted if index.get(op) is None))
 
@@ -140,6 +146,7 @@ def _area_drift(
             served=len(served),
             drafted=len(drafted),
             declined=len(declined),
+            excluded=len(excluded),
             stale=stale,
         )
 
@@ -165,6 +172,7 @@ def _area_drift(
         served=len(served),
         drafted=len(drafted),
         declined=len(declined),
+        excluded=len(excluded),
         unreviewed_reads=tuple(
             OperationRef.of(operation) for operation in by_path if not operation.is_write
         ),
@@ -186,7 +194,7 @@ def detect_drift(interface_dir: Path, spec: dict[str, Any]) -> DriftReport:
         # An area split over several files is still one area measured against
         # one tag, so the files are merged before it is measured -- otherwise
         # each half would report the other half's operations as drift.
-        merged: dict[str, Any] = {"tools": [], "declined": {}}
+        merged: dict[str, Any] = {"tools": [], "declined": {}, "excluded": {}}
         present = False
         for path in area_files(interface_dir, entry):
             if not path.exists():
@@ -195,6 +203,7 @@ def detect_drift(interface_dir: Path, spec: dict[str, Any]) -> DriftReport:
             document = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
             merged["tools"].extend(document.get("tools") or [])
             merged["declined"].update(document.get("declined") or {})
+            merged["excluded"].update(document.get("excluded") or {})
         if not present:
             continue
         areas.append(_area_drift(area, merged, index))
@@ -219,7 +228,7 @@ def format_report(report: DriftReport, *, show_writes: bool = False) -> str:
 
         lines.append(
             f"  reviewed: {area.served} served, {area.drafted} drafted, "
-            f"{area.declined} declined"
+            f"{area.declined} declined, {area.excluded} excluded"
         )
 
         if area.stale:

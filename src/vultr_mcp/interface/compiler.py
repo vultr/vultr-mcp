@@ -156,12 +156,35 @@ class DeclinedOperation:
 
 
 @dataclass(frozen=True)
+class ExcludedOperation:
+    """An operation that must not be served at all.
+
+    The one thing in this layer that removes rather than replaces. A declined
+    operation keeps its generated tool; an excluded one is dropped from the
+    surface by an EXCLUDE route, so the agent never sees it. That is why it
+    carries ``method`` and ``path_template``: the route map matches on those,
+    not on the operationId.
+
+    Reserved for operations where serving them is itself the harm -- handing out
+    a credential, or changing state on a surface that believes it is read-only.
+    Category exclusion is the blunter tool and takes a whole product area.
+    """
+
+    operation_id: str
+    product_area: str
+    reason: str
+    method: str
+    path_template: str
+
+
+@dataclass(frozen=True)
 class CompiledInterface:
     """The whole layer: its version, its tools, and what they replace."""
 
     version: str
     tools: tuple[CompiledTool, ...] = ()
     declined: tuple[DeclinedOperation, ...] = ()
+    excluded: tuple[ExcludedOperation, ...] = ()
 
 
 def _input_schema(definition: dict[str, Any]) -> dict[str, Any]:
@@ -293,6 +316,7 @@ def compile_interface(
 
     tools: list[CompiledTool] = []
     declined: list[DeclinedOperation] = []
+    excluded: list[ExcludedOperation] = []
     for area, entry in (manifest.get("product_areas") or {}).items():
         # An area is one file, or several read as though concatenated.
         for path in area_files(interface_dir, entry):
@@ -309,9 +333,26 @@ def compile_interface(
                         reason=declined_entry["reason"].strip(),
                     )
                 )
+            for operation_id, excluded_entry in (document.get("excluded") or {}).items():
+                operation = index.get(operation_id)
+                # The validator already errored on an unknown operationId; if
+                # compilation is running anyway, drop it rather than emit a
+                # route that matches nothing and quietly excludes nothing.
+                if operation is None:
+                    continue
+                excluded.append(
+                    ExcludedOperation(
+                        operation_id=operation_id,
+                        product_area=area,
+                        reason=excluded_entry["reason"].strip(),
+                        method=operation.method.upper(),
+                        path_template=operation.path,
+                    )
+                )
 
     return CompiledInterface(
         version=str(manifest["version"]),
         tools=tuple(tools),
         declined=tuple(declined),
+        excluded=tuple(excluded),
     )

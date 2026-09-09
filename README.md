@@ -125,7 +125,7 @@ The smoke test needs a `VULTR_API_KEY` secret and is skipped without one. Use a 
 
 ### Excluded categories
 
-Identity and credential-management categories are **excluded by default** so they stay out of agent reach (the same posture as the GitHub/Stripe/DigitalOcean MCPs): `api-keys`, `users`, `iam`, `scim`, `organizations`, `oidc`, `oauth`, `logs`. Enforcement of these permissions belongs in the IAM policy attached to the OAuth client app; excluding the tools is UX-layer hygiene.
+Identity and credential-management categories are **excluded by default** so they stay out of agent reach, which is the common posture for MCP servers over an infrastructure API: `api-keys`, `users`, `iam`, `scim`, `organizations`, `oidc`, `oauth`, `logs`. Enforcement of these permissions belongs in the IAM policy attached to the OAuth client app; excluding the tools is UX-layer hygiene.
 
 The last two joined with the 2026-08-28 spec. `oauth` covers OAuth client management, whose write half mints and regenerates client secrets. `logs` is blunter: `ListAuditLogs` returns `s3_access_key` and `s3_secret_key` for the audit-log delivery bucket, so the generated tool hands an agent a live credential pair. Excluding `logs` costs the useful `list-logs` read, and the right fix is a hand-authored tool that shapes the keys out — an interface tool replaces the generated one — after which the category can be re-admitted.
 

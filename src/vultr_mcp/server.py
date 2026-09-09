@@ -4,13 +4,19 @@ Generates the full tool surface from Vultr's OpenAPI spec (`openapi.json`)
 via ``FastMCP.from_openapi`` and forwards each caller's own credential to
 api.vultr.com per request.
 
-Credential resolution, per tool call:
-  1. HTTP mode: the ``Authorization`` header of the incoming MCP request is
-     forwarded upstream verbatim (works for both raw Vultr API keys and, in
-     later phases, OAuth access tokens — api.vultr.com accepts both as
-     ``Bearer`` credentials).
-  2. STDIO / local mode (no HTTP context): falls back to the ``VULTR_API_KEY``
+Credential resolution, per tool call, in priority order:
+  1. The verified ``AccessToken`` (OAuth path) — the UPSTREAM Vultr token that
+     FastMCP swapped in, which is what api.vultr.com accepts.
+  2. HTTP mode with no auth layer: the incoming request's ``Authorization``
+     header, forwarded verbatim (api.vultr.com accepts raw API keys and OAuth
+     tokens alike as ``Bearer``), or ``X-Vultr-API-Key``.
+  3. STDIO / local mode ONLY (no HTTP request in scope): the ``VULTR_API_KEY``
      environment variable, mirroring the PHP server's behaviour.
+
+Step 3 is deliberately unreachable from an HTTP request. A caller who presents
+no credential gets no ``Authorization`` header and a 401 from Vultr — never the
+server's own key, which would serve an anonymous request as the operator. See
+``tests/test_credential_resolution.py``.
 
 The surface is **read-only by default**: state-changing operations are dropped
 unless ``VULTR_MCP_WRITES_ENABLED`` is set. See ``WRITE_METHODS``.
@@ -35,11 +41,12 @@ from vultr_mcp.interface.tools import InterfaceTool
 VULTR_API_BASE = os.environ.get("VULTR_API_BASE_URL", "https://api.vultr.com/v2")
 
 # Identity/credential-management categories (OpenAPI tags) excluded from the
-# hosted tool surface by default — same posture as the PHP server and the
-# GitHub/Stripe/DigitalOcean MCPs. Enforcement of these permissions lives in
-# the IAM policy attached to the OAuth client app; excluding the tools here is
-# UX-layer hygiene (OAuth users never see tools that would always 403) and
-# keeps identity mutations out of prompt-injection reach on every auth path.
+# hosted tool surface by default — the same posture as the PHP server, and the
+# common one for an MCP server over an infrastructure API. Enforcement of
+# these permissions lives in the IAM policy attached to the OAuth client app;
+# excluding the tools here is UX-layer hygiene (OAuth users never see tools
+# that would always 403) and keeps identity mutations out of prompt-injection
+# reach on every auth path.
 #
 # These are OpenAPI *tags*, matched by RouteMap. Override with
 # VULTR_MCP_EXCLUDED_CATEGORIES (comma-separated tags; empty string disables).
@@ -118,22 +125,43 @@ class PerRequestVultrAuth(httpx.Auth):
         # 2. No auth layer (OIDC disabled): forward the raw incoming credential.
         #    include_all=True is REQUIRED — get_http_headers() strips
         #    `authorization` (and x-*, host, content-*) by default.
+        #
+        #    An empty dict means there is no HTTP request in scope at all (STDIO,
+        #    in-process tests); a real request always carries host and friends.
+        #    That is what gates the fallback below, so it is tracked here. If the
+        #    question cannot be answered, assume there IS a request: being wrong
+        #    that way only withholds a local convenience, while being wrong the
+        #    other way hands out the operator's credential.
+        incoming: dict[str, str] = {}
+        in_http_request = True
         if not token:
             try:
                 incoming = get_http_headers(include_all=True)
-                auth_header = incoming.get("authorization", "")
-                if auth_header:
-                    token = auth_header
-                else:
-                    # A raw Vultr API key may arrive as X-Vultr-API-Key.
-                    api_key = incoming.get("x-vultr-api-key", "")
-                    if api_key:
-                        token = f"Bearer {api_key}"
+                in_http_request = bool(incoming)
             except Exception:
                 pass
 
-        # 3. STDIO / local fallback.
-        if not token:
+            auth_header = incoming.get("authorization", "")
+            if auth_header:
+                token = auth_header
+            else:
+                # A raw Vultr API key may arrive as X-Vultr-API-Key.
+                api_key = incoming.get("x-vultr-api-key", "")
+                if api_key:
+                    token = f"Bearer {api_key}"
+
+        # 3. STDIO / local fallback, and ONLY that.
+        #
+        #    Deliberately unreachable from an HTTP request. Substituting the
+        #    server's own credential for a caller who presented none would serve
+        #    an anonymous request as the operator — an open proxy to whatever
+        #    account VULTR_API_KEY belongs to, on any deployment that runs HTTP
+        #    without an auth layer. Over HTTP, no credential means no
+        #    Authorization header and a 401 from Vultr, which is the right
+        #    answer. The hosted deployment is protected twice over (auth layer,
+        #    and an empty VULTR_API_KEY) but both of those are configuration;
+        #    this is the part that holds regardless of how it is deployed.
+        if not token and not in_http_request:
             env_key = os.environ.get("VULTR_API_KEY", "")
             if env_key:
                 token = f"Bearer {env_key}"
@@ -529,15 +557,22 @@ def create_server(
         if not (read_only and tool.is_write) and not (tool.tags & exclude_tags)
     ]
 
+    # Two reasons a route is dropped from the generated surface, sharing one
+    # mechanism. A hand-authored tool REPLACES its generated twin, so serving
+    # both would give the agent two tools for one operation. An excluded
+    # operation has no replacement at all: it is removed because serving it is
+    # the harm, and unlike a decline it does not come back as a generated tool.
+    suppressed = [
+        (tool.method.upper(), tool.path_template) for tool in interface_tools
+    ] + [
+        (excluded.method, excluded.path_template) for excluded in interface.excluded
+    ]
+
     server = FastMCP.from_openapi(
         openapi_spec=spec,
         client=client,
         name="Vultr MCP Server",
-        route_maps=_build_route_maps(
-            exclude_tags,
-            read_only,
-            [(tool.method.upper(), tool.path_template) for tool in interface_tools],
-        ),
+        route_maps=_build_route_maps(exclude_tags, read_only, suppressed),
         mcp_component_fn=None if _output_schemas_enabled() else _strip_output_schema,
         auth=auth,
     )

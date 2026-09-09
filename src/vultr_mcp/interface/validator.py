@@ -313,7 +313,43 @@ def validate_product_area(
     family = document["family"]
     product_area = document["product_area"]
     declined = document.get("declined") or {}
+    excluded = document.get("excluded") or {}
     tool_operations = {tool["operation"] for tool in document["tools"]}
+
+    # Excluding is the only thing here that removes an operation from the
+    # surface, so unlike a decline every problem with one is an ERROR. A
+    # decline that misses its target is untidy; an exclusion that misses its
+    # target silently serves the thing someone believed was gone.
+    for operation_id in excluded:
+        location = f"{where}.excluded.{operation_id}"
+        operation = index.get(operation_id)
+        if operation is None:
+            problems.append(
+                Problem(
+                    location,
+                    f"'{operation_id}' is not in openapi.json, so this excludes "
+                    "nothing. Remove it, or fix the operationId -- leaving it "
+                    "here reads as protection that is not there",
+                )
+            )
+            continue
+        if operation_id in tool_operations:
+            problems.append(
+                Problem(
+                    location,
+                    "is excluded but also has a tool in this file; the tool "
+                    "would be served and the exclusion would not stop it",
+                )
+            )
+        if operation_id in declined:
+            problems.append(
+                Problem(
+                    location,
+                    "is both declined and excluded. Declining leaves the "
+                    "generated tool served and excluding removes it -- pick "
+                    "one, because the pair reads as though nobody decided",
+                )
+            )
 
     # Declined operations are reviewed decisions, not served tools, so a stale
     # one cannot mislead an agent -- it can only mislead the next person, and

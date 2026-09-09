@@ -1436,3 +1436,117 @@ def test_no_area_file_is_unreasonably_long():
     }
     over = {name: n for name, n in too_long.items() if n > 450}
     assert not over, f"split these into a directory for the area: {over}"
+
+
+# --------------------------------------------------------------------------
+# Exclusion: the one block that removes an operation from the surface.
+# Declining is bookkeeping and leaves the generated tool served; excluding
+# drops it. The distinction is the whole point, so it is what these pin.
+# --------------------------------------------------------------------------
+
+
+def _excluding(tmp_path: Path, definition: dict, operation_id: str, reason: str) -> Path:
+    """A scratch area that serves one tool and excludes one operation."""
+    directory = _scratch_interface(tmp_path, definition)
+    document = yaml.safe_load((directory / "clusters.yaml").read_text(encoding="utf-8"))
+    document["excluded"] = {operation_id: {"reason": reason}}
+    (directory / "clusters.yaml").write_text(yaml.safe_dump(document), encoding="utf-8")
+    return directory
+
+
+REASON = (
+    "Serving this operation is itself the harm, which is the bar for excluding "
+    "rather than declining it."
+)
+
+
+def test_an_excluded_operation_compiles_with_its_route(tmp_path, definition, spec):
+    """The route map matches on method and path, so both must survive."""
+    directory = _excluding(tmp_path, definition, "delete-cluster", REASON)
+    compiled = compile_interface(directory, spec)
+
+    assert [e.operation_id for e in compiled.excluded] == ["delete-cluster"]
+    excluded = compiled.excluded[0]
+    assert excluded.method == "DELETE"
+    assert excluded.path_template == "/clusters/{cluster-id}"
+    assert excluded.product_area == "clusters"
+
+
+def test_excluding_an_operation_that_also_has_a_tool_fails(tmp_path, definition, spec):
+    """The tool would be served, so the exclusion would protect nothing."""
+    from vultr_mcp.interface.validator import validate_manifest
+
+    directory = _excluding(tmp_path, definition, definition["operation"], REASON)
+    problems = validate_manifest(directory, spec)
+
+    assert any("also has a tool" in str(p) for p in problems)
+    assert [p for p in problems if p.is_error]
+
+
+def test_excluding_and_declining_the_same_operation_fails(tmp_path, definition, spec):
+    """Opposite decisions on one operation means nobody decided."""
+    from vultr_mcp.interface.validator import validate_manifest
+
+    directory = _excluding(tmp_path, definition, "delete-cluster", REASON)
+    document = yaml.safe_load((directory / "clusters.yaml").read_text(encoding="utf-8"))
+    document["declined"] = {"delete-cluster": {"reason": "Contradicts the exclusion."}}
+    (directory / "clusters.yaml").write_text(yaml.safe_dump(document), encoding="utf-8")
+
+    problems = validate_manifest(directory, spec)
+    assert any("both declined and excluded" in str(p) for p in problems)
+    assert [p for p in problems if p.is_error]
+
+
+def test_an_exclusion_that_matches_nothing_is_an_error(tmp_path, definition, spec):
+    """A stale decline is a warning; a stale exclusion is a lie.
+
+    It reads as protection that is not there, so it fails the build rather than
+    warning -- the opposite of how a stale decline is treated.
+    """
+    from vultr_mcp.interface.validator import validate_manifest
+
+    directory = _excluding(tmp_path, definition, "delete-cluster-v2", REASON)
+    problems = validate_manifest(directory, spec)
+
+    assert any("excludes nothing" in str(p) for p in problems)
+    assert [p for p in problems if p.is_error]
+
+
+def test_an_excluded_operation_counts_as_reviewed_not_drift(tmp_path, definition, spec):
+    """Excluding is the strongest decision, so drift must not call it unreviewed."""
+    from vultr_mcp.interface.drift import detect_drift
+
+    directory = _excluding(tmp_path, definition, "delete-cluster", REASON)
+    report = detect_drift(directory, spec)
+
+    area = next(a for a in report.areas if a.product_area == "clusters")
+    assert area.excluded == 1
+    unreviewed = {
+        ref.operation_id for ref in area.unreviewed_reads + area.unreviewed_writes
+    }
+    assert "delete-cluster" not in unreviewed
+
+
+def test_the_shipped_exclusion_removes_the_tool_from_the_surface(spec):
+    """purge-pullzone: a state change Vultr serves over GET.
+
+    The read-only gate classifies by HTTP method, so it read as safe and was
+    served. Declining did not remove it -- a decline leaves the generated tool
+    exposed -- which is why the exclusion mechanism exists at all.
+    """
+    import asyncio
+
+    compiled = compile_interface(INTERFACE_DIR, spec)
+    excluded = {e.operation_id for e in compiled.excluded}
+    assert "purge-pullzone" in excluded
+
+    async def served() -> set[str]:
+        server = create_server(spec)
+        async with Client(server) as client:
+            return {tool.name for tool in await client.list_tools()}
+
+    names = asyncio.run(served())
+    assert not [n for n in names if "purge" in n.lower()], (
+        "purge-pullzone is still reachable; the exclusion is not wired to the "
+        "route maps"
+    )
