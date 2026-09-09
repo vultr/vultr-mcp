@@ -1,0 +1,159 @@
+product_area: container_registry
+family: registry
+
+# The container_registry area is split across this directory; every file here
+# declares the same product_area, and interface.yaml lists them together.
+
+# What is stored in a registry: repositories, and the artifacts in them.
+
+tools:
+  - name: vultr_registry_repositories_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the image repositories inside one Vultr Container Registry, with
+      artifact counts and pull counts.
+
+      Use this tool to answer what images a registry holds and how much each is
+      pulled.
+
+      Do not use this tool for the registry itself, which is
+      vultr_registry_registries_get, nor for the tags and digests of a single
+      image.
+
+    operation: list-registry-repositories
+
+    input:
+      type: object
+      required:
+        - registry_id
+      properties:
+        registry_id:
+          type: string
+          description: >-
+            ID of the container registry, as returned in the id field by
+            vultr_registry_registries_list.
+          maps_to: registry-id
+
+        name_contains:
+          type: string
+          description: >-
+            Case-insensitive text contained in the repository name.
+          filter:
+            field: name
+            match: contains_ci
+
+    output:
+      from_openapi: true
+      include:
+        - name
+        - image
+        - description
+        - artifact_count
+        - pull_count
+        - added_at
+        - updated_at
+        - meta
+
+  - name: vultr_registry_repositories_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets one image repository inside a Vultr Container Registry by name, with
+      its description, artifact count, pull count, and when it was added and
+      last updated.
+
+      Use this tool when a repository name is already known. To find one, use
+      vultr_registry_repositories_list first.
+
+      Do not use this tool for the individual tags and digests inside the
+      repository, which vultr_registry_artifacts_list returns, or for the
+      registry itself.
+
+    operation: read-registry-repository
+
+    input:
+      type: object
+      required:
+        - registry_id
+        - repository_image
+      properties:
+        registry_id:
+          type: string
+          description: >-
+            ID of the container registry, as returned in the id field by
+            vultr_registry_registries_list.
+          maps_to: registry-id
+
+        repository_image:
+          type: string
+          description: >-
+            Name of the repository image, as returned in the image field by
+            vultr_registry_repositories_list.
+          maps_to: repository-image
+
+    output:
+      from_openapi: true
+      include:
+        - name
+        - image
+        - description
+        - artifact_count
+        - pull_count
+        - added_at
+        - updated_at
+
+  - name: vultr_registry_artifacts_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the artifacts in one repository of a Vultr Container Registry --
+      the individual pushed images -- each with its digest, tags, size, media
+      type, and push and pull times.
+
+      Use this tool to find the tags available for an image, to identify an
+      image by digest, or to see which artifacts are stale or oversized.
+
+      Do not use this tool for the repository's summary counts, which
+      vultr_registry_repositories_get returns, or to pull an image, which needs
+      a Docker client rather than this API.
+
+    operation: list-registry-repository-artifacts
+
+    input:
+      type: object
+      required:
+        - registry_id
+        - repository_image
+      properties:
+        registry_id:
+          type: string
+          description: >-
+            ID of the container registry, as returned in the id field by
+            vultr_registry_registries_list.
+          maps_to: registry-id
+
+        repository_image:
+          type: string
+          description: >-
+            Name of the repository image, as returned in the image field by
+            vultr_registry_repositories_list.
+          maps_to: repository-image
+
+    output:
+      from_openapi: true
+      include:
+        - digest
+        - tags
+        - size
+        - type
+        - artifact_type
+        - media_type
+        - manifest_media_type
+        - repository_name
+        - push_time
+        - pull_time
+        - meta

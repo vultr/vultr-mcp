@@ -1,0 +1,321 @@
+product_area: kubernetes
+family: kubernetes
+
+# The kubernetes area is split across this directory; every file here declares
+# the same product_area, and interface.yaml lists them together.
+
+# Node pools and the scheduling metadata on them.
+
+tools:
+  - name: vultr_kubernetes_node_pools_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the node pools in one Vultr Kubernetes Engine cluster, each with
+      its plan, node count, autoscaler bounds, status, labels, taints and the
+      individual nodes it contains.
+
+      Use this tool to report a cluster's capacity, to find which pool a node
+      belongs to, or to check how autoscaling is configured.
+
+      Do not use this tool for the node pools of a Vultr Compute Cluster, which
+      is a different product, or for cloud compute instances in general -- VKE
+      nodes appear there too, which is exactly the confusion this tool avoids.
+
+    operation: get-nodepools
+
+    input:
+      type: object
+      required:
+        - vke_id
+      properties:
+        vke_id:
+          type: string
+          description: >-
+            ID of the VKE cluster, as returned in the id field by
+            vultr_kubernetes_clusters_list.
+          maps_to: vke-id
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - label
+        - tag
+        - plan
+        - status
+        - node_quantity
+        - min_nodes
+        - max_nodes
+        - auto_scaler
+        - allow_forced_replacement
+        - vpc_only
+        - labels
+        - taints
+        - nodes
+        - user_data
+        - date_created
+        - date_updated
+
+    computed:
+      node_count:
+        type: integer
+        description: Number of nodes currently in the pool.
+        from: length(nodes)
+
+  - name: vultr_kubernetes_node_pools_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets one node pool in a Vultr Kubernetes Engine cluster by its ID, with
+      its plan, node count, autoscaler bounds, status, labels, taints and the
+      individual nodes it contains.
+
+      Use this tool when a node pool ID is already known. To find one, use
+      vultr_kubernetes_node_pools_list first.
+
+      Do not use this tool for a Compute Cluster's nodes, which are a different
+      product, or for the cluster this pool belongs to, which
+      vultr_kubernetes_clusters_get returns.
+
+    operation: get-nodepool
+
+    input:
+      type: object
+      required:
+        - vke_id
+        - nodepool_id
+      properties:
+        vke_id:
+          type: string
+          description: >-
+            ID of the VKE cluster, as returned in the id field by
+            vultr_kubernetes_clusters_list.
+          maps_to: vke-id
+
+        nodepool_id:
+          type: string
+          description: >-
+            ID of the node pool, as returned in the id field by
+            vultr_kubernetes_node_pools_list.
+          maps_to: nodepool-id
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - label
+        - tag
+        - plan
+        - status
+        - node_quantity
+        - min_nodes
+        - max_nodes
+        - auto_scaler
+        - allow_forced_replacement
+        - vpc_only
+        - labels
+        - taints
+        - nodes
+        - user_data
+        - date_created
+        - date_updated
+
+    computed:
+      node_count:
+        type: integer
+        description: Number of nodes currently in the pool.
+        from: length(nodes)
+
+  - name: vultr_kubernetes_node_pools_labels_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the Kubernetes labels applied to the nodes of one node pool, as key
+      and value pairs with their IDs.
+
+      Use this tool to see how a pool's nodes are labelled for scheduling.
+
+      Do not use this tool for the pool's own Vultr label, which is a display
+      name returned by vultr_kubernetes_node_pools_get, or for taints, which
+      vultr_kubernetes_node_pools_taints_list returns.
+
+    operation: list-nodepool-labels
+
+    input:
+      type: object
+      required:
+        - vke_id
+        - nodepool_id
+      properties:
+        vke_id:
+          type: string
+          description: >-
+            ID of the VKE cluster, as returned in the id field by
+            vultr_kubernetes_clusters_list.
+          maps_to: vke-id
+
+        nodepool_id:
+          type: string
+          description: >-
+            ID of the node pool, as returned in the id field by
+            vultr_kubernetes_node_pools_list.
+          maps_to: nodepool-id
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - key
+        - value
+
+  - name: vultr_kubernetes_node_pools_labels_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets one Kubernetes node label on a node pool by its ID, as a key and
+      value pair.
+
+      Use this tool when a label ID is already known. To list them, use
+      vultr_kubernetes_node_pools_labels_list.
+
+      Do not use this tool for taints, which
+      vultr_kubernetes_node_pools_taints_get returns.
+
+    operation: read-nodepool-label
+
+    input:
+      type: object
+      required:
+        - vke_id
+        - nodepool_id
+        - label_id
+      properties:
+        vke_id:
+          type: string
+          description: >-
+            ID of the VKE cluster, as returned in the id field by
+            vultr_kubernetes_clusters_list.
+          maps_to: vke-id
+
+        nodepool_id:
+          type: string
+          description: >-
+            ID of the node pool, as returned in the id field by
+            vultr_kubernetes_node_pools_list.
+          maps_to: nodepool-id
+
+        label_id:
+          type: string
+          description: >-
+            ID of the label, as returned in the id field by
+            vultr_kubernetes_node_pools_labels_list.
+          maps_to: label-id
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - key
+        - value
+
+  - name: vultr_kubernetes_node_pools_taints_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the Kubernetes taints applied to the nodes of one node pool, each
+      with its key, value and effect.
+
+      Use this tool to find what a pool's nodes repel, which is what explains a
+      pod that will not schedule there.
+
+      Do not use this tool for labels, which
+      vultr_kubernetes_node_pools_labels_list returns, or for firewall rules,
+      which are unrelated.
+
+    operation: list-nodepool-taints
+
+    input:
+      type: object
+      required:
+        - vke_id
+        - nodepool_id
+      properties:
+        vke_id:
+          type: string
+          description: >-
+            ID of the VKE cluster, as returned in the id field by
+            vultr_kubernetes_clusters_list.
+          maps_to: vke-id
+
+        nodepool_id:
+          type: string
+          description: >-
+            ID of the node pool, as returned in the id field by
+            vultr_kubernetes_node_pools_list.
+          maps_to: nodepool-id
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - key
+        - value
+        - effect
+
+  - name: vultr_kubernetes_node_pools_taints_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets one Kubernetes node taint on a node pool by its ID, with its key,
+      value and effect.
+
+      Use this tool when a taint ID is already known. To list them, use
+      vultr_kubernetes_node_pools_taints_list.
+
+      Do not use this tool for labels, which
+      vultr_kubernetes_node_pools_labels_get returns.
+
+    operation: read-nodepool-taint
+
+    input:
+      type: object
+      required:
+        - vke_id
+        - nodepool_id
+        - taint_id
+      properties:
+        vke_id:
+          type: string
+          description: >-
+            ID of the VKE cluster, as returned in the id field by
+            vultr_kubernetes_clusters_list.
+          maps_to: vke-id
+
+        nodepool_id:
+          type: string
+          description: >-
+            ID of the node pool, as returned in the id field by
+            vultr_kubernetes_node_pools_list.
+          maps_to: nodepool-id
+
+        taint_id:
+          type: string
+          description: >-
+            ID of the taint, as returned in the id field by
+            vultr_kubernetes_node_pools_taints_list.
+          maps_to: taint-id
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - key
+        - value
+        - effect

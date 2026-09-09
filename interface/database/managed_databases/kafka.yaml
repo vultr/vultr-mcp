@@ -1,0 +1,309 @@
+product_area: managed_databases
+family: database
+
+# The managed_databases area is split across this directory; every file here
+# declares the same product_area, and interface.yaml lists them together.
+
+# Kafka-only reads: topics, per-user quotas, and the option sets for the
+# Kafka Connect, REST and Schema Registry sub-services.
+
+tools:
+  - name: vultr_database_topics_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the Kafka topics on one Vultr Managed Database, each with its
+      partition count, replication factor, and retention in hours and bytes.
+
+      Use this tool to find what topics exist on a Kafka database and how they
+      are configured.
+
+      Do not use this tool for the messages inside a topic, which need a Kafka
+      client rather than this API, or for logical databases on a SQL engine,
+      which vultr_database_logical_databases_list returns.
+
+    operation: list-database-topics
+
+    input:
+      type: object
+      required:
+        - database_id
+      properties:
+        database_id:
+          type: string
+          description: >-
+            ID of the managed database, as returned in the id field by
+            vultr_database_clusters_list.
+          maps_to: database-id
+
+    output:
+      from_openapi: true
+      include:
+        - name
+        - partitions
+        - replication
+        - retention_hours
+        - retention_bytes
+        - meta
+
+  - name: vultr_database_topics_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets one Kafka topic on a Vultr Managed Database by name, with its
+      partition count, replication factor, and retention in hours and bytes.
+
+      Use this tool when the topic name is already known. To list them, use
+      vultr_database_topics_list.
+
+      Do not use this tool for the messages inside the topic, which need a
+      Kafka client rather than this API.
+
+    operation: get-database-topic
+
+    input:
+      type: object
+      required:
+        - database_id
+        - topic_name
+      properties:
+        database_id:
+          type: string
+          description: >-
+            ID of the managed database, as returned in the id field by
+            vultr_database_clusters_list.
+          maps_to: database-id
+
+        topic_name:
+          type: string
+          description: >-
+            Name of the Kafka topic, as returned in the name field by
+            vultr_database_topics_list.
+          maps_to: topic-name
+
+    output:
+      from_openapi: true
+      include:
+        - name
+        - partitions
+        - replication
+        - retention_hours
+        - retention_bytes
+
+  - name: vultr_database_quotas_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the Kafka quotas on one Vultr Managed Database, each capping a
+      client and user pair's producer and consumer byte rates and its share of
+      request handler time.
+
+      Use this tool to report which clients are rate-limited and by how much.
+
+      Do not use this tool for the database's own plan limits or resource
+      usage, which vultr_database_usage_get returns.
+
+    operation: list-database-quotas
+
+    input:
+      type: object
+      required:
+        - database_id
+      properties:
+        database_id:
+          type: string
+          description: >-
+            ID of the managed database, as returned in the id field by
+            vultr_database_clusters_list.
+          maps_to: database-id
+
+    output:
+      from_openapi: true
+      include:
+        - client_id
+        - user
+        - producer_byte_rate
+        - consumer_byte_rate
+        - request_percentage
+        - meta
+
+  - name: vultr_database_quotas_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets one Kafka quota on a Vultr Managed Database by client ID and
+      username, with its producer and consumer byte rates and its share of
+      request handler time.
+
+      Use this tool when the client ID and username are already known. To list
+      them, use vultr_database_quotas_list.
+
+      Do not use this tool for the database's own plan limits or resource
+      usage, which vultr_database_usage_get returns.
+
+    operation: get-database-quota
+
+    input:
+      type: object
+      required:
+        - database_id
+        - client_id
+        - username
+      properties:
+        database_id:
+          type: string
+          description: >-
+            ID of the managed database, as returned in the id field by
+            vultr_database_clusters_list.
+          maps_to: database-id
+
+        client_id:
+          type: string
+          description: >-
+            Client ID the quota applies to, as returned in the client_id field
+            by vultr_database_quotas_list.
+          maps_to: client-id
+
+        username:
+          type: string
+          description: >-
+            User the quota applies to, as returned in the user field by
+            vultr_database_quotas_list.
+
+    output:
+      from_openapi: true
+      include:
+        - client_id
+        - user
+        - producer_byte_rate
+        - consumer_byte_rate
+        - request_percentage
+
+  - name: vultr_database_kafka_connect_options_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the advanced Kafka Connect options for one Vultr Managed Database
+      running Kafka: every option that can be set, with its type, permitted
+      range or values and units, alongside those currently configured.
+
+      Use this tool to see how Kafka Connect is tuned on a specific database.
+
+      Do not use this tool for the engine's general advanced options, which
+      vultr_database_advanced_options_list returns, nor for Kafka REST or
+      Schema Registry options, which have their own tools.
+
+    operation: list-advanced-options-kafka-connect
+
+    input:
+      type: object
+      required:
+        - database_id
+      properties:
+        database_id:
+          type: string
+          description: >-
+            ID of the managed database, as returned in the id field by
+            vultr_database_clusters_list.
+          maps_to: database-id
+
+    output:
+      from_openapi: true
+      include:
+        - name
+        - type
+        - units
+        - min_value
+        - max_value
+        - enumerals
+        - alt_values
+        - configured_options
+
+  - name: vultr_database_kafka_rest_options_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the advanced Kafka REST options for one Vultr Managed Database
+      running Kafka: every option that can be set, with its type, permitted
+      range or values and units, alongside those currently configured.
+
+      Use this tool to see how the Kafka REST proxy is tuned on a specific
+      database.
+
+      Do not use this tool for the engine's general advanced options, which
+      vultr_database_advanced_options_list returns, nor for Kafka Connect or
+      Schema Registry options, which have their own tools.
+
+    operation: list-advanced-options-kafka-rest
+
+    input:
+      type: object
+      required:
+        - database_id
+      properties:
+        database_id:
+          type: string
+          description: >-
+            ID of the managed database, as returned in the id field by
+            vultr_database_clusters_list.
+          maps_to: database-id
+
+    output:
+      from_openapi: true
+      include:
+        - name
+        - type
+        - units
+        - min_value
+        - max_value
+        - enumerals
+        - alt_values
+        - configured_options
+
+  - name: vultr_database_schema_registry_options_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the advanced Schema Registry options for one Vultr Managed Database
+      running Kafka: every option that can be set, with its type, permitted
+      range or values and units, alongside those currently configured.
+
+      Use this tool to see how the Schema Registry is tuned on a specific
+      database.
+
+      Do not use this tool for the engine's general advanced options, which
+      vultr_database_advanced_options_list returns, nor for Kafka Connect or
+      Kafka REST options, which have their own tools.
+
+    operation: list-advanced-options-schema-registry
+
+    input:
+      type: object
+      required:
+        - database_id
+      properties:
+        database_id:
+          type: string
+          description: >-
+            ID of the managed database, as returned in the id field by
+            vultr_database_clusters_list.
+          maps_to: database-id
+
+    output:
+      from_openapi: true
+      include:
+        - name
+        - type
+        - units
+        - min_value
+        - max_value
+        - enumerals
+        - alt_values
+        - configured_options

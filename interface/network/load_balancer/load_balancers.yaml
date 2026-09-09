@@ -1,0 +1,199 @@
+product_area: load_balancer
+family: network
+
+# The load_balancer area is split across this directory; every file here
+# declares the same product_area, and interface.yaml lists them together.
+
+# The load balancer itself. ssl_cert_b64 is withheld from every response here
+# -- the spec describes it as the certificate, private key and chain, and
+# has_ssl answers the question anyone actually asks.
+
+tools:
+  - name: vultr_network_load_balancers_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists Vultr load balancers in the active Vultr organization, with each
+      one's region, status, IPv4 and IPv6 addresses, attached instances,
+      health check, firewall rules and whether TLS is configured.
+
+      Use this tool to list, find, count, or select load balancers, and to
+      report on how traffic is distributed.
+
+      Do not use this tool for NAT gateways, which give a VPC outbound
+      internet access and are a different product, or for Kubernetes services
+      of type LoadBalancer, which are listed by
+      vultr_kubernetes_clusters_resources_get.
+
+    operation: list-load-balancers
+
+    input:
+      type: object
+      properties:
+        label:
+          type: string
+          description: Case-insensitive text contained in the load balancer label.
+          filter:
+            field: label
+            match: contains_ci
+
+        region:
+          type: string
+          description: Vultr region ID the load balancer is in, such as ewr.
+          filter:
+            field: region
+            match: equals
+
+        status:
+          type: string
+          description: Load balancer status, such as active or pending.
+          filter:
+            field: status
+            match: equals
+
+        page_size:
+          type: integer
+          description: >-
+            Maximum number of results to return. When a filter is supplied the
+            server scans the account and returns up to this many matches,
+            reporting in meta.filtered how much it scanned.
+          default: 100
+          minimum: 1
+          maximum: 500
+          maps_to: per_page
+
+        cursor:
+          type: string
+          description: Cursor returned by a previous request for the next page.
+
+    output:
+      from_openapi: true
+      # ssl_cert_b64 is deliberately absent: it carries the private key.
+      include:
+        - id
+        - label
+        - region
+        - status
+        - ipv4
+        - ipv6
+        - cname
+        - has_ssl
+        - auto_ssl
+        - http2
+        - http3
+        - nodes
+        - node_ips
+        - instances
+        - health_check
+        - generic_info
+        - firewall_rules
+        - global_cname
+        - global_regions
+        - global_parent_id
+        - global_children_ids
+        - pending_charges
+        - date_created
+        - meta
+
+    computed:
+      instance_count:
+        type: integer
+        description: Number of instances behind the load balancer.
+        from: length(instances)
+
+  - name: vultr_network_load_balancers_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets one Vultr load balancer by its ID, with its region, status,
+      addresses, attached instances, health check, firewall rules and whether
+      TLS is configured. It does not return forwarding rules; those come from
+      vultr_network_load_balancer_forwarding_rules_list.
+
+      Use this tool when a load balancer ID is already known. To find one, use
+      vultr_network_load_balancers_list first.
+
+      Do not use this tool for NAT gateways, which are a different product, or
+      for the TLS certificate and private key, which this layer does not
+      return -- see the note at the top of this file.
+
+    operation: get-load-balancer
+
+    input:
+      type: object
+      required:
+        - load_balancer_id
+      properties:
+        load_balancer_id:
+          type: string
+          description: >-
+            ID of the load balancer, as returned in the id field by
+            vultr_network_load_balancers_list.
+          maps_to: load-balancer-id
+
+    output:
+      from_openapi: true
+      # ssl_cert_b64 is deliberately absent: it carries the private key.
+      include:
+        - id
+        - label
+        - region
+        - status
+        - ipv4
+        - ipv6
+        - cname
+        - has_ssl
+        - auto_ssl
+        - http2
+        - http3
+        - nodes
+        - node_ips
+        - instances
+        - health_check
+        - generic_info
+        - firewall_rules
+        - global_cname
+        - global_regions
+        - global_parent_id
+        - global_children_ids
+        - pending_charges
+        - date_created
+
+    computed:
+      instance_count:
+        type: integer
+        description: Number of instances behind the load balancer.
+        from: length(instances)
+
+  - name: vultr_network_load_balancer_reverse_dns_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets the reverse DNS entries configured for one Vultr load balancer's
+      IPv4 and IPv6 addresses.
+
+      Use this tool to check what a load balancer's addresses resolve back to.
+
+      Do not use this tool for forward DNS records, which
+      vultr_network_dns_records_list returns, or for reverse DNS on a reserved
+      IP, which has its own tool.
+
+    operation: get-load-balancer-reverse-dns
+
+    input:
+      type: object
+      required:
+        - load_balancer_id
+      properties:
+        load_balancer_id:
+          type: string
+          description: >-
+            ID of the load balancer, as returned in the id field by
+            vultr_network_load_balancers_list.
+          maps_to: load-balancer-id
+
+    # No `output` block: the response carries ipv4 and ipv6 side by side with
+    # no declared item fields, so there is nothing to allowlist against.

@@ -1,0 +1,219 @@
+product_area: managed_databases
+family: database
+
+# The managed_databases area is split across this directory; every file here
+# declares the same product_area, and interface.yaml lists them together.
+
+# Kafka Connect connectors: what can be created, what exists, and how each one
+# is doing.
+
+tools:
+  - name: vultr_database_available_connectors_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the Kafka Connect connectors that can be created on one Vultr
+      Managed Database, each with its class, title, type and documentation URL.
+
+      Use this tool to find which connector integrations are on offer before
+      configuring one.
+
+      Do not use this tool for the connectors already configured, which
+      vultr_database_connectors_list returns.
+
+    operation: list-database-available-connectors
+
+    input:
+      type: object
+      required:
+        - database_id
+      properties:
+        database_id:
+          type: string
+          description: >-
+            ID of the managed database, as returned in the id field by
+            vultr_database_clusters_list.
+          maps_to: database-id
+
+    output:
+      from_openapi: true
+      include:
+        - class
+        - title
+        - type
+        - version
+        - doc_url
+
+  - name: vultr_database_connector_configuration_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets the configuration schema for one available Kafka Connect connector
+      class: every setting it accepts, with each setting's type, default value,
+      description and whether it is required.
+
+      Use this tool to find out what a connector needs configured before
+      creating one.
+
+      Do not use this tool for the configuration of a connector that already
+      exists, which this layer does not return -- see the note at the top of
+      this file.
+
+    operation: get-database-connector-configuration-schema
+
+    input:
+      type: object
+      required:
+        - database_id
+        - connector_class
+      properties:
+        database_id:
+          type: string
+          description: >-
+            ID of the managed database, as returned in the id field by
+            vultr_database_clusters_list.
+          maps_to: database-id
+
+        connector_class:
+          type: string
+          description: >-
+            Identifying class of the connector, as returned in the class field
+            by vultr_database_available_connectors_list.
+          maps_to: connector-class
+
+    output:
+      from_openapi: true
+      include:
+        - name
+        - type
+        - required
+        - default_value
+        - description
+
+  - name: vultr_database_connectors_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the Kafka Connect connectors configured on one Vultr Managed
+      Database, each with its name, class, and the topics it reads or writes.
+
+      Use this tool to find what integrations a Kafka database is running and
+      which topics they touch.
+
+      Do not use this tool for the connector classes available to create, which
+      vultr_database_available_connectors_list returns, or for a connector's
+      running state, which vultr_database_connector_status_get returns.
+
+    operation: list-database-connectors
+
+    input:
+      type: object
+      required:
+        - database_id
+      properties:
+        database_id:
+          type: string
+          description: >-
+            ID of the managed database, as returned in the id field by
+            vultr_database_clusters_list.
+          maps_to: database-id
+
+    output:
+      from_openapi: true
+      # `config` is deliberately absent; see the note at the top of this file.
+      include:
+        - name
+        - class
+        - topics
+        - meta
+
+  - name: vultr_database_connectors_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets one Kafka Connect connector on a Vultr Managed Database by name,
+      with its class and the topics it reads or writes.
+
+      Use this tool when the connector name is already known. To list them, use
+      vultr_database_connectors_list.
+
+      Do not use this tool for whether the connector is running, which
+      vultr_database_connector_status_get returns, or for the settings a
+      connector class accepts, which
+      vultr_database_connector_configuration_get returns.
+
+    operation: get-database-connector
+
+    input:
+      type: object
+      required:
+        - database_id
+        - connector_name
+      properties:
+        database_id:
+          type: string
+          description: >-
+            ID of the managed database, as returned in the id field by
+            vultr_database_clusters_list.
+          maps_to: database-id
+
+        connector_name:
+          type: string
+          description: >-
+            Name of the connector, as returned in the name field by
+            vultr_database_connectors_list.
+          maps_to: connector-name
+
+    output:
+      from_openapi: true
+      # `config` is deliberately absent; see the note at the top of this file.
+      include:
+        - name
+        - class
+        - topics
+
+  - name: vultr_database_connector_status_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets the running state of one Kafka Connect connector on a Vultr Managed
+      Database, with the state of each of its tasks.
+
+      Use this tool to check whether a connector is running or has failed, and
+      which task failed.
+
+      Do not use this tool for the connector's configuration or topics, which
+      vultr_database_connectors_get returns.
+
+    operation: get-database-connector-status
+
+    input:
+      type: object
+      required:
+        - database_id
+        - connector_name
+      properties:
+        database_id:
+          type: string
+          description: >-
+            ID of the managed database, as returned in the id field by
+            vultr_database_clusters_list.
+          maps_to: database-id
+
+        connector_name:
+          type: string
+          description: >-
+            Name of the connector, as returned in the name field by
+            vultr_database_connectors_list.
+          maps_to: connector-name
+
+    output:
+      from_openapi: true
+      include:
+        - state
+        - tasks

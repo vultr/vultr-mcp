@@ -1,0 +1,328 @@
+product_area: managed_databases
+family: database
+
+# The managed_databases area is split across this directory; every file here
+# declares the same product_area, and interface.yaml lists them together.
+
+# The database cluster itself, and the facts that hang off one: what it is
+# costing, when it was backed up, what maintenance is pending, and the state of
+# a migration into it.
+
+# The one read in this area with no tool, and it is not an oversight.
+#
+# list-service-alerts is a read: it lists a database's existing alerts and
+# creates nothing. server.py already knows that -- READ_ONLY_METHOD_OVERRIDES
+# keeps it on the read-only surface despite the verb. But the interface layer
+# cannot express it twice over, and neither blocker is ours to remove.
+declined:
+  list-service-alerts:
+    reason: >-
+      A read served over POST /databases/{database-id}/alerts. The compiler
+      requires `access` to agree with the HTTP method, so a tool for it would
+      have to declare `access: write` and would then be dropped from the
+      read-only surface -- the opposite of what it is. It also requires a JSON
+      request body with a required `period`, which the runtime does not build.
+      server.py's READ_ONLY_METHOD_OVERRIDES already exempts it so the generated
+      tool stays reachable; revisit when the request-body engine lands and the
+      access check can take an override.
+
+tools:
+  - name: vultr_database_clusters_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists Vultr Managed Database clusters, also called managed databases, in
+      the active Vultr organization, with their engine, plan, region, and
+      connection endpoints.
+
+      Use this tool to list, find, count, or select managed databases, and to
+      answer questions about which engine or plan a database runs.
+
+      Do not use this tool for Vultr Compute Clusters or Vultr Kubernetes
+      Engine clusters, which are unrelated products with their own tools, nor
+      for a database you run yourself on an instance.
+
+    operation: list-databases
+
+    input:
+      type: object
+      properties:
+        # The API filters on these itself.
+        label:
+          type: string
+          description: >-
+            Exact database label. The API filters on this directly, so prefer
+            it when the full label is known.
+
+        tag:
+          type: string
+          description: Exact tag applied to the database.
+
+        region:
+          type: string
+          description: Vultr region ID, such as ewr.
+
+        # Applied here, because the API cannot. GET /databases takes no
+        # per_page or cursor at all -- it returns the whole account in one
+        # response -- so there is no page size to cap matches against and no
+        # paging loop to run.
+        label_contains:
+          type: string
+          description: >-
+            Case-insensitive text contained in the database label. Slower than
+            label, which the API filters directly.
+          filter:
+            field: label
+            match: contains_ci
+
+        database_engine:
+          type: string
+          description: Database engine, such as pg, mysql, valkey, or kafka.
+          filter:
+            field: database_engine
+            match: equals
+
+        status:
+          type: string
+          description: Provisioning status of the database.
+          filter:
+            field: status
+            match: equals
+
+    output:
+      from_openapi: true
+      # password, access_key, access_cert, and ca_certificate are all absent.
+      # `user` is the username and stays: it identifies, it does not authorise.
+      include:
+        - id
+        - label
+        - region
+        - status
+        - plan
+        - database_engine
+        - database_engine_version
+        - host
+        - public_host
+        - port
+        - user
+        - dbname
+        - tag
+        - latest_backup
+        - pending_charges
+        - date_created
+        - meta
+
+  - name: vultr_database_clusters_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets one Vultr Managed Database cluster by its ID, including its engine,
+      plan sizing, maintenance window, backup schedule, and network access
+      rules.
+
+      Use this tool when a database ID is already known. To find one by label,
+      tag, or region, use vultr_database_clusters_list first.
+
+      Do not use this tool for Vultr Compute Clusters or Kubernetes clusters.
+
+    operation: get-database
+
+    input:
+      type: object
+      required:
+        - database_id
+      properties:
+        database_id:
+          type: string
+          description: >-
+            ID of the managed database, as returned in the id field by
+            vultr_database_clusters_list.
+          maps_to: database-id
+
+    output:
+      from_openapi: true
+      # The same credentials are withheld. This view adds the sizing,
+      # maintenance, and engine-specific settings the list drops.
+      include:
+        - id
+        - label
+        - region
+        - status
+        - plan
+        - plan_disk
+        - plan_ram
+        - plan_vcpus
+        - plan_replicas
+        - plan_brokers
+        - database_engine
+        - database_engine_version
+        - host
+        - public_host
+        - port
+        - sasl_port
+        - user
+        - dbname
+        - tag
+        - vpc_id
+        - trusted_ips
+        - read_replicas
+        - parent_id
+        - latest_backup
+        - backup_hour
+        - backup_minute
+        - maintenance_dow
+        - maintenance_time
+        - cluster_time_zone
+        - eviction_policy
+        - redis_eviction_policy
+        - enable_kafka_connect
+        - enable_kafka_rest
+        - enable_schema_registry
+        - kafka_rest_uri
+        - schema_registry_uri
+        - kafka_private_access
+        - mysql_require_primary_key
+        - mysql_slow_query_log
+        - mysql_long_query_time
+        - mysql_sql_modes
+        - pending_charges
+        - date_created
+
+  - name: vultr_database_usage_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets current resource usage for one Vultr Managed Database: disk, memory
+      and CPU, each as the amount used against what the plan provides.
+
+      Use this tool to check how close a database is to its limits, or whether
+      it needs a larger plan.
+
+      Do not use this tool for network bandwidth, which managed databases do
+      not report here, or for the plan's specifications, which
+      vultr_database_plans_list returns.
+
+    operation: get-database-usage
+
+    input:
+      type: object
+      required:
+        - database_id
+      properties:
+        database_id:
+          type: string
+          description: >-
+            ID of the managed database, as returned in the id field by
+            vultr_database_clusters_list.
+          maps_to: database-id
+
+    output:
+      from_openapi: true
+      include:
+        - disk
+        - memory
+        - cpu
+
+  - name: vultr_database_backups_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets the backup window for one Vultr Managed Database: the date and time
+      of the most recent backup and of the oldest one still retained.
+
+      Use this tool to check that a database is being backed up, and to find
+      the earliest point it could be restored to.
+
+      Do not use this tool for compute instance backups or snapshots, which are
+      separate products with their own tools.
+
+    operation: get-backup-information
+
+    input:
+      type: object
+      required:
+        - database_id
+      properties:
+        database_id:
+          type: string
+          description: >-
+            ID of the managed database, as returned in the id field by
+            vultr_database_clusters_list.
+          maps_to: database-id
+
+    # No `output` block: the response carries latest_backup and oldest_backup
+    # side by side, and shaping applies to a single container. Both are two
+    # fields each, so the whole payload passes through.
+
+  - name: vultr_database_maintenance_updates_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the maintenance updates pending for one Vultr Managed Database,
+      as the update descriptions the service reports.
+
+      Use this tool to check whether a database has maintenance waiting before
+      scheduling a window.
+
+      Do not use this tool for engine version upgrades, which
+      vultr_database_versions_list returns, or for the maintenance day and time
+      configured on the database, which vultr_database_clusters_get returns.
+
+    operation: list-maintenance-updates
+
+    input:
+      type: object
+      required:
+        - database_id
+      properties:
+        database_id:
+          type: string
+          description: >-
+            ID of the managed database, as returned in the id field by
+            vultr_database_clusters_list.
+          maps_to: database-id
+
+    # No `output` block: available_updates is a bare array of strings, so there
+    # are no item fields to allowlist against.
+
+  - name: vultr_database_migration_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets the status of a data migration into one Vultr Managed Database,
+      including the method used and any error reported.
+
+      Use this tool to answer whether a migration is running, finished, or
+      failed.
+
+      Do not use this tool to start or stop a migration.
+
+    operation: view-migration-status
+
+    input:
+      type: object
+      required:
+        - database_id
+      properties:
+        database_id:
+          type: string
+          description: >-
+            ID of the managed database, as returned in the id field by
+            vultr_database_clusters_list.
+          maps_to: database-id
+
+    output:
+      from_openapi: true
+      # `credentials` is absent: it holds the source database's connection
+      # details, which is somebody else's system's credential rather than
+      # Vultr's, and no less real for that.
+      include:
+        - status
+        - method
+        - error

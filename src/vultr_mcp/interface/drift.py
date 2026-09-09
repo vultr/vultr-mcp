@@ -28,7 +28,7 @@ import yaml
 
 from vultr_mcp.interface.scaffold import slug
 from vultr_mcp.interface.spec_index import Operation, SpecIndex
-from vultr_mcp.interface.validator import load_manifest
+from vultr_mcp.interface.validator import area_files, load_manifest
 
 
 @dataclass(frozen=True)
@@ -182,12 +182,22 @@ def detect_drift(interface_dir: Path, spec: dict[str, Any]) -> DriftReport:
     index = SpecIndex.load(spec)
 
     areas = []
-    for area, filename in (manifest.get("product_areas") or {}).items():
-        path = interface_dir / filename
-        if not path.exists():
+    for area, entry in (manifest.get("product_areas") or {}).items():
+        # An area split over several files is still one area measured against
+        # one tag, so the files are merged before it is measured -- otherwise
+        # each half would report the other half's operations as drift.
+        merged: dict[str, Any] = {"tools": [], "declined": {}}
+        present = False
+        for path in area_files(interface_dir, entry):
+            if not path.exists():
+                continue
+            present = True
+            document = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+            merged["tools"].extend(document.get("tools") or [])
+            merged["declined"].update(document.get("declined") or {})
+        if not present:
             continue
-        document = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-        areas.append(_area_drift(area, document, index))
+        areas.append(_area_drift(area, merged, index))
 
     return DriftReport(version=str(manifest["version"]), areas=tuple(areas))
 

@@ -53,7 +53,7 @@ VULTR_API_BASE = os.environ.get("VULTR_API_BASE_URL", "https://api.vultr.com/v2"
 #
 # `logs` was excluded here for a while, because ListAuditLogs returns
 # `s3_access_key` and `s3_secret_key` for the audit-log delivery bucket. It is
-# back, because interface/logs.yaml now covers every read operation in the
+# back, because interface/account/logs.yaml now covers every read operation in the
 # category with a tool that withholds both. That is the mechanism working as
 # intended: exclusion is per-category and blunt, shaping is per-operation and
 # exact, so the category returns as soon as the shaping exists.

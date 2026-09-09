@@ -1,0 +1,170 @@
+product_area: instances
+family: compute
+
+# Runtime facts about a running instance -- usage, what it could be resized to,
+# the state of an async job, and which instances share its physical host. See
+# instances.yaml for the area's shared notes.
+
+tools:
+  - name: vultr_compute_instances_bandwidth_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets daily bandwidth usage for one Vultr cloud compute instance, as
+      incoming and outgoing bytes per day.
+
+      Use this tool to report how much traffic a specific instance has moved,
+      or to find which day drove a spike.
+
+      Do not use this tool for account-wide bandwidth across every product,
+      which vultr_account_bandwidth_get returns, or for bare metal servers,
+      which have their own tool.
+
+    operation: get-instance-bandwidth
+
+    input:
+      type: object
+      required:
+        - instance_id
+      properties:
+        instance_id:
+          type: string
+          description: >-
+            ID of the instance, as returned in the id field by
+            vultr_compute_instances_list.
+          maps_to: instance-id
+
+        date_range:
+          type: integer
+          description: >-
+            Number of days back from today to include. Defaults to 30 and the
+            API caps it at 180.
+          minimum: 1
+          maximum: 180
+
+    # No `output` block, for the same reason as the bare metal bandwidth tool:
+    # the response is one key per day and the spec models it with two
+    # hard-coded example dates, so an allowlist would empty every response.
+
+  - name: vultr_compute_instances_neighbors_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the IDs of other Vultr cloud compute instances in the account that
+      sit on the same physical host as a given instance.
+
+      Use this tool to assess co-location risk: instances sharing a host share
+      its failure, so this answers whether a redundant pair is genuinely
+      redundant.
+
+      Do not use this tool for instances in the same region or VPC, which are
+      much weaker relationships and are answered by other tools.
+
+    operation: get-instance-neighbors
+
+    input:
+      type: object
+      required:
+        - instance_id
+      properties:
+        instance_id:
+          type: string
+          description: >-
+            ID of the instance, as returned in the id field by
+            vultr_compute_instances_list.
+          maps_to: instance-id
+
+    # No `output` block: the payload is a bare array of instance ID strings,
+    # so there are no item fields to allowlist against.
+
+  - name: vultr_compute_instances_upgrades_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets the plans, operating systems and marketplace applications one Vultr
+      cloud compute instance can be upgraded or changed to.
+
+      Use this tool to find what an instance can move to before planning a
+      resize, OS change or application switch.
+
+      Do not use this tool for the instance's current plan or OS, which
+      vultr_compute_instances_get returns, or to browse the plan, OS and
+      marketplace catalogs in general, which are not specific to one instance.
+
+    operation: get-instance-upgrades
+
+    input:
+      type: object
+      required:
+        - instance_id
+      properties:
+        instance_id:
+          type: string
+          description: >-
+            ID of the instance, as returned in the id field by
+            vultr_compute_instances_list.
+          maps_to: instance-id
+
+        type:
+          type: string
+          description: >-
+            Limit the answer to one kind of upgrade. Omit for everything
+            available.
+          # Spelled out as an enum because the spec leaves this a bare string
+          # and names the values only in prose.
+          enum:
+            - all
+            - applications
+            - os
+            - plans
+
+    output:
+      from_openapi: true
+      include:
+        - plans
+        - os
+        - applications
+
+  - name: vultr_compute_instances_job_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets the status of one long-running instance job by its job ID -- the
+      asynchronous work Vultr returns a handle for, such as an OS change or a
+      plan upgrade -- with its type, state, and when it was started and last
+      updated.
+
+      Use this tool to poll whether such an operation has finished, when a job
+      ID is already in hand.
+
+      Do not use this tool for the instance's own power state or provisioning
+      status, which vultr_compute_instances_get returns.
+
+    operation: get-instance-job
+
+    input:
+      type: object
+      required:
+        - job_id
+      properties:
+        job_id:
+          type: string
+          description: >-
+            ID of the job, as returned by the instance operation that started
+            it.
+          maps_to: job-id
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - vps_id
+        - type
+        - state
+        - info
+        - added_at
+        - updated_at

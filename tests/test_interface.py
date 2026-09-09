@@ -21,6 +21,7 @@ from fastmcp import Client
 from vultr_mcp.interface import runtime
 from vultr_mcp.interface.scaffold import _snake
 from vultr_mcp.interface.compiler import InterfaceError, compile_interface
+from vultr_mcp.interface.validator import area_files
 from vultr_mcp.interface.tools import InterfaceTool
 from vultr_mcp.server import create_server, load_spec
 
@@ -28,6 +29,27 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 INTERFACE_DIR = REPO_ROOT / "interface"
 
 CLUSTER_TOOL = "vultr_compute_clusters_list"
+
+
+def area_document(area: str) -> dict:
+    """Every file backing a product area, merged as the layer reads them.
+
+    Two things this hides from the tests. Area files are grouped into a
+    directory per product family, and a large area may be split over several
+    files (interface/compute/instances/) that are still one area -- so "the
+    instances definitions" means the merge, exactly as drift computes it.
+    Resolving through the manifest and the production helper means a
+    reorganization moves files without touching a test.
+    """
+    manifest = yaml.safe_load(
+        (INTERFACE_DIR / "interface.yaml").read_text(encoding="utf-8")
+    )
+    merged: dict = {"tools": [], "declined": {}}
+    for path in area_files(INTERFACE_DIR, manifest["product_areas"][area]):
+        document = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        merged["tools"].extend(document.get("tools") or [])
+        merged["declined"].update(document.get("declined") or {})
+    return merged
 
 
 @pytest.fixture(scope="module")
@@ -122,7 +144,7 @@ def _scratch_interface(tmp_path: Path, tool: dict | list) -> Path:
 @pytest.fixture
 def definition() -> dict:
     """The shipped cluster tool, as a mutable starting point for drift tests."""
-    document = yaml.safe_load((INTERFACE_DIR / "clusters.yaml").read_text(encoding="utf-8"))
+    document = area_document("clusters")
     return copy.deepcopy(document["tools"][0])
 
 
@@ -929,9 +951,7 @@ def test_declined_operations_are_not_reported_as_unreviewed(spec):
         ref.operation_id
         for ref in instances.unreviewed_reads + instances.unreviewed_writes
     }
-    declared = yaml.safe_load(
-        (INTERFACE_DIR / "instances.yaml").read_text(encoding="utf-8")
-    )["declined"]
+    declared = area_document("instances")["declined"]
 
     assert instances.declined == len(declared)
     for operation_id in declared:
@@ -1017,9 +1037,7 @@ def test_deprecated_unreviewed_is_derived_not_hardcoded(spec):
     report = detect_drift(INTERFACE_DIR, spec)
 
     for area in report.areas:
-        document = yaml.safe_load(
-            (INTERFACE_DIR / f"{area.product_area}.yaml").read_text(encoding="utf-8")
-        )
+        document = area_document(area.product_area)
         accounted = {tool["operation"] for tool in document["tools"]}
         accounted |= set(document.get("declined") or {})
 
@@ -1284,3 +1302,137 @@ def test_a_response_carrying_scalars_is_not_an_envelope(spec):
     # A true wrapper still reads as one.
     assert index.get("get-instance").response.container_key == "instance"
     assert not index.get("get-instance").response.unwrapped
+
+
+# --------------------------------------------------------------------------
+# An area split over several files. Large areas (instances) are broken up for
+# readability, but must stay ONE product area: drift matches an area name
+# against an OpenAPI tag, so siblings would match no tag and each file's
+# operations would be reported as drift in the others.
+# --------------------------------------------------------------------------
+
+
+def _split_scratch_interface(tmp_path: Path, first: dict, second: dict) -> Path:
+    """A scratch directory whose single area is spread over two files."""
+    schema = json.loads(
+        (INTERFACE_DIR / "schema" / "interface.schema.json").read_text(encoding="utf-8")
+    )
+    (tmp_path / "schema").mkdir()
+    (tmp_path / "schema" / "interface.schema.json").write_text(
+        json.dumps(schema), encoding="utf-8"
+    )
+    (tmp_path / "clusters").mkdir()
+    (tmp_path / "interface.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "version": "test",
+                "schema": "schema/interface.schema.json",
+                "product_areas": {
+                    "clusters": ["clusters/core.yaml", "clusters/extra.yaml"]
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    for name, tools in (("core", [first]), ("extra", [second])):
+        (tmp_path / "clusters" / f"{name}.yaml").write_text(
+            yaml.safe_dump(
+                {"product_area": "clusters", "family": "compute", "tools": tools}
+            ),
+            encoding="utf-8",
+        )
+    return tmp_path
+
+
+@pytest.fixture
+def second_definition() -> dict:
+    """A second shipped tool from the same area, for the split fixtures."""
+    return copy.deepcopy(area_document("clusters")["tools"][1])
+
+
+def test_a_split_area_compiles_every_file(tmp_path, definition, second_definition, spec):
+    directory = _split_scratch_interface(tmp_path, definition, second_definition)
+    compiled = compile_interface(directory, spec)
+
+    assert {tool.name for tool in compiled.tools} == {
+        definition["name"],
+        second_definition["name"],
+    }
+    # Both halves are the same area, whichever file they came from.
+    assert {tool.product_area for tool in compiled.tools} == {"clusters"}
+
+
+def test_a_split_area_is_measured_as_one_area(
+    tmp_path, definition, second_definition, spec
+):
+    """The reason this must stay one area rather than becoming two."""
+    from vultr_mcp.interface.drift import detect_drift
+
+    directory = _split_scratch_interface(tmp_path, definition, second_definition)
+    report = detect_drift(directory, spec)
+
+    assert len(report.areas) == 1
+    area = report.areas[0]
+    assert area.tag is not None, "a split area must still match its OpenAPI tag"
+    assert area.served == 2, "both files count toward the one area"
+    # The failure this guards: a sibling's operation reported as undetected.
+    unreviewed = {
+        ref.operation_id for ref in area.unreviewed_reads + area.unreviewed_writes
+    }
+    assert second_definition["operation"] not in unreviewed
+
+
+def test_a_name_collision_between_sibling_files_is_caught(tmp_path, definition, spec):
+    """Splitting a file must not open a way to define one name twice."""
+    from vultr_mcp.interface.validator import validate_manifest
+
+    directory = _split_scratch_interface(tmp_path, definition, copy.deepcopy(definition))
+    problems = [str(problem) for problem in validate_manifest(directory, spec)]
+
+    assert any("already defined in" in problem for problem in problems)
+
+
+def test_every_shipped_split_area_holds_together(spec):
+    """The split areas as they actually ship, whichever ones those are."""
+    manifest = yaml.safe_load(
+        (INTERFACE_DIR / "interface.yaml").read_text(encoding="utf-8")
+    )
+    split = {
+        area: entry
+        for area, entry in manifest["product_areas"].items()
+        if not isinstance(entry, str)
+    }
+    assert split, "the multi-file form is unused; this test is measuring nothing"
+
+    compiled = compile_interface(INTERFACE_DIR, spec)
+    for area, entry in split.items():
+        # Every file is its own document, and all of them claim the same area
+        # and family -- the validator rejects a mismatch, so this is the
+        # positive case for what ships.
+        families = set()
+        for path in area_files(INTERFACE_DIR, entry):
+            document = yaml.safe_load(path.read_text(encoding="utf-8"))
+            assert document["product_area"] == area, path
+            families.add(document["family"])
+        assert len(families) == 1, f"{area} declares more than one family"
+
+        served = {tool.name for tool in compiled.tools if tool.product_area == area}
+        assert len(served) == len(area_document(area)["tools"]), area
+
+
+def test_no_area_file_is_unreasonably_long():
+    """Why the split exists: a file nobody wants to open is the failure.
+
+    Generous on purpose -- this is a smell threshold, not a style rule. It
+    catches an area growing back into a 1,200-line file, which is what the
+    directory form was introduced to fix.
+    """
+    too_long = {
+        path.relative_to(INTERFACE_DIR).as_posix(): len(
+            path.read_text(encoding="utf-8").splitlines()
+        )
+        for path in INTERFACE_DIR.rglob("*.yaml")
+        if path.name != "interface.yaml" and "schema" not in path.parts
+    }
+    over = {name: n for name, n in too_long.items() if n > 450}
+    assert not over, f"split these into a directory for the area: {over}"

@@ -1,0 +1,154 @@
+product_area: container_registry
+family: registry
+
+# The container_registry area is split across this directory; every file here
+# declares the same product_area, and interface.yaml lists them together.
+
+# The registry itself, and the robot accounts that can pull from it.
+
+declined:
+  create-registry-docker-credentials:
+    reason: >-
+      Mints a Docker credential for the registry, on demand, for whoever asks.
+      Modelled as OPTIONS rather than POST, which is why it needs saying out
+      loud: this is a write in every sense except the verb, and it belongs
+      behind the write surface if it is ever exposed at all.
+  create-registry-kubernetes-docker-credentials:
+    reason: >-
+      The same credential-minting operation in Kubernetes secret form, and the
+      same answer.
+  read-replication:
+    reason: >-
+      GET /registry/{registry-id}/replication/{region} cannot be called as the
+      spec describes it. The only parameter it declares beside registry-id is
+      named "VCR Region", with no `in` and no `schema`, so nothing fills the
+      {region} placeholder in the path and the layer would build a URL with the
+      braces still in it. vultr_registry_replications_list returns every field
+      this one does -- region, namespace and urn -- for all policies on a
+      registry, so nothing is lost. Reported upstream.
+
+tools:
+  - name: vultr_registry_registries_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists Vultr Container Registries in the active Vultr organization, with
+      their region, storage usage, and whether each is public.
+
+      Use this tool to list, find, or count container registries, and to get
+      the registry ID the repository and robot tools need.
+
+      Do not use this tool for Docker images or tags inside a registry, which
+      come from the repository and artifact tools, nor for Vultr Kubernetes
+      Engine, which is a separate product.
+
+    operation: list-registries
+
+    input:
+      type: object
+      properties:
+        name_contains:
+          type: string
+          description: >-
+            Case-insensitive text contained in the registry name.
+          filter:
+            field: name
+            match: contains_ci
+
+    output:
+      from_openapi: true
+      # root_user is absent entirely: it nests `password`, and include cannot
+      # reach inside a nested object to drop one field.
+      include:
+        - id
+        - name
+        - urn
+        - public
+        - storage
+        - metadata
+        - date_created
+        - meta
+
+  - name: vultr_registry_registries_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets one Vultr Container Registry by its ID, including its region,
+      storage allowance and usage, and whether it is public.
+
+      Use this tool when a registry ID is already known. To find one, use
+      vultr_registry_registries_list first.
+
+      Do not use this tool to list the images a registry holds; that is
+      vultr_registry_repositories_list.
+
+    operation: read-registry
+
+    input:
+      type: object
+      required:
+        - registry_id
+      properties:
+        registry_id:
+          type: string
+          description: >-
+            ID of the container registry, as returned in the id field by
+            vultr_registry_registries_list.
+          maps_to: registry-id
+
+    output:
+      from_openapi: true
+      # This response is the registry itself rather than a wrapper around one,
+      # so the include list applies to the payload directly. root_user is
+      # withheld here for the same reason as in the listing.
+      include:
+        - id
+        - name
+        - urn
+        - public
+        - storage
+        - metadata
+        - date_created
+
+  - name: vultr_registry_robots_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the robot accounts on one Vultr Container Registry, with their
+      permissions and whether each is disabled.
+
+      Use this tool to answer which automated identities can reach a registry
+      and what they are allowed to do.
+
+      Do not use this tool for Vultr account users or IAM identities, which are
+      unrelated and not exposed through this server.
+
+    operation: list-registry-robots
+
+    input:
+      type: object
+      required:
+        - registry_id
+      properties:
+        registry_id:
+          type: string
+          description: >-
+            ID of the container registry, as returned in the id field by
+            vultr_registry_registries_list.
+          maps_to: registry-id
+
+    output:
+      from_openapi: true
+      # `secret` is absent: it is the robot's password, and this tool answers
+      # who can reach the registry without handing over the means to be them.
+      include:
+        - name
+        - description
+        - permissions
+        - disable
+        - duration
+        - creation_time
+        - meta

@@ -1,0 +1,130 @@
+product_area: cdns
+family: network
+
+# The cdns area is split across this directory; every file here declares the
+# same product_area, and interface.yaml lists them together.
+
+# Pull zones cache an origin you already run.
+
+declined:
+  purge-pullzone:
+    reason: >-
+      Empties the pull zone's cache, which is a state change served over GET.
+      The read-only gate classifies by HTTP method and therefore treats it as a
+      read, so giving it a tool here would put a cache-purge action on the safe
+      surface with `access: read` and the validator would agree. It needs the
+      write gate to learn about it before it can have a tool; until then this
+      records that somebody looked and said no on purpose.
+
+tools:
+  - name: vultr_network_cdn_pull_zones_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists Vultr CDN pull zones in the active Vultr organization -- caches in
+      front of an origin server you already run -- each with its CDN URL,
+      origin, cache size, request and byte counters, and protection settings.
+
+      Use this tool to list, find, count, or select pull zones, or to report
+      CDN traffic and cache size.
+
+      Do not use this tool for push zones, where files are uploaded to Vultr
+      rather than fetched from an origin, and which
+      vultr_network_cdn_push_zones_list returns.
+
+    operation: list-pullzones
+
+    input:
+      type: object
+      properties:
+        # GET /cdns/pull-zones declares no parameters, so both searches below
+        # are applied here against the fetched rows.
+        label:
+          type: string
+          description: Case-insensitive text contained in the pull zone label.
+          filter:
+            field: label
+            match: contains_ci
+
+        status:
+          type: string
+          description: Pull zone status, as the API reports it.
+          filter:
+            field: status
+            match: equals
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - label
+        - status
+        - cdn_url
+        - vanity_domain
+        - origin_domain
+        - origin_scheme
+        - regions
+        - cache_size
+        - requests
+        - in_bytes
+        - out_bytes
+        - packets_per_sec
+        - gzip
+        - cors
+        - block_ai
+        - block_bad_bots
+        - last_purge
+        - date_created
+        - meta
+
+  - name: vultr_network_cdn_pull_zones_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets one Vultr CDN pull zone by its ID, with its CDN URL, origin, cache
+      size, traffic counters, protection settings and when it was last purged.
+
+      Use this tool when a pull zone ID is already known. To find one, use
+      vultr_network_cdn_pull_zones_list first.
+
+      Do not use this tool for push zones, which host files uploaded to Vultr
+      and have their own tools.
+
+    operation: get-pullzone
+
+    input:
+      type: object
+      required:
+        - pullzone_id
+      properties:
+        pullzone_id:
+          type: string
+          description: >-
+            ID of the pull zone, as returned in the id field by
+            vultr_network_cdn_pull_zones_list.
+          maps_to: pullzone-id
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - label
+        - status
+        - cdn_url
+        - vanity_domain
+        - origin_domain
+        - origin_scheme
+        - regions
+        - cache_size
+        - requests
+        - in_bytes
+        - out_bytes
+        - packets_per_sec
+        - gzip
+        - cors
+        - block_ai
+        - block_bad_bots
+        - last_purge
+        - date_created

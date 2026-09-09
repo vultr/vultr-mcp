@@ -1,0 +1,172 @@
+product_area: managed_databases
+family: database
+
+# The managed_databases area is split across this directory; every file here
+# declares the same product_area, and interface.yaml lists them together.
+
+# What lives inside a cluster: the logical databases, and the connection pools
+# in front of them.
+
+tools:
+  - name: vultr_database_logical_databases_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the logical databases inside one Vultr Managed Database instance --
+      the named databases a client connects to, not the managed service itself.
+
+      Use this tool to find what database names exist on an instance before
+      connecting or granting access.
+
+      Do not use this tool to list managed database instances, which
+      vultr_database_clusters_list returns; this tool looks inside one of them.
+
+    operation: list-database-dbs
+
+    input:
+      type: object
+      required:
+        - database_id
+      properties:
+        database_id:
+          type: string
+          description: >-
+            ID of the managed database, as returned in the id field by
+            vultr_database_clusters_list.
+          maps_to: database-id
+
+    output:
+      from_openapi: true
+      include:
+        - name
+        - meta
+
+  - name: vultr_database_logical_databases_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets one logical database inside a Vultr Managed Database instance by
+      name, confirming it exists.
+
+      Use this tool when the logical database name is already known. To list
+      them, use vultr_database_logical_databases_list.
+
+      Do not use this tool for the managed database instance itself, which
+      vultr_database_clusters_get returns, or for the tables inside a logical
+      database, which this API does not expose.
+
+    operation: get-database-db
+
+    input:
+      type: object
+      required:
+        - database_id
+        - db_name
+      properties:
+        database_id:
+          type: string
+          description: >-
+            ID of the managed database, as returned in the id field by
+            vultr_database_clusters_list.
+          maps_to: database-id
+
+        db_name:
+          type: string
+          description: >-
+            Name of the logical database, as returned in the name field by
+            vultr_database_logical_databases_list.
+          maps_to: db-name
+
+    output:
+      from_openapi: true
+      include:
+        - name
+
+  - name: vultr_database_connection_pools_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the connection pools on one Vultr Managed Database (PostgreSQL),
+      each with its pool name, the logical database and user it connects as,
+      its mode and its size, alongside the instance's overall connection
+      counts.
+
+      Use this tool to report how pooling is configured, or to find which pool
+      serves a given database.
+
+      Do not use this tool for database users, which
+      vultr_database_users_list returns, or for logical databases, which
+      vultr_database_logical_databases_list returns.
+
+    operation: list-connection-pools
+
+    input:
+      type: object
+      required:
+        - database_id
+      properties:
+        database_id:
+          type: string
+          description: >-
+            ID of the managed database, as returned in the id field by
+            vultr_database_clusters_list.
+          maps_to: database-id
+
+    output:
+      from_openapi: true
+      include:
+        - name
+        - database
+        - username
+        - mode
+        - size
+        - connections
+        - meta
+
+  - name: vultr_database_connection_pools_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets one connection pool on a Vultr Managed Database by name, with the
+      logical database and user it connects as, its mode and its size.
+
+      Use this tool when the pool name is already known. To list them, use
+      vultr_database_connection_pools_list.
+
+      Do not use this tool for the instance's overall connection counts, which
+      the list tool returns alongside the pools.
+
+    operation: get-connection-pool
+
+    input:
+      type: object
+      required:
+        - database_id
+        - pool_name
+      properties:
+        database_id:
+          type: string
+          description: >-
+            ID of the managed database, as returned in the id field by
+            vultr_database_clusters_list.
+          maps_to: database-id
+
+        pool_name:
+          type: string
+          description: >-
+            Name of the connection pool, as returned in the name field by
+            vultr_database_connection_pools_list.
+          maps_to: pool-name
+
+    output:
+      from_openapi: true
+      include:
+        - name
+        - database
+        - username
+        - mode
+        - size

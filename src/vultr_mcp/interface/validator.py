@@ -398,6 +398,20 @@ def load_manifest(interface_dir: Path) -> dict[str, Any]:
     return yaml.safe_load((interface_dir / "interface.yaml").read_text(encoding="utf-8"))
 
 
+def area_files(interface_dir: Path, entry: Any) -> list[Path]:
+    """The file or files backing one product area.
+
+    An area is one file by default; a large area may list several, which are
+    read as though they were concatenated. It has to stay a single *area*
+    rather than becoming several: drift matches an area's name against an
+    OpenAPI tag (see `_tag_for_area`), so splitting `instances` into sibling
+    areas would leave names matching no tag, and every operation under the real
+    tag would be reported as undetected drift.
+    """
+    names = [entry] if isinstance(entry, str) else list(entry or [])
+    return [interface_dir / name for name in names]
+
+
 def load_schema(interface_dir: Path) -> dict[str, Any]:
     """The format contract named by interface.yaml."""
     manifest = load_manifest(interface_dir)
@@ -422,43 +436,45 @@ def validate_manifest(
     problems: list[Problem] = []
     names_across_files: dict[str, str] = {}
 
-    for area, filename in (manifest.get("product_areas") or {}).items():
-        path = interface_dir / filename
-        if not path.exists():
-            problems.append(
-                Problem(
-                    "interface.yaml",
-                    f"product area '{area}' points at missing {filename}",
+    for area, entry in (manifest.get("product_areas") or {}).items():
+        for path in area_files(interface_dir, entry):
+            filename = path.relative_to(interface_dir).as_posix()
+            if not path.exists():
+                problems.append(
+                    Problem(
+                        "interface.yaml",
+                        f"product area '{area}' points at missing {filename}",
+                    )
                 )
-            )
-            continue
-
-        problems.extend(validate_product_area(path, schema, index))
-
-        document = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-        declared_area = document.get("product_area")
-        if declared_area and declared_area != area:
-            problems.append(
-                Problem(
-                    filename,
-                    f"declares product_area '{declared_area}' but interface.yaml "
-                    f"lists it under '{area}'",
-                )
-            )
-
-        # Tool names are the agent's whole vocabulary, so a collision across
-        # product areas is as bad as one within a file.
-        for tool in document.get("tools", []) or []:
-            name = tool.get("name")
-            if not name:
                 continue
-            if name in names_across_files:
+
+            problems.extend(validate_product_area(path, schema, index))
+
+            document = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+            declared_area = document.get("product_area")
+            if declared_area and declared_area != area:
                 problems.append(
                     Problem(
                         filename,
-                        f"tool name '{name}' already defined in {names_across_files[name]}",
+                        f"declares product_area '{declared_area}' but interface.yaml "
+                        f"lists it under '{area}'",
                     )
                 )
-            names_across_files[name] = filename
+
+            # Tool names are the agent's whole vocabulary, so a collision across
+            # product areas is as bad as one within a file -- and an area split
+            # over several files makes a collision between siblings possible too.
+            for tool in document.get("tools", []) or []:
+                name = tool.get("name")
+                if not name:
+                    continue
+                if name in names_across_files:
+                    problems.append(
+                        Problem(
+                            filename,
+                            f"tool name '{name}' already defined in {names_across_files[name]}",
+                        )
+                    )
+                names_across_files[name] = filename
 
     return problems

@@ -4,42 +4,103 @@
 # whenever a definition changes in a way that could move tool-selection scores.
 # openapi.json stays the source of truth for the REST API; this layer only
 # controls what the agent sees.
+#
+# Area files are grouped into one directory per product family, so the tree
+# matches the `family` enum in the schema -- and therefore the second segment of
+# every tool name in it. The grouping is for people reading the repo: the
+# compiler only resolves these paths, and nothing about the directory layout
+# reaches the agent, which sees a flat tool list over MCP.
+#
+# A large area lists several files instead of one, and gets a directory of its
+# own (compute/instances/, database/managed_databases/). Those files are read as
+# though concatenated. Such an area MUST stay one entry here rather than
+# becoming several: drift matches an area's name against an OpenAPI tag, so
+# siblings would carry names matching no tag, and every operation under the real
+# tag would be reported as undetected drift in the others.
 
 version: 2026.09.6
 
 schema: schema/interface.schema.json
 
 product_areas:
-  account: account.yaml
-  baremetal: baremetal.yaml
-  clusters: clusters.yaml
-  container_registry: container_registry.yaml
-  logs: logs.yaml
-  managed_databases: managed_databases.yaml
-  serverless_inference: serverless_inference.yaml
-  instances: instances.yaml
-  kubernetes: kubernetes.yaml
-  s3: s3.yaml
-  vpcs: vpcs.yaml
-  dns: dns.yaml
-  firewall: firewall.yaml
-  load_balancer: load_balancer.yaml
-  reserved_ip: reserved_ip.yaml
-  block: block.yaml
-  snapshot: snapshot.yaml
-  backup: backup.yaml
-  vfs: vfs.yaml
-  storage_gateways: storage_gateways.yaml
-  region: region.yaml
-  plans: plans.yaml
-  os: os.yaml
-  application: application.yaml
-  iso: iso.yaml
-  instance_templates: instance_templates.yaml
-  startup: startup.yaml
-  ssh: ssh.yaml
-  subaccount: subaccount.yaml
-  cdns: cdns.yaml
-  billing: billing.yaml
-  tickets: tickets.yaml
-  marketplace: marketplace.yaml
+  # -- account -----------------------------------------------------------------
+  account: account/account.yaml
+  billing: account/billing.yaml
+  logs: account/logs.yaml
+  ssh: account/ssh.yaml
+  subaccount: account/subaccount.yaml
+  tickets: account/tickets.yaml
+
+  # -- catalog -----------------------------------------------------------------
+  application: catalog/application.yaml
+  iso: catalog/iso.yaml
+  os: catalog/os.yaml
+  plans: catalog/plans.yaml
+  region: catalog/region.yaml
+
+  # -- compute -----------------------------------------------------------------
+  backup: compute/backup.yaml
+  baremetal:
+    - compute/baremetal/baremetal.yaml
+    - compute/baremetal/configuration.yaml
+    - compute/baremetal/networking.yaml
+    - compute/baremetal/operations.yaml
+  clusters: compute/clusters.yaml
+  instance_templates: compute/instance_templates.yaml
+  instances:
+    - compute/instances/instances.yaml
+    - compute/instances/configuration.yaml
+    - compute/instances/networking.yaml
+    - compute/instances/operations.yaml
+  snapshot: compute/snapshot.yaml
+  startup: compute/startup.yaml
+
+  # -- database ----------------------------------------------------------------
+  managed_databases:
+    - database/managed_databases/catalog.yaml
+    - database/managed_databases/clusters.yaml
+    - database/managed_databases/connectors.yaml
+    - database/managed_databases/databases.yaml
+    - database/managed_databases/kafka.yaml
+    - database/managed_databases/users.yaml
+
+  # -- inference ---------------------------------------------------------------
+  serverless_inference: inference/serverless_inference.yaml
+
+  # -- kubernetes --------------------------------------------------------------
+  kubernetes:
+    - kubernetes/kubernetes/clusters.yaml
+    - kubernetes/kubernetes/node_pools.yaml
+    - kubernetes/kubernetes/versions.yaml
+
+  # -- marketplace -------------------------------------------------------------
+  marketplace:
+    - marketplace/marketplace/apps.yaml
+    - marketplace/marketplace/vendor.yaml
+
+  # -- network -----------------------------------------------------------------
+  cdns:
+    - network/cdns/pull_zones.yaml
+    - network/cdns/push_zones.yaml
+  dns: network/dns.yaml
+  firewall: network/firewall.yaml
+  load_balancer:
+    - network/load_balancer/load_balancers.yaml
+    - network/load_balancer/rules.yaml
+  reserved_ip: network/reserved_ip.yaml
+  vpcs:
+    - network/vpcs/vpcs.yaml
+    - network/vpcs/nat_gateways.yaml
+
+  # -- registry ----------------------------------------------------------------
+  container_registry:
+    - registry/container_registry/catalog.yaml
+    - registry/container_registry/policies.yaml
+    - registry/container_registry/registries.yaml
+    - registry/container_registry/repositories.yaml
+
+  # -- storage -----------------------------------------------------------------
+  block: storage/block.yaml
+  s3: storage/s3.yaml
+  storage_gateways: storage/storage_gateways.yaml
+  vfs: storage/vfs.yaml

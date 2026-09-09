@@ -1,0 +1,159 @@
+product_area: marketplace
+family: marketplace
+
+# The marketplace area is split across this directory; every file here declares
+# the same product_area, and interface.yaml lists them together.
+
+# The publishing side: what a vendor has built, imaged and parameterised. These
+# read a vendor's own apps rather than the public catalogue.
+
+tools:
+  - name: vultr_marketplace_app_builds_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the builds of one Vultr marketplace application, each with its
+      version, base operating system, install script, the snapshot it produced,
+      and whether it is the live build.
+
+      Use this tool to see an app's release history, or to find which build is
+      currently serving deployments.
+
+      Do not use this tool for the app's own description and requirements,
+      which vultr_marketplace_apps_get returns.
+
+    operation: list-marketplace-app-builds
+
+    input:
+      type: object
+      required:
+        - app_id
+      properties:
+        app_id:
+          type: integer
+          description: >-
+            ID of the marketplace application, as returned in the id field by
+            vultr_marketplace_apps_list.
+          maps_to: app-id
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - version
+        - live
+        - installation_script
+        - use_vendor_data
+        - snapshot_id
+        - snapshot_description
+        - date_created
+
+  - name: vultr_marketplace_app_images_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the gallery images for one Vultr marketplace application -- the
+      screenshots shown on its listing page -- with each image's URL and
+      whether it is the main one.
+
+      Use this tool when inspecting or reproducing an app's marketplace
+      listing.
+
+      Do not use this tool for the app's icons, which are fields on
+      vultr_marketplace_apps_get, or for machine images and snapshots, which
+      are a different thing entirely.
+
+    operation: list-marketplace-app-gallery-images
+
+    input:
+      type: object
+      required:
+        - app_id
+      properties:
+        app_id:
+          type: integer
+          description: >-
+            ID of the marketplace application, as returned in the id field by
+            vultr_marketplace_apps_list.
+          maps_to: app-id
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - url
+        - main_image
+
+  - name: vultr_marketplace_app_manage_variables_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the variables defined on one Vultr marketplace application by its
+      vendor, each with its name, label, input type, whether input is required,
+      and the length a generated password should be.
+
+      Use this tool when publishing or auditing an app, to see how its
+      configuration is declared.
+
+      Do not use this tool to find what must be supplied when deploying an app,
+      which vultr_catalog_application_variables_list answers from the deployer's
+      side.
+
+    operation: list-marketplace-app-manage-variable
+
+    input:
+      type: object
+      required:
+        - app_id
+      properties:
+        app_id:
+          type: integer
+          description: >-
+            ID of the marketplace application, as returned in the id field by
+            vultr_marketplace_apps_list.
+          maps_to: app-id
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - app_id
+        - name
+        - label
+        - type
+        - input_type
+        - input_required
+        - password_length
+
+  - name: vultr_marketplace_vendor_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets the marketplace vendor settings for the active Vultr organization:
+      the vendor name and its website, git, Slack and X links.
+
+      Use this tool to check how the account is presented as a marketplace
+      publisher.
+
+      Do not use this tool for the Vultr account itself, which
+      vultr_account_get returns, or for a specific app's support links, which
+      are on vultr_marketplace_apps_get.
+
+    operation: get-marketplace-vendor
+
+    input:
+      type: object
+      properties: {}
+
+    output:
+      from_openapi: true
+      include:
+        - vendor_name
+        - website_url
+        - git_url
+        - slack_url
+        - x_handle

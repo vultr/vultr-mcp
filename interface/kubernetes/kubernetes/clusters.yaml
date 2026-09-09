@@ -1,0 +1,246 @@
+product_area: kubernetes
+family: kubernetes
+
+# The kubernetes area is split across this directory; every file here declares
+# the same product_area, and interface.yaml lists them together.
+
+# The VKE cluster itself, plus its kubeconfig, available upgrades, and the
+# load balancers and block storage it has created.
+
+tools:
+  - name: vultr_kubernetes_clusters_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists Vultr Kubernetes Engine clusters, managed Kubernetes, in the active
+      Vultr organization, with each cluster's version, endpoint, region, status
+      and node pools.
+
+      Use this tool to list, find, count, or select VKE clusters, and to answer
+      questions about managed Kubernetes.
+
+      Do not use this tool for Vultr Compute Clusters, which are GPU and fabric
+      compute and are listed by vultr_compute_clusters_list, or for Object
+      Storage clusters. Both are different products that also call themselves
+      clusters.
+
+    operation: list-kubernetes-clusters
+
+    input:
+      type: object
+      properties:
+        # GET /kubernetes/clusters declares no parameters at all -- not even
+        # paging, which its siblings take -- so every search below is applied
+        # here against the fetched rows.
+        label:
+          type: string
+          description: Case-insensitive text contained in the cluster label.
+          filter:
+            field: label
+            match: contains_ci
+
+        region:
+          type: string
+          description: Vultr region ID the cluster runs in, such as ewr.
+          filter:
+            field: region
+            match: equals
+
+        status:
+          type: string
+          description: Cluster status, such as active or pending.
+          filter:
+            field: status
+            match: equals
+
+        version:
+          type: string
+          description: Kubernetes version the cluster runs, such as v1.31.0+1.
+          filter:
+            field: version
+            match: equals
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - label
+        - version
+        - region
+        - status
+        - endpoint
+        - ip
+        - ha_controlplanes
+        - cluster_subnet
+        - service_subnet
+        - firewall_group_id
+        - vpcs
+        - oidc
+        - node_pools
+        - date_created
+
+    computed:
+      node_pool_count:
+        type: integer
+        description: Number of node pools in the cluster.
+        from: length(node_pools)
+
+  - name: vultr_kubernetes_clusters_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets one Vultr Kubernetes Engine cluster by its ID, with its version,
+      endpoint, region, status, subnets, firewall group, OIDC settings and node
+      pools.
+
+      Use this tool when a VKE cluster ID is already known. To find one, use
+      vultr_kubernetes_clusters_list first.
+
+      Do not use this tool for a Vultr Compute Cluster, which is a different
+      product read by vultr_compute_clusters_get, and not for the cluster's
+      kubeconfig, which vultr_kubernetes_clusters_config_get returns.
+
+    operation: get-kubernetes-clusters
+
+    input:
+      type: object
+      required:
+        - vke_id
+      properties:
+        vke_id:
+          type: string
+          description: >-
+            ID of the VKE cluster, as returned in the id field by
+            vultr_kubernetes_clusters_list.
+          maps_to: vke-id
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - label
+        - version
+        - region
+        - status
+        - endpoint
+        - ip
+        - ha_controlplanes
+        - cluster_subnet
+        - service_subnet
+        - firewall_group_id
+        - vpcs
+        - oidc
+        - node_pools
+        - date_created
+
+    computed:
+      node_pool_count:
+        type: integer
+        description: Number of node pools in the cluster.
+        from: length(node_pools)
+
+  - name: vultr_kubernetes_clusters_config_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets the kubeconfig for one Vultr Kubernetes Engine cluster,
+      base64-encoded. This is an administrative credential for the cluster:
+      anyone holding it can act as its administrator.
+
+      Use this tool only when someone has asked for the kubeconfig itself, in
+      order to configure kubectl or another Kubernetes client.
+
+      Do not use this tool to answer questions about a cluster's configuration,
+      status, endpoint or node pools -- vultr_kubernetes_clusters_get answers
+      those without returning a credential.
+
+    operation: get-kubernetes-clusters-config
+
+    input:
+      type: object
+      required:
+        - vke_id
+      properties:
+        vke_id:
+          type: string
+          description: >-
+            ID of the VKE cluster, as returned in the id field by
+            vultr_kubernetes_clusters_list.
+          maps_to: vke-id
+
+    output:
+      from_openapi: true
+      include:
+        - kube_config
+
+  - name: vultr_kubernetes_clusters_upgrades_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets the Kubernetes versions one Vultr Kubernetes Engine cluster can be
+      upgraded to.
+
+      Use this tool to check whether an upgrade is available for a specific
+      cluster before planning one.
+
+      Do not use this tool for every Kubernetes version Vultr supports, which
+      vultr_kubernetes_versions_list returns, or for the version a cluster
+      currently runs, which vultr_kubernetes_clusters_get returns.
+
+    operation: get-kubernetes-available-upgrades
+
+    input:
+      type: object
+      required:
+        - vke_id
+      properties:
+        vke_id:
+          type: string
+          description: >-
+            ID of the VKE cluster, as returned in the id field by
+            vultr_kubernetes_clusters_list.
+          maps_to: vke-id
+
+    # No `output` block: available_upgrades is a bare array of version strings,
+    # so there are no item fields to allowlist against.
+
+  - name: vultr_kubernetes_clusters_resources_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets the Vultr resources one Kubernetes Engine cluster has provisioned on
+      its own behalf: the block storage volumes backing its persistent volume
+      claims and the load balancers backing its services.
+
+      Use this tool to find what a cluster is being billed for beyond its
+      nodes, or to trace a stray volume or load balancer back to the cluster
+      that created it.
+
+      Do not use this tool for the cluster's nodes, which belong to its node
+      pools, or to list block storage and load balancers in general, which have
+      their own tools.
+
+    operation: get-kubernetes-resources
+
+    input:
+      type: object
+      required:
+        - vke_id
+      properties:
+        vke_id:
+          type: string
+          description: >-
+            ID of the VKE cluster, as returned in the id field by
+            vultr_kubernetes_clusters_list.
+          maps_to: vke-id
+
+    output:
+      from_openapi: true
+      include:
+        - block_storage
+        - load_balancer

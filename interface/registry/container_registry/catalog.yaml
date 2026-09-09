@@ -1,0 +1,71 @@
+product_area: container_registry
+family: registry
+
+# The container_registry area is split across this directory; every file here
+# declares the same product_area, and interface.yaml lists them together.
+
+# Account-wide reference data rather than anything about one registry.
+
+tools:
+  - name: vultr_registry_plans_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the Vultr Container Registry plans -- start-up, premium, business
+      and enterprise -- with each one's storage allowance and monthly price.
+
+      Use this tool to compare registry plans or to price one before creating
+      it.
+
+      Do not use this tool for the plan a registry is already on, which
+      vultr_registry_registries_get returns, or for compute plans, which are a
+      different product.
+
+    operation: list-registry-plans
+
+    input:
+      type: object
+      properties: {}
+
+    output:
+      from_openapi: true
+      include:
+        - start_up
+        - premium
+        - business
+        - enterprise
+
+  - name: vultr_registry_regions_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the regions a Vultr Container Registry can be created in, with each
+      region's data centre, base URL, and whether it is public.
+
+      Use this tool to find where a registry can be hosted, or to resolve a
+      registry's region to its data centre and endpoint.
+
+      Do not use this tool for Vultr regions in general, which cover compute
+      and are a different list, or for the replication policies on an existing
+      registry, which vultr_registry_replications_list returns.
+
+    operation: list-registry-regions
+
+    input:
+      type: object
+      properties: {}
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - name
+        - urn
+        - base_url
+        - data_center
+        - public
+        - added_at
+        - updated_at
+        - meta

@@ -6,7 +6,7 @@ family: network
 # IPs each have their own reverse-DNS operations, and none of them are records
 # in a zone hosted here. Each description says so.
 #
-# instances.yaml declines list-instance-ipv6-reverse on the grounds that reverse
+# compute/instances.yaml declines list-instance-ipv6-reverse on the grounds that reverse
 # DNS is a DNS concern. That decline stands, and this file does not cover it
 # either: it is per-instance IPv6 reverse DNS, reached from the instance, and
 # nothing here changes that it is still served by its generated tool.

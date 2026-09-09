@@ -1,0 +1,167 @@
+product_area: managed_databases
+family: database
+
+# The managed_databases area is split across this directory; every file here
+# declares the same product_area, and interface.yaml lists them together.
+
+# Account-wide reference data rather than anything about one cluster: what can
+# be ordered, and what it can be configured with.
+
+tools:
+  - name: vultr_database_services_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the database engines Vultr offers as a managed service -- MySQL,
+      PostgreSQL, Valkey and Kafka -- with the versions available for each.
+
+      Use this tool to find which engines and versions can be deployed before
+      creating a managed database.
+
+      Do not use this tool for the engine a database already runs, which
+      vultr_database_clusters_get returns, or for the versions one existing
+      database can upgrade to, which vultr_database_versions_list returns.
+
+    operation: available-services
+
+    input:
+      type: object
+      properties: {}
+
+    # No `output` block, and none is possible. The response is
+    # `{available_services: ...}`; the spec declares the results under
+    # `databases`. Confirmed live 2026-09-02.
+    #
+    # An allowlist cannot be written even knowing that, which is the part worth
+    # recording: `include` is resolved against the *declared* schema, whose only
+    # container is `databases`, so naming the real key fails the build and
+    # naming the declared one never matches. Passing the payload through is the
+    # only correct behaviour until the spec names what the API sends.
+
+  - name: vultr_database_plans_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists Vultr Managed Database plans, with each plan's vCPU count, RAM,
+      disk, node count, maximum connections, monthly cost, supported engines
+      and available regions.
+
+      Use this tool to compare plans, price a managed database before creating
+      it, or check which plans exist in a region or for an engine.
+
+      Do not use this tool for compute instance or bare metal plans, which are
+      a different product, or for the plan a database already runs on, which
+      vultr_database_clusters_get returns.
+
+    operation: list-database-plans
+
+    input:
+      type: object
+      properties:
+        engine:
+          type: string
+          description: Limit results to plans supporting one database engine.
+          enum:
+            - mysql
+            - pg
+            - valkey
+            - kafka
+
+        nodes:
+          type: integer
+          description: Limit results to plans with this number of nodes.
+          minimum: 1
+
+        region:
+          type: string
+          description: >-
+            Limit results to plans available in a Vultr region ID, such as ewr.
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - type
+        - vcpu_count
+        - ram
+        - disk
+        - number_of_nodes
+        - max_connections
+        - monthly_cost
+        - supported_engines
+        - locations
+
+  - name: vultr_database_versions_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the engine versions one Vultr Managed Database can be upgraded to.
+
+      Use this tool to check whether an upgrade is available for a specific
+      database before planning one.
+
+      Do not use this tool for the engines and versions available to new
+      databases, which vultr_database_services_list returns, or for the version
+      a database currently runs, which vultr_database_clusters_get returns.
+
+    operation: list-available-versions
+
+    input:
+      type: object
+      required:
+        - database_id
+      properties:
+        database_id:
+          type: string
+          description: >-
+            ID of the managed database, as returned in the id field by
+            vultr_database_clusters_list.
+          maps_to: database-id
+
+    # No `output` block: available_versions is a bare array of version strings,
+    # so there are no item fields to allowlist against.
+
+  - name: vultr_database_advanced_options_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the advanced engine options for one Vultr Managed Database: every
+      option that can be set, with its type, permitted range or values and
+      units, alongside the options currently configured.
+
+      Use this tool to see how an engine is tuned, or what a setting may be
+      changed to.
+
+      Do not use this tool for Kafka Connect, Kafka REST or Schema Registry
+      options, which are separate tools, and not for the database's plan or
+      status.
+
+    operation: list-advanced-options
+
+    input:
+      type: object
+      required:
+        - database_id
+      properties:
+        database_id:
+          type: string
+          description: >-
+            ID of the managed database, as returned in the id field by
+            vultr_database_clusters_list.
+          maps_to: database-id
+
+    output:
+      from_openapi: true
+      include:
+        - name
+        - type
+        - units
+        - min_value
+        - max_value
+        - enumerals
+        - alt_values
+        - configured_options

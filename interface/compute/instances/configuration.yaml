@@ -1,0 +1,117 @@
+product_area: instances
+family: compute
+
+# What an instance was configured with rather than what it is doing: the
+# cloud-init payload, the attached ISO, and the backup schedule. See
+# instances.yaml for the area's shared notes.
+
+tools:
+  - name: vultr_compute_instances_backup_schedule_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets the automatic backup schedule for one Vultr cloud compute instance:
+      whether backups are enabled, how often they run, the hour and the day
+      they run on, and when the next one is due.
+
+      Use this tool to check whether an instance is backed up and on what
+      cadence.
+
+      Do not use this tool to list the backups that already exist, which is a
+      separate Vultr resource with its own tools, or for snapshots.
+
+    operation: get-instance-backup-schedule
+
+    input:
+      type: object
+      required:
+        - instance_id
+      properties:
+        instance_id:
+          type: string
+          description: >-
+            ID of the instance, as returned in the id field by
+            vultr_compute_instances_list.
+          maps_to: instance-id
+
+    output:
+      from_openapi: true
+      include:
+        - enabled
+        - type
+        - hour
+        - dow
+        - dom
+        - next_scheduled_time_utc
+
+  - name: vultr_compute_instances_iso_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets the ISO attachment status of one Vultr cloud compute instance: which
+      ISO is mounted, if any, and the state of the attachment.
+
+      Use this tool to check whether an instance is booted from or has an ISO
+      attached.
+
+      Do not use this tool to browse the ISO library itself, either the
+      account's uploaded ISOs or Vultr's public ones, which have their own
+      tools.
+
+    operation: get-instance-iso-status
+
+    input:
+      type: object
+      required:
+        - instance_id
+      properties:
+        instance_id:
+          type: string
+          description: >-
+            ID of the instance, as returned in the id field by
+            vultr_compute_instances_list.
+          maps_to: instance-id
+
+    output:
+      from_openapi: true
+      include:
+        - iso_id
+        - state
+
+  - name: vultr_compute_instances_userdata_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets the user data configured for one Vultr cloud compute instance -- the
+      cloud-init or startup configuration supplied at deployment -- returned
+      base64-encoded.
+
+      Use this tool to inspect or reproduce how an instance was configured at
+      first boot.
+
+      Do not use this tool for startup scripts, which are a separate Vultr
+      resource with their own tools, or for bare metal servers, which have
+      their own tool.
+
+    operation: get-instance-userdata
+
+    input:
+      type: object
+      required:
+        - instance_id
+      properties:
+        instance_id:
+          type: string
+          description: >-
+            ID of the instance, as returned in the id field by
+            vultr_compute_instances_list.
+          maps_to: instance-id
+
+    output:
+      from_openapi: true
+      include:
+        - data
+

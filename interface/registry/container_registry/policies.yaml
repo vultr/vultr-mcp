@@ -1,0 +1,131 @@
+product_area: container_registry
+family: registry
+
+# The container_registry area is split across this directory; every file here
+# declares the same product_area, and interface.yaml lists them together.
+
+# Rules a registry applies on its own: what it copies elsewhere, and what it
+# deletes over time.
+
+tools:
+  - name: vultr_registry_replications_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the replication policies on one Vultr Container Registry -- the
+      regions its images are copied to -- with each policy's region and
+      namespace.
+
+      Use this tool to report where a registry's images are replicated, or to
+      check whether replication is configured at all.
+
+      Do not use this tool for the regions a registry can be created in, which
+      vultr_registry_regions_list returns, or for the registry's own region.
+
+    operation: list-replications
+
+    input:
+      type: object
+      required:
+        - registry_id
+      properties:
+        registry_id:
+          type: string
+          description: >-
+            ID of the container registry, as returned in the id field by
+            vultr_registry_registries_list.
+          maps_to: registry-id
+
+    output:
+      from_openapi: true
+      include:
+        - region
+        - namespace
+        - urn
+        - meta
+
+  - name: vultr_registry_retention_rules_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the retention rules on one Vultr Container Registry -- the policies
+      that delete old artifacts automatically -- with each rule's action,
+      template, parameters, tag and scope selectors, and whether it is
+      disabled.
+
+      Use this tool to report how a registry prunes images, or to check whether
+      a retention policy is active before relying on an old tag.
+
+      Do not use this tool to list the artifacts themselves, which
+      vultr_registry_artifacts_list returns.
+
+    operation: list-retention-rules
+
+    input:
+      type: object
+      required:
+        - registry_id
+      properties:
+        registry_id:
+          type: string
+          description: >-
+            ID of the container registry, as returned in the id field by
+            vultr_registry_registries_list.
+          maps_to: registry-id
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - action
+        - template
+        - params
+        - tag_selectors
+        - scope_selectors
+        - disabled
+        - meta
+
+  - name: vultr_registry_retention_rules_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets one retention rule on a Vultr Container Registry by its ID, with its
+      action, template, parameters, tag and scope selectors, and whether it is
+      disabled.
+
+      Use this tool when a retention rule ID is already known. To find one, use
+      vultr_registry_retention_rules_list first.
+
+      Do not use this tool to list the artifacts a rule would delete, which
+      vultr_registry_artifacts_list returns.
+
+    operation: read-retention-rule
+
+    input:
+      type: object
+      required:
+        - registry_id
+        - retention_rule_id
+      properties:
+        registry_id:
+          type: string
+          description: >-
+            ID of the container registry, as returned in the id field by
+            vultr_registry_registries_list.
+          maps_to: registry-id
+
+        retention_rule_id:
+          type: integer
+          description: >-
+            ID of the retention rule, as returned in the id field by
+            vultr_registry_retention_rules_list.
+          maps_to: retention-rule-id
+
+    # No `output` block. The response is one rule, but the shape reader picks
+    # tag_selectors -- an array nested inside it -- as the container, so a
+    # declared shape would describe the selectors rather than the rule. Nothing
+    # here is worth trimming or withholding, so the payload passes through as
+    # the API sends it.

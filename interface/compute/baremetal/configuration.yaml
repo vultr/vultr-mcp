@@ -1,0 +1,82 @@
+product_area: baremetal
+family: compute
+
+# The baremetal area is split across this directory; every file here declares
+# the same product_area, and interface.yaml lists them together. The split
+# mirrors compute/instances/, because the two products answer the same shapes
+# of question.
+
+# What a server was configured with, and how to reach its console.
+
+tools:
+  - name: vultr_compute_baremetal_userdata_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets the user data configured for one Vultr Bare Metal server -- the
+      cloud-init or startup configuration supplied at deployment -- returned
+      base64-encoded.
+
+      Use this tool to inspect or reproduce how a server was configured at
+      first boot.
+
+      Do not use this tool for startup scripts, which are a separate Vultr
+      resource with their own tools, or for cloud compute instances, which have
+      their own tool.
+
+    operation: get-bare-metal-userdata
+
+    input:
+      type: object
+      required:
+        - baremetal_id
+      properties:
+        baremetal_id:
+          type: string
+          description: >-
+            ID of the bare metal server, as returned in the id field by
+            vultr_compute_baremetal_list.
+          maps_to: baremetal-id
+
+    output:
+      from_openapi: true
+      include:
+        - data
+
+  - name: vultr_compute_baremetal_vnc_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets the VNC console URL for one Vultr Bare Metal server, giving
+      out-of-band access to the machine's screen and keyboard.
+
+      Use this tool when someone asks for console or out-of-band access to a
+      specific server, typically because it is unreachable over the network.
+
+      Do not use this tool for ordinary status checks, which
+      vultr_compute_baremetal_get answers, or for cloud compute instances,
+      whose console link is a different field on a different tool.
+
+    operation: get-bare-metal-vnc
+
+    input:
+      type: object
+      required:
+        - baremetal_id
+      properties:
+        baremetal_id:
+          type: string
+          description: >-
+            ID of the bare metal server, as returned in the id field by
+            vultr_compute_baremetal_list.
+          maps_to: baremetal-id
+
+    output:
+      from_openapi: true
+      # The URL is the entire point of the operation; see the note at the top
+      # of this file on why the console link is shaped out of listings but kept
+      # here.
+      include:
+        - url

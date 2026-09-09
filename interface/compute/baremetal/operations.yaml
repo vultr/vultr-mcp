@@ -1,0 +1,91 @@
+product_area: baremetal
+family: compute
+
+# The baremetal area is split across this directory; every file here declares
+# the same product_area, and interface.yaml lists them together. The split
+# mirrors compute/instances/, because the two products answer the same shapes
+# of question.
+
+# Runtime facts: usage, and what it could be resized to.
+
+tools:
+  - name: vultr_compute_baremetal_bandwidth_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets daily bandwidth usage for one Vultr Bare Metal server, as incoming
+      and outgoing bytes per day.
+
+      Use this tool to report how much traffic a specific server has moved, or
+      to find which day drove a spike.
+
+      Do not use this tool for account-wide bandwidth across every product,
+      which vultr_account_bandwidth_get returns, or for cloud compute
+      instances, which have their own tool.
+
+    operation: get-bandwidth-baremetal
+
+    input:
+      type: object
+      required:
+        - baremetal_id
+      properties:
+        baremetal_id:
+          type: string
+          description: >-
+            ID of the bare metal server, as returned in the id field by
+            vultr_compute_baremetal_list.
+          maps_to: baremetal-id
+
+    # No `output` block. The response is a map with one key per day, and the
+    # spec models it by hard-coding two example dates -- 2020-10-10 and
+    # 2020-10-11 -- as literal property names. Allowlisting against those would
+    # filter every real response down to nothing.
+
+  - name: vultr_compute_baremetal_upgrades_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets the operating systems and marketplace applications one Vultr Bare
+      Metal server can be upgraded or changed to.
+
+      Use this tool to find out what a specific server can move to before
+      planning an OS change or application switch.
+
+      Do not use this tool for the server's current operating system, which
+      vultr_compute_baremetal_get returns, or to browse the marketplace and OS
+      catalogs in general, which are not specific to one server.
+
+    operation: get-bare-metals-upgrades
+
+    input:
+      type: object
+      required:
+        - baremetal_id
+      properties:
+        baremetal_id:
+          type: string
+          description: >-
+            ID of the bare metal server, as returned in the id field by
+            vultr_compute_baremetal_list.
+          maps_to: baremetal-id
+
+        type:
+          type: string
+          description: >-
+            Limit the answer to one kind of upgrade. Omit for everything
+            available.
+          # The spec leaves this a bare string and names the three values only
+          # in prose; stating them as an enum is what stops an agent guessing.
+          enum:
+            - all
+            - applications
+            - os
+
+    output:
+      from_openapi: true
+      include:
+        - os
+        - applications

@@ -1,0 +1,92 @@
+product_area: managed_databases
+family: database
+
+# The managed_databases area is split across this directory; every file here
+# declares the same product_area, and interface.yaml lists them together.
+
+# Database users. Credentials in these responses are shaped deliberately -- see
+# the tool definitions.
+
+tools:
+  - name: vultr_database_users_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the usernames defined on one Vultr Managed Database, with their
+      permission level and access control rules where the engine reports them.
+
+      Use this tool to answer who has access to a database. Permission and
+      access control detail is engine-dependent and is often absent, in which
+      case this returns usernames alone.
+
+      Do not use this tool for Vultr account users or IAM identities, which are
+      unrelated and are not exposed through this server.
+
+    operation: list-database-users
+
+    input:
+      type: object
+      required:
+        - database_id
+      properties:
+        database_id:
+          type: string
+          description: >-
+            ID of the managed database, as returned in the id field by
+            vultr_database_clusters_list.
+          maps_to: database-id
+
+    output:
+      from_openapi: true
+      # password, access_key, and access_cert are absent. What remains answers
+      # "who can reach this database and with what rights" without handing over
+      # the means to become them.
+      include:
+        - username
+        - permission
+        - encryption
+        - access_control
+
+  - name: vultr_database_users_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets one database user on a Vultr Managed Database by username, with its
+      permission level and access control rules where the engine reports them,
+      which is often not at all.
+
+      Use this tool when the username is already known. To list them, use
+      vultr_database_users_list.
+
+      Do not use this tool for Vultr account users or IAM identities.
+
+    operation: get-database-user
+
+    input:
+      type: object
+      required:
+        - database_id
+        - username
+      properties:
+        database_id:
+          type: string
+          description: >-
+            ID of the managed database, as returned in the id field by
+            vultr_database_clusters_list.
+          maps_to: database-id
+
+        username:
+          type: string
+          description: >-
+            Name of the database user, as returned in the username field by
+            vultr_database_users_list.
+
+    output:
+      from_openapi: true
+      include:
+        - username
+        - permission
+        - encryption
+        - access_control

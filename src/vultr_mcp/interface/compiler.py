@@ -24,6 +24,7 @@ from vultr_mcp.interface.expressions import Expression
 from vultr_mcp.interface.spec_index import SpecIndex
 from vultr_mcp.interface.validator import (
     Problem,
+    area_files,
     errors,
     load_manifest,
     validate_manifest,
@@ -292,20 +293,22 @@ def compile_interface(
 
     tools: list[CompiledTool] = []
     declined: list[DeclinedOperation] = []
-    for area, filename in (manifest.get("product_areas") or {}).items():
-        document = yaml.safe_load((interface_dir / filename).read_text(encoding="utf-8"))
-        for definition in document.get("tools", []) or []:
-            if not definition.get("enabled", True):
-                continue
-            tools.append(compile_tool(definition, area, document["family"], index))
-        for operation_id, entry in (document.get("declined") or {}).items():
-            declined.append(
-                DeclinedOperation(
-                    operation_id=operation_id,
-                    product_area=area,
-                    reason=entry["reason"].strip(),
+    for area, entry in (manifest.get("product_areas") or {}).items():
+        # An area is one file, or several read as though concatenated.
+        for path in area_files(interface_dir, entry):
+            document = yaml.safe_load(path.read_text(encoding="utf-8"))
+            for definition in document.get("tools", []) or []:
+                if not definition.get("enabled", True):
+                    continue
+                tools.append(compile_tool(definition, area, document["family"], index))
+            for operation_id, declined_entry in (document.get("declined") or {}).items():
+                declined.append(
+                    DeclinedOperation(
+                        operation_id=operation_id,
+                        product_area=area,
+                        reason=declined_entry["reason"].strip(),
+                    )
                 )
-            )
 
     return CompiledInterface(
         version=str(manifest["version"]),

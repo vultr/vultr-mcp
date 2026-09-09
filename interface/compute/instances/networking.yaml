@@ -1,0 +1,197 @@
+product_area: instances
+family: compute
+
+# Addressing and network attachment for an instance. See instances.yaml for the
+# area's shared notes; this file is the networking slice of it.
+
+# Reviewed and left to the generated surface. Declining does not hide anything:
+# the generated tool is still exposed and still callable. It records that
+# somebody looked, so a report of new endpoints in this area is one line rather
+# than a pile of decisions repeated back.
+#
+# Both IPv6 and IPv4 were declined here as redundant with
+# vultr_compute_instances_get, and both were wrong. Live calls against the local
+# stack and production both show the API returning v6_main_ip, v6_network and
+# v6_network_size as flat fields, and never the v6_networks array the spec
+# documents -- so this tool returns no IPv6 information at all, and
+# get-instance-ipv6 is the only way to get any. Declines that rest on
+# "another tool already returns X" are only as sound as the spec, and the spec
+# is wrong here in a way nothing but a real response could reveal.
+#
+# Both are covered by tools below now. list-instance-vpcs was nearly declined
+# on the same reasoning -- the VPCs area lists what is attached to a VPC -- and
+# was kept for the same reason: that answers the question in the other
+# direction, and nothing but this operation says which VPCs one instance is in.
+declined:
+  list-instance-private-networks:
+    reason: >-
+      Marked deprecated in the spec, which points at List Instance VPCs as the
+      replacement. Vultr already retired the whole VPC2 family this way, so
+      these will follow.
+  attach-instance-network:
+    reason: >-
+      Deprecated in the spec alongside the private-networks read, superseded by
+      the VPC attach operations. Recorded now so it does not surface as
+      unreviewed the day writes are enabled.
+  detach-instance-network:
+    reason: >-
+      Deprecated in the spec alongside the private-networks read, superseded by
+      the VPC detach operations. Recorded now so it does not surface as
+      unreviewed the day writes are enabled.
+  list-instance-ipv6-reverse:
+    reason: >-
+      Reverse DNS entries are a DNS concern rather than an instance one, and
+      belong with the dns product area if they are ever worth a tool.
+
+
+tools:
+  - name: vultr_compute_instances_ipv4_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists every IPv4 address assigned to one Vultr cloud compute instance,
+      with each address's netmask, gateway, MAC address, reverse DNS entry, and
+      whether it is the main address, an additional one, or a private address.
+
+      Use this tool when an instance has more than one address, or when the
+      netmask, gateway, MAC or reverse DNS is needed.
+      vultr_compute_instances_get returns only main_ip.
+
+      Do not use this tool for bare metal servers, which have their own tool,
+      or for reserved IPs that are not attached to an instance.
+
+    operation: get-instance-ipv4
+
+    input:
+      type: object
+      required:
+        - instance_id
+      properties:
+        instance_id:
+          type: string
+          description: >-
+            ID of the instance, as returned in the id field by
+            vultr_compute_instances_list.
+          maps_to: instance-id
+
+        public_network:
+          type: boolean
+          description: >-
+            Include the public network adapter's address as well as private
+            ones. Defaults to false.
+
+        page_size:
+          type: integer
+          description: Maximum number of addresses to return.
+          default: 100
+          minimum: 1
+          maximum: 500
+          maps_to: per_page
+
+        cursor:
+          type: string
+          description: Cursor returned by a previous request for the next page.
+
+    output:
+      from_openapi: true
+      # mac_address is declared and never sent. A production instance returned
+      # gateway, ip, netmask, reverse and type, and nothing else. The bare metal
+      # tool keeps it: that schema has been the trustworthy one of the pair
+      # before -- it is where the flat IPv6 fields are documented correctly --
+      # and no bare metal server was available to check against.
+      include:
+        - ip
+        - netmask
+        - gateway
+        - type
+        - reverse
+        - meta
+
+  - name: vultr_compute_instances_ipv6_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists every IPv6 address assigned to one Vultr cloud compute instance,
+      with each address's network and prefix size.
+
+      Use this tool for any question about an instance's IPv6 addressing. It is
+      the only tool that returns it: vultr_compute_instances_get does not carry
+      IPv6 information.
+
+      Do not use this tool for IPv4 addresses, which
+      vultr_compute_instances_ipv4_list returns, or for bare metal servers,
+      which have their own tool.
+
+    operation: get-instance-ipv6
+
+    input:
+      type: object
+      required:
+        - instance_id
+      properties:
+        instance_id:
+          type: string
+          description: >-
+            ID of the instance, as returned in the id field by
+            vultr_compute_instances_list.
+          maps_to: instance-id
+
+    output:
+      from_openapi: true
+      include:
+        - ip
+        - network
+        - network_size
+        - type
+        - meta
+
+  - name: vultr_compute_instances_vpcs_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the VPCs one Vultr cloud compute instance is attached to, with the
+      instance's private IP address and MAC address on each.
+
+      Use this tool to find which private networks a specific instance reaches,
+      or its address inside one.
+
+      Do not use this tool to list VPCs in general, or to see everything
+      attached to a given VPC, which are answered from the VPC side.
+
+    operation: list-instance-vpcs
+
+    input:
+      type: object
+      required:
+        - instance_id
+      properties:
+        instance_id:
+          type: string
+          description: >-
+            ID of the instance, as returned in the id field by
+            vultr_compute_instances_list.
+          maps_to: instance-id
+
+        page_size:
+          type: integer
+          description: Maximum number of VPCs to return.
+          default: 100
+          minimum: 1
+          maximum: 500
+          maps_to: per_page
+
+        cursor:
+          type: string
+          description: Cursor returned by a previous request for the next page.
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - ip_address
+        - mac_address
+        - meta
+

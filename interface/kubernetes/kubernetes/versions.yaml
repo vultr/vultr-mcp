@@ -1,0 +1,32 @@
+product_area: kubernetes
+family: kubernetes
+
+# The kubernetes area is split across this directory; every file here declares
+# the same product_area, and interface.yaml lists them together.
+
+# Account-wide reference data: the Kubernetes versions VKE will deploy.
+
+tools:
+  - name: vultr_kubernetes_versions_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the Kubernetes versions Vultr Kubernetes Engine supports for new
+      clusters.
+
+      Use this tool to find which versions can be deployed before creating a
+      cluster.
+
+      Do not use this tool for the versions one existing cluster can upgrade
+      to, which vultr_kubernetes_clusters_upgrades_get returns, or for managed
+      database engine versions, which are a different product.
+
+    operation: get-kubernetes-versions
+
+    input:
+      type: object
+      properties: {}
+
+    # No `output` block: versions is a bare array of version strings, so there
+    # are no item fields to allowlist against.

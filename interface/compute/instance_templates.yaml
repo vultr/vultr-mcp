@@ -3,7 +3,7 @@ family: compute
 
 # Instance templates are the reusable deployment recipe -- plan, OS, SSH keys,
 # startup script, user data -- that Compute Clusters build their nodes from.
-# clusters.yaml returns one inline on every cluster, so these tools are how you
+# compute/clusters.yaml returns one inline on every cluster, so these tools are how you
 # read a template on its own.
 #
 # `user_data` is kept, on the same reasoning as the instance and bare metal user
