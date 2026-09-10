@@ -204,3 +204,58 @@ async def test_healthz_and_category_scoping(monkeypatch, spec):
             await task
         except (asyncio.CancelledError, Exception):
             pass
+
+
+async def test_mcp_alias_serves_the_same_surface_as_root(monkeypatch, spec):
+    """"/mcp" is the conventional streamable-HTTP path, so clients try it first.
+
+    It used to 404: not a category, so it fell through to the catch-all mount
+    and the root app had nothing at that path. The alias makes both work, and
+    they must be the SAME surface -- an alias that served a different tool set
+    would be worse than the 404 it replaced.
+    """
+    monkeypatch.setenv("VULTR_MCP_CATEGORY_ENDPOINTS", "instances")
+    app = create_http_app(spec)
+    port = _free_port()
+    server, task = await _serve(app, port)
+    try:
+        assert await _names(port, "/mcp") == await _names(port, "/")
+    finally:
+        server.should_exit = True
+        task.cancel()
+        try:
+            await task
+        except (asyncio.CancelledError, Exception):
+            pass
+
+
+async def test_mcp_alias_works_without_a_trailing_slash(monkeypatch, spec):
+    """The bare-path shim has to cover the alias too.
+
+    Starlette would 307 "/mcp" -> "/mcp/", and MCP clients do not follow a
+    redirect on POST -- which is the whole reason the shim exists for category
+    paths. Adding a mount without adding it to bare_paths would have produced a
+    route that works in a browser and fails from every client.
+    """
+    monkeypatch.setenv("VULTR_MCP_CATEGORY_ENDPOINTS", "instances")
+    app = create_http_app(spec)
+    port = _free_port()
+    server, task = await _serve(app, port)
+    try:
+        import httpx
+
+        async with httpx.AsyncClient() as hc:
+            # A POST to the bare path must be handled, not redirected.
+            resp = await hc.post(
+                f"http://127.0.0.1:{port}/mcp",
+                json={"jsonrpc": "2.0", "id": 1, "method": "ping"},
+                headers={"Accept": "application/json, text/event-stream"},
+            )
+        assert resp.status_code != 307, "bare /mcp redirected; clients will not follow"
+    finally:
+        server.should_exit = True
+        task.cancel()
+        try:
+            await task
+        except (asyncio.CancelledError, Exception):
+            pass

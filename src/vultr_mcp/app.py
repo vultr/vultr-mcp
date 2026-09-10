@@ -241,6 +241,13 @@ def create_http_app(spec: dict | None = None):
     # catch-all root mount.
     routes = [Route("/healthz", healthz, methods=["GET"])]
     routes += [Mount(f"/{name}", app=sub_app) for name, sub_app in mounted]
+    # "/mcp" is the conventional path for a streamable-HTTP MCP endpoint, so it
+    # is the first thing people try. It served nothing until now: it is not a
+    # category, so it fell through to the catch-all below and 404'd inside the
+    # root app. Aliased to the same server as "/" -- the root stays canonical
+    # because a browser hitting it gets the docs page, which "/mcp" has no
+    # reason to do.
+    routes.append(Mount("/mcp", app=root_app))
     routes.append(Mount("/", app=root_app))
 
     starlette_app = Starlette(routes=routes, lifespan=lifespan)
@@ -251,7 +258,7 @@ def create_http_app(spec: dict | None = None):
     # MCP clients don't follow that redirect on POST. This ASGI shim rewrites
     # the bare path to its trailing-slash form internally, so the redirect never
     # happens and nobody has to remember the slash. Root ("/") already has one.
-    bare_paths = {f"/{name}" for name, _ in mounted}
+    bare_paths = {f"/{name}" for name, _ in mounted} | {"/mcp"}
 
     landing_html = _load_landing_html()
 
@@ -269,5 +276,19 @@ def create_http_app(spec: dict | None = None):
     return app_with_bare_paths
 
 
-# ASGI entrypoint for `uvicorn vultr_mcp.app:app`
-app = create_http_app() if os.environ.get("VULTR_MCP_TRANSPORT", "").lower() == "http" else None
+def __getattr__(name: str):
+    """ASGI entrypoint for `uvicorn vultr_mcp.app:app`, built on first access.
+
+    Lazy because building it constructs every mounted server, and this module is
+    also imported for `create_http_app` and `slugify` by callers that want
+    neither. It used to be guarded by VULTR_MCP_TRANSPORT=http, which conflated
+    two questions -- which transport to serve, and whether to build the ASGI app
+    on import. PEP 562 answers the second one directly, so the app is built when
+    something actually asks for it and STDIO mode pays nothing.
+
+    The container runs `python -m vultr_mcp`, so nothing reaches this in
+    production -- it exists for `uvicorn vultr_mcp.app:app` by hand.
+    """
+    if name == "app":
+        return create_http_app()
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
