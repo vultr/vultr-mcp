@@ -88,15 +88,13 @@ def test_all_categories_matches_spec():
 async def test_no_category_is_unreviewed():
     """A tag nobody has decided about must fail the build, not ship.
 
-    The default for a new OpenAPI tag is exposure, so a spec update can put a
-    product area on the tool surface with nobody having looked. That is how
-    `oauth` arrived with 24 client-management operations, and `logs` with an
-    endpoint returning s3_secret_key. Both are now decided; this is what makes
-    the next one impossible to miss.
+    The default for a new tag is exposure, which is how `oauth` arrived with 24
+    client-management operations and `logs` with an endpoint returning
+    s3_secret_key.
 
     To fix a failure here: put the tag in DEFAULT_EXCLUDED_CATEGORIES if it is
-    identity, credential, or otherwise not for agents, and in
-    REVIEWED_CATEGORIES if it belongs on the surface.
+    identity, credential, or otherwise not for agents; in REVIEWED_CATEGORIES
+    if it belongs on the surface.
     """
     from vultr_mcp.server import unreviewed_categories
 

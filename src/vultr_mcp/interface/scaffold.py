@@ -1,24 +1,18 @@
 """Draft a product area file from openapi.json.
 
-What a scaffolder can do is the mechanical half: which parameters the API
-accepts and under what names, whether an operation pages, what the 200 response
-holds, what the tool should be called given the file's declared family. All of
-that is a lookup against the spec, and getting it wrong by hand is how a
-definition ends up referencing a field that does not exist.
+Only the mechanical half: parameter names, paging, the 200 response shape, the
+tool name implied by the file's family. All lookups against the spec, which is
+what stops a hand-written definition referencing a field that doesn't exist.
 
-What it deliberately does not do is the half that makes the layer worth having.
-It cannot write "Do not use this tool for Vultr Kubernetes Engine clusters",
-because the spec says "List all clusters in your account." It cannot decide
-which of fifteen read operations deserve tools, or which fields an agent will
-want to filter on. So every tool it emits is ``enabled: false`` with a
-description that is visibly a stub: the draft is a starting point for review,
-never a thing to merge unread.
+It cannot write "Do not use this tool for Vultr Kubernetes Engine clusters"
+when the spec says "List all clusters in your account", or judge which of
+fifteen read operations deserve tools. So every tool it emits is
+``enabled: false`` with a visibly stubbed description -- a starting point for
+review, never something to merge unread.
 
-One judgment it does make, because the cost of getting it wrong is asymmetric:
-fields that look like credentials are left out of ``output.include`` and listed
-in a comment instead. Including one has to be a deliberate act. GET /instances
-returns ``default_password`` and a console link, and a scaffolder that put those
-in a draft include list would eventually have one accepted.
+One judgment it does make, because the cost is asymmetric: credential-looking
+fields are left out of ``output.include`` and listed in a comment instead, so
+including one is deliberate. GET /instances returns ``default_password``.
 """
 
 from __future__ import annotations
@@ -29,22 +23,17 @@ from dataclasses import dataclass
 
 from vultr_mcp.interface.spec_index import Operation, SpecIndex
 
-# Field names that have to be opted into rather than out of.
+# Field names that must be opted into rather than out of.
 #
-# Matched on underscore-separated tokens rather than as substrings, which is
-# what separates a credential from a word that merely contains one. Substring
-# matching gets `valkey` wrong -- that is the database engine, not a key -- and
-# missed `s3_access_key` entirely, because "api_key" is not a substring of
-# "access_key". That miss was real: the scaffolder would have written the access
-# half of an S3 credential pair straight into a draft include list while
-# correctly withholding the secret half.
+# Matched on underscore-separated tokens, not substrings: substrings flag
+# `valkey` (the database engine) and miss `s3_access_key`, since "api_key" is
+# not a substring of "access_key" -- which would have put the access half of an
+# S3 credential pair into a draft while withholding the secret half.
 #
-# `private` was a token here and is not any more. It flagged private_ip,
-# private_network, and private_networks -- addressing, not secrets -- across
-# kubernetes, load balancers, and instances, while the one thing it was there
-# for, private_key, is already caught by `key`. Over-flagging is the right
-# direction, but a token that produces only false positives just teaches
-# reviewers to skim the comment.
+# `private` was a token and is not now: it only ever flagged private_ip and
+# private_network (addressing, not secrets), while private_key is already
+# caught by `key`. A token producing only false positives teaches reviewers to
+# skim the comment.
 SENSITIVE_TOKENS = frozenset(
     {
         "password",
@@ -57,10 +46,9 @@ SENSITIVE_TOKENS = frozenset(
         "keys",
         "apikey",
         "kvm",
-        # Managed databases return `access_cert`, a TLS client certificate, which
-        # authenticates as surely as a password does. `ca_certificate` is caught
-        # by the same token and is not secret -- it is also a PEM blob nobody
-        # asked for, so having it opted into rather than out of is right anyway.
+        # `access_cert` is a TLS client certificate and authenticates as surely
+        # as a password. The same token catches `ca_certificate`, which is not
+        # secret but is a PEM blob nobody asked for, so opting in suits it too.
         "cert",
         "certificate",
         "certs",

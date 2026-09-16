@@ -1,15 +1,13 @@
 """Register compiled interface tools with FastMCP.
 
-A generated tool gets its name, description, and schema from openapi.json. An
-interface tool gets all three from the reviewed YAML instead -- that is the
-whole point of the layer -- so it cannot be produced by ``from_openapi`` and is
-registered here as a ``Tool`` subclass whose ``run`` calls the runtime engine.
+An interface tool takes its name, description and schema from the reviewed YAML
+rather than openapi.json -- the point of the layer -- so ``from_openapi``
+cannot produce it. It is registered here as a ``Tool`` subclass whose ``run``
+calls the runtime engine.
 
-Output schemas are omitted for the same reason the generated surface strips
-them: they are the largest thing in a tool listing and the agent needs only the
-input schema to make a call. Here the omission costs even less, because an
-interface tool's response is shaped and no longer matches the spec's schema
-anyway.
+Output schemas are omitted as they are on the generated surface: they are the
+largest thing in a listing and only the input schema is needed to make a call.
+A shaped response would not match the spec's schema anyway.
 """
 
 from __future__ import annotations

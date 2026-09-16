@@ -1,14 +1,13 @@
 """Turn validated product area files into everything the runtime needs.
 
-Compilation happens once, at build time. Nothing here reads a YAML file or
-resolves a $ref while a tool call is in flight: the runtime receives plain
-dataclasses that say which parameter goes where, which fields to keep, and how
-each computed value is derived.
+Compilation happens once, at build time: no YAML read or $ref resolved while a
+tool call is in flight, only plain dataclasses saying which parameter goes
+where, which fields to keep, and how each computed value is derived.
 
-The other half of a compiler's job is refusal. Anything the runtime could not
-faithfully execute -- a header parameter, a request body, an operation the spec
-no longer has -- fails here with a located message rather than at 3am in a tool
-call. ``compile_interface`` runs the validator first for exactly that reason.
+The other half of the job is refusal. Anything the runtime could not faithfully
+execute -- a header parameter, a request body, a vanished operation -- fails
+here with a located message rather than in a live call, which is why
+``compile_interface`` runs the validator first.
 """
 
 from __future__ import annotations
@@ -159,15 +158,13 @@ class DeclinedOperation:
 class ExcludedOperation:
     """An operation that must not be served at all.
 
-    The one thing in this layer that removes rather than replaces. A declined
-    operation keeps its generated tool; an excluded one is dropped from the
-    surface by an EXCLUDE route, so the agent never sees it. That is why it
-    carries ``method`` and ``path_template``: the route map matches on those,
-    not on the operationId.
+    The one thing here that removes rather than replaces: a declined operation
+    keeps its generated tool, an excluded one is dropped by an EXCLUDE route.
+    Hence ``method`` and ``path_template`` -- route maps match on those, not on
+    operationId.
 
-    Reserved for operations where serving them is itself the harm -- handing out
-    a credential, or changing state on a surface that believes it is read-only.
-    Category exclusion is the blunter tool and takes a whole product area.
+    For operations where serving them is itself the harm: handing out a
+    credential, or changing state on a surface that believes it is read-only.
     """
 
     operation_id: str

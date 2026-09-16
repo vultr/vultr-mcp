@@ -1,18 +1,11 @@
-"""HTTP composition: root server + path-based category endpoints.
+"""HTTP composition: root server plus path-based category endpoints.
 
-Mirrors the PHP server's path-based tool filtering. A client connects to:
+``/`` and ``/mcp`` serve the full surface; ``/instances`` and friends serve one
+category each, so a client can load ~15 tools instead of ~180. Exclusions and
+the read-only gate always apply on top.
 
-  * ``/`` or ``/mcp``  -> the full (default-excluded) tool surface
-  * ``/instances``     -> only the ``instances`` category, etc.
-
-Category endpoints are token-efficient: a client that only cares about VPS
-instances loads ~15 tools instead of ~180. The identity exclusions and the
-read-only gate always apply on top, so a category endpoint can never expose an
-excluded or state-changing tool.
-
-Build cost is a one-time ~0.1s per mounted category at boot; each app is
-created eagerly so its MCP session-manager lifespan runs at startup (lazy
-mounting can't start a lifespan after the parent is already running).
+Each app is built eagerly: a lazily mounted one cannot start its MCP session
+manager's lifespan after the parent is already running.
 """
 
 from __future__ import annotations
@@ -37,12 +30,9 @@ from vultr_mcp.server import (
 )
 
 def _version() -> str:
-    """The installed package version, so /healthz reports what is deployed.
-
-    This was hard-coded at "2.0.1" and drifted: the 2.1.0 rollout shipped and
-    healthz still said 2.0.1, which made "did the new image actually land?"
-    unanswerable from outside the cluster. Reading the installed metadata means
-    a version bump in pyproject.toml is the single place it lives.
+    """The installed version, read rather than hard-coded so a bump in
+    pyproject.toml is the only place it lives -- and so /healthz can answer
+    "did the new image land?" from outside the cluster.
     """
     try:
         from importlib.metadata import version
@@ -58,10 +48,8 @@ _LANDING_PATH = Path(__file__).resolve().parent / "static" / "index.html"
 
 
 def _load_landing_html() -> str:
-    """Read the human-facing docs page served on browser GETs to ``/``.
-
-    Missing file is non-fatal — a browser just gets a tiny fallback rather
-    than the server failing to boot over a docs asset.
+    """The docs page served on browser GETs to ``/``. A missing file is
+    non-fatal: the server must not fail to boot over a docs asset.
     """
     try:
         return _LANDING_PATH.read_text(encoding="utf-8")
@@ -72,20 +60,12 @@ def _load_landing_html() -> str:
 def _wants_landing_page(scope: dict) -> bool:
     """True only for a genuine top-level browser navigation to ``/``.
 
-    The docs page and the MCP endpoint share the root URL, and the server can't
-    see whether the client was configured with ``vultrmcp.com`` or
-    ``vultrmcp.com/`` — both arrive as path ``/``. So we distinguish a *human
-    opening the page* from a *client connecting* by request shape:
-
-    * MCP Streamable HTTP uses POST (JSON-RPC) and a GET with
-      ``Accept: text/event-stream`` (SSE) — never the docs.
-    * A real browser navigation sets ``Sec-Fetch-Mode: navigate``. A
-      browser-based MCP client (e.g. a hosted agent web UI) connects with
-      ``fetch``/XHR, which sets ``Sec-Fetch-Mode: cors``/``no-cors`` — so it
-      falls through to the protocol even though it runs in a browser, which is
-      what makes the bare host work for those clients without a trailing slash.
-    * When ``Sec-Fetch-*`` is absent (older browsers, header-stripping proxies,
-      curl), fall back to an explicit ``Accept: text/html`` and never ``*/*``.
+    The docs page and the MCP endpoint share the root URL, so a human opening
+    the page is told apart from a client connecting by request shape: MCP uses
+    POST or a GET accepting ``text/event-stream``; a browser navigation sets
+    ``Sec-Fetch-Mode: navigate``, while a browser-based MCP client's fetch/XHR
+    sets ``cors``/``no-cors`` and falls through to the protocol. With no
+    ``Sec-Fetch-*`` at all, require an explicit ``Accept: text/html``.
     """
     if scope.get("type") != "http" or scope.get("method") != "GET":
         return False
@@ -150,19 +130,17 @@ def create_http_app(spec: dict | None = None):
 
     excluded = _resolve_exclusions()
 
-    # Resolved once so every mount — root and categories — shares one posture,
-    # and so /healthz reports the same value the servers were built with.
+    # Resolved once so every mount shares one posture, and /healthz reports what
+    # the servers were actually built with.
     read_only = read_only_from_env()
 
-    # OAuthProxy (Phase 4) — built once, shared across root + category servers
-    # so every endpoint validates the same Vultr token. None when OIDC is off.
+    # Built once and shared, so every endpoint validates the same Vultr token.
     from vultr_mcp.auth import build_auth
 
     auth = build_auth()
 
-    # DNS-rebinding protection validates the Host header. Behind an ingress the
-    # public host (e.g. vultrmcp.com) must be allow-listed or requests 421.
-    # Derive it from MCP_RESOURCE_URL; extend via MCP_ALLOWED_HOSTS.
+    # DNS-rebinding protection validates Host: behind an ingress the public host
+    # must be allow-listed or requests 421.
     from urllib.parse import urlparse
 
     resource_url = os.environ.get("MCP_RESOURCE_URL", "https://vultrmcp.com")
@@ -172,22 +150,16 @@ def create_http_app(spec: dict | None = None):
         h.strip() for h in os.environ.get("MCP_ALLOWED_HOSTS", "").split(",") if h.strip()
     ]
 
-    # allowed_origins: the OAuthProxy consent page POSTs to /consent from the
-    # server's own origin. Without the public origin allow-listed, FastMCP's
-    # DNS-rebinding protection 403s that POST ("forbidden origin on the allow
-    # screen"). Allow our own origin plus any configured extras.
+    # The consent page POSTs to /consent from our own origin; without it
+    # allow-listed, DNS-rebinding protection 403s that POST.
     allowed_origins = [o for o in (resource_url.rstrip("/"),) if o]
     allowed_origins += [
         o.strip() for o in os.environ.get("MCP_ALLOWED_ORIGINS", "").split(",") if o.strip()
     ]
 
-    # stateless_http: each request is self-contained, so no MCP session lives
-    # in one replica's memory. Required for multi-replica behind a round-robin
-    # ingress — otherwise a session created on pod A is "not found" when the
-    # next request lands on pod B. (The PHP server solved the same problem with
-    # a shared Redis session store.)
-    # path="/" serves each server's MCP endpoint at its mount root, so URLs are
-    # clean: root at "/", a category at "/instances" (not "/instances/mcp").
+    # stateless_http: required behind a round-robin ingress, or a session
+    # created on pod A is "not found" when the next request lands on pod B.
+    # path="/" keeps URLs clean: "/instances", not "/instances/mcp".
     def _http(server) -> object:
         return server.http_app(
             path="/",
@@ -196,9 +168,6 @@ def create_http_app(spec: dict | None = None):
             stateless_http=True,
         )
 
-    # Root ("/") serves the full non-excluded tool surface. Each category is
-    # mounted at its slug ("/container-registry") and exposes only that
-    # category's tools — for clients with limited MCP slots.
     root_server = create_server(
         spec, exclude_categories=excluded, read_only=read_only, auth=auth
     )
@@ -230,9 +199,8 @@ def create_http_app(spec: dict | None = None):
                 "status": "ok",
                 "service": "vultr-mcp-server",
                 "version": VERSION,
-                # Surfaced so a deploy's write posture is verifiable without
-                # listing tools — the one thing worth catching a misconfigured
-                # VULTR_MCP_WRITES_ENABLED on.
+                # So a deploy's write posture is verifiable without listing
+                # tools -- the thing worth catching a misconfiguration on.
                 "read_only": read_only,
             }
         )
@@ -241,23 +209,18 @@ def create_http_app(spec: dict | None = None):
     # catch-all root mount.
     routes = [Route("/healthz", healthz, methods=["GET"])]
     routes += [Mount(f"/{name}", app=sub_app) for name, sub_app in mounted]
-    # "/mcp" is the conventional path for a streamable-HTTP MCP endpoint, so it
-    # is the first thing people try. It served nothing until now: it is not a
-    # category, so it fell through to the catch-all below and 404'd inside the
-    # root app. Aliased to the same server as "/" -- the root stays canonical
-    # because a browser hitting it gets the docs page, which "/mcp" has no
-    # reason to do.
+    # "/mcp" is the conventional streamable-HTTP path and the first thing people
+    # try, but it is not a category, so it used to 404 in the catch-all. Root
+    # stays canonical: a browser hitting it gets the docs page, which "/mcp"
+    # has no reason to do.
     routes.append(Mount("/mcp", app=root_app))
     routes.append(Mount("/", app=root_app))
 
     starlette_app = Starlette(routes=routes, lifespan=lifespan)
 
-    # Users connect to a bare category path — https://vultrmcp.com/instances —
-    # with NO trailing slash. Starlette would otherwise 307-redirect
-    # "/instances" -> "/instances/" (the mounted sub-app's canonical path), and
-    # MCP clients don't follow that redirect on POST. This ASGI shim rewrites
-    # the bare path to its trailing-slash form internally, so the redirect never
-    # happens and nobody has to remember the slash. Root ("/") already has one.
+    # Starlette would 307 "/instances" -> "/instances/", and MCP clients don't
+    # follow that on POST. Rewriting internally means nobody has to remember
+    # the trailing slash.
     bare_paths = {f"/{name}" for name, _ in mounted} | {"/mcp"}
 
     landing_html = _load_landing_html()
@@ -280,14 +243,9 @@ def __getattr__(name: str):
     """ASGI entrypoint for `uvicorn vultr_mcp.app:app`, built on first access.
 
     Lazy because building it constructs every mounted server, and this module is
-    also imported for `create_http_app` and `slugify` by callers that want
-    neither. It used to be guarded by VULTR_MCP_TRANSPORT=http, which conflated
-    two questions -- which transport to serve, and whether to build the ASGI app
-    on import. PEP 562 answers the second one directly, so the app is built when
-    something actually asks for it and STDIO mode pays nothing.
-
-    The container runs `python -m vultr_mcp`, so nothing reaches this in
-    production -- it exists for `uvicorn vultr_mcp.app:app` by hand.
+    also imported for `create_http_app` and `slugify` by callers wanting neither.
+    The container runs `python -m vultr_mcp`, so only a hand-run uvicorn gets
+    here.
     """
     if name == "app":
         return create_http_app()

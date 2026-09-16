@@ -1,14 +1,13 @@
 """Validate interface layer definitions against the schema and openapi.json.
 
-Two passes. The schema pass catches shape errors (missing fields, bad names,
-unknown keys). The semantic pass catches drift: an operation that no longer
-exists, a filter on a field the API stopped returning, an expression naming
-something that isn't there.
+The schema pass catches shape errors; the semantic pass catches drift -- a
+vanished operation, a filter on a field the API stopped returning, an
+expression naming something absent.
 
-The semantic pass is the one that matters. Product area files are drafted by an
-LLM from openapi.json, so the failure mode is not a typo, it's a confidently
-invented field. Every reference is therefore resolved against the spec and the
-build fails on anything that cannot be found.
+The semantic pass is the one that matters. Area files are drafted by an LLM
+from openapi.json, so the failure mode is not a typo but a confidently invented
+field. Every reference is resolved against the spec, and the build fails on
+anything that cannot be found.
 """
 
 from __future__ import annotations
@@ -29,18 +28,14 @@ from vultr_mcp.interface.spec_index import Operation, SpecIndex
 # parameter would need credentials or transport plumbing the layer doesn't own.
 SUPPORTED_PARAMETER_LOCATIONS = frozenset({"query", "path"})
 
-# The closed verb vocabulary, and the last segment of every tool name. It is
-# what an agent pattern-matches on across every product area, so consistency
-# matters more than expressiveness: one word per action, the same word
-# everywhere.
+# The closed verb vocabulary and the last segment of every tool name. An agent
+# pattern-matches on it across every area, so one word per action, everywhere.
 #
-# `list` rather than `search` for collections. `search` reads like finding a
-# single item, which puts it in competition with `get` for exactly the prompts
-# where the two must be distinguishable.
+# `list`, not `search`: `search` reads like finding a single item, competing
+# with `get` in exactly the prompts where the two must stay distinguishable.
 #
-# The lifecycle verbs use the words a person would say rather than the ones the
-# API uses -- `stop` for Vultr's halt, `restart` for its reboot. Vultr's own
-# term belongs in the description, where someone reading the docs will find it.
+# Lifecycle verbs use the word a person would say rather than the API's --
+# `stop` for halt, `restart` for reboot. Vultr's term goes in the description.
 TOOL_VERBS = frozenset(
     {
         # read
@@ -316,10 +311,9 @@ def validate_product_area(
     excluded = document.get("excluded") or {}
     tool_operations = {tool["operation"] for tool in document["tools"]}
 
-    # Excluding is the only thing here that removes an operation from the
-    # surface, so unlike a decline every problem with one is an ERROR. A
-    # decline that misses its target is untidy; an exclusion that misses its
-    # target silently serves the thing someone believed was gone.
+    # Every problem with an exclusion is an ERROR: a decline that misses its
+    # target is untidy, an exclusion that misses its target silently serves the
+    # thing someone believed was gone.
     for operation_id in excluded:
         location = f"{where}.excluded.{operation_id}"
         operation = index.get(operation_id)

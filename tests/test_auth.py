@@ -1,9 +1,9 @@
-"""Phase 4: OAuthProxy wiring.
+"""OAuthProxy wiring.
 
-Full browser OAuth can't run in a unit test, so these assert the pieces:
-build_auth honours the enable flag, constructs an OAuthProxy from resolved
-endpoints (no network), attaches to the server, and the server then advertises
-the OAuth metadata MCP clients use for Dynamic Client Registration.
+Browser OAuth can't run in a unit test, so these assert the pieces: build_auth
+honours the enable flag, builds a proxy from resolved endpoints without the
+network, attaches to the server, and the server advertises the metadata clients
+use for Dynamic Client Registration.
 """
 
 from __future__ import annotations
@@ -14,7 +14,9 @@ import socket
 import httpx
 import pytest
 
-from vultr_mcp.auth import UpstreamEndpoints, build_auth
+from fastmcp.server.auth.oauth_proxy import OAuthProxy
+
+from vultr_mcp.auth import UpstreamEndpoints, VultrOAuthProxy, build_auth
 from vultr_mcp.server import create_server, load_spec
 
 FAKE = UpstreamEndpoints(
@@ -51,7 +53,45 @@ def test_build_auth_constructs_proxy(monkeypatch):
     _enable_env(monkeypatch)
     auth = build_auth(endpoints=FAKE)
     assert auth is not None
-    assert auth.__class__.__name__ == "OAuthProxy"
+    assert isinstance(auth, OAuthProxy)
+    # Specifically the subclass that restores the raw-API-key bearer path —
+    # see VultrOAuthProxy's docstring for why plain OAuthProxy 401s it.
+    assert isinstance(auth, VultrOAuthProxy)
+
+
+def test_raw_api_key_bearer_accepted_without_oauth_swap(monkeypatch):
+    """A non-JWT-shaped bearer must be accepted immediately, without going
+    through OAuthProxy's JWT/token-swap machinery at all — that machinery
+    requires a proxy-issued JWT and 401s ("invalid_token") anything else,
+    which is exactly the bug this override fixes. Regression test for the
+    2026-09 finding: raw Vultr API keys could never authenticate once
+    VULTR_OIDC_ENABLED=true, regardless of key validity.
+    """
+    _enable_env(monkeypatch)
+    auth = build_auth(endpoints=FAKE)
+    assert isinstance(auth, VultrOAuthProxy)
+
+    raw_key = "2CYDYSI5HSN4WHBZIDCV7ZDM5JRBUVQOZ4AA"  # opaque, no dots
+    result = asyncio.run(auth.load_access_token(raw_key))
+
+    assert result is not None
+    assert result.token == raw_key
+    assert result.client_id == "vultr-api-key"
+    assert result.claims == {"auth_method": "api_key"}
+
+
+def test_jwt_shaped_bearer_still_goes_through_oauth_swap(monkeypatch):
+    """A JWT-shaped bearer that isn't actually a proxy-issued JWT should
+    still be rejected by the normal OAuth swap path (None, not a raw-key
+    accept) — the override must not widen acceptance beyond opaque tokens.
+    """
+    _enable_env(monkeypatch)
+    auth = build_auth(endpoints=FAKE)
+
+    fake_jwt = "header.payload.signature"  # JWT-shaped, not proxy-issued
+    result = asyncio.run(auth.load_access_token(fake_jwt))
+
+    assert result is None
 
 
 def test_server_advertises_oauth_metadata(monkeypatch):
@@ -98,6 +138,18 @@ def test_server_advertises_oauth_metadata(monkeypatch):
     # secret) experience possible — its presence is the Phase 4 win.
     assert "registration_endpoint" in body, f"no DCR endpoint advertised: {body}"
     assert "authorization_endpoint" in body and "token_endpoint" in body
+
+    # The device grant is discovered only through this document, so an
+    # unadvertised endpoint is an absent feature however well it works. A
+    # client on a headless host (an agent on a Vultr instance, reached over
+    # SSH) reads these two fields to learn it has an alternative to a loopback
+    # callback it cannot receive.
+    assert body["device_authorization_endpoint"].endswith("/device_authorization"), (
+        f"device endpoint not advertised: {body}"
+    )
+    assert "urn:ietf:params:oauth:grant-type:device_code" in body["grant_types_supported"]
+    # Patching the document must not cost the grants that were already there.
+    assert "authorization_code" in body["grant_types_supported"]
 
 
 def _free_port() -> int:

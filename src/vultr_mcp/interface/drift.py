@@ -1,22 +1,19 @@
 """Report where the spec has moved out from under the interface layer.
 
-The validator already fails the build when something we reference disappears.
-This is the other direction: operations that exist and nobody has looked at.
-
-Scope is the point. A report over the whole spec would say "519 operations
-uncovered", which is noise, so this only looks at product areas the layer
-already claims. Within one of those, every operation is in exactly one of four
-states, and only the last is worth anyone's attention:
+The validator fails the build when something we reference disappears; this is
+the other direction -- operations that exist and nobody has looked at. Scoped
+to product areas the layer already claims, since a whole-spec report would say
+"519 uncovered" and be ignored. Within one, every operation is in exactly one
+state, and only the last wants attention:
 
     served       a tool the agent can call
     drafted      a tool in the file, still disabled
-    declined     reviewed and deliberately left to the generated surface
+    declined     reviewed, deliberately left to the generated surface
     excluded     removed from the surface entirely, generated tool included
     unreviewed   nobody has looked
 
-Without the declined state this report would be unreadable -- instances alone
-would list thirteen intentional omissions beside anything genuinely new, and a
-report that cries wolf twice gets ignored.
+``declined`` is what keeps this readable: instances alone has thirteen
+intentional omissions that would otherwise sit beside anything genuinely new.
 """
 
 from __future__ import annotations

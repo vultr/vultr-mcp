@@ -1,20 +1,17 @@
 """Execute a compiled interface tool: call the API, then shape what comes back.
 
-Three things happen here that the generated surface does not do.
+Three things the generated surface does not do:
 
-**Renaming.** The agent sees ``page_size``; the API wants ``per_page``. The
-compiler resolved that mapping, so this is a lookup, not a guess.
+**Renaming.** The agent sees ``page_size``, the API wants ``per_page``. The
+compiler resolved the mapping, so this is a lookup, not a guess.
 
 **Client-side filtering.** ``GET /clusters`` accepts only ``per_page`` and
-``cursor`` -- not label, region, or status -- so a tool that lets the agent
-search by label has to do the searching itself. That has a consequence worth
-being explicit about: a filter applied after the fact only sees what was
-fetched. The fetch policy below is the answer, and every filtered response says
-how much was scanned so a counting question ("how many clusters do I have?")
-cannot be answered confidently from a partial scan.
+``cursor``, so a tool offering search by label does the searching itself. A
+filter applied after the fact only sees what was fetched, so every filtered
+response reports how much was scanned -- "how many clusters do I have?" must
+not be answered confidently from a partial one.
 
-**Shaping.** Dropping fields the agent does not need is the main lever on token
-cost, and computed fields ride along on the same pass.
+**Shaping.** The main lever on token cost; computed fields ride the same pass.
 """
 
 from __future__ import annotations

@@ -1,9 +1,7 @@
 """The compiled interface is built once and shared across servers.
 
-create_http_app builds 35 FastMCP servers, and each used to recompile the whole
-interface layer for an identical result — ~21s of a ~26s boot spent doing the
-same work 35 times. These pin the fix, and the properties that make sharing
-safe.
+Recompiling per server for an identical result cost ~21s of a ~26s boot. These
+pin the fix and the properties that make sharing safe.
 """
 
 from __future__ import annotations

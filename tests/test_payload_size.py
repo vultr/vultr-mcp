@@ -1,11 +1,9 @@
 """The root endpoint's tools/list must stay small enough for real clients.
 
-The server has always *answered* the root correctly (HTTP 200, complete body),
-but at 750KB / ~187k tokens of tool definitions clients refuse the listing —
-which is why connecting to https://vultrmcp.com/ failed while /instances worked.
-Nearly all of that was generated `outputSchema`, which agents don't need.
-
-These tests pin the fix so the root endpoint can't silently regrow.
+The server always answered correctly, but at 750KB / ~187k tokens clients
+refused the listing -- which is why connecting to the root failed while
+/instances worked. Nearly all of it was generated `outputSchema`. These pin the
+fix so the root cannot silently regrow.
 """
 
 from __future__ import annotations
@@ -75,18 +73,12 @@ async def test_output_schemas_can_be_restored(spec, monkeypatch):
 
 
 async def test_stripping_removes_output_schemas_and_nothing_else(spec, monkeypatch):
-    """Stripping outputSchema must not drop tools — only shrink their definitions.
+    """Stripping outputSchema must not drop tools, only shrink definitions.
 
-    This used to assert the listing at least halved, which held while almost
-    every tool was generated. Hand-authored tools carry no outputSchema in
-    either listing, so each one added moves that ratio without anything
-    regressing; the threshold measured how much of the surface the interface
-    layer owns, not whether the size fix works.
-
-    What the fix actually claims is narrower and does not drift: the two
-    listings hold the same tools, and every byte of the difference between them
-    is outputSchema. The absolute ceiling that made this matter is pinned by
-    test_root_listing_fits_client_budgets.
+    Asserting the listing halved measured how much of the surface the interface
+    layer owns rather than whether the fix works, since hand-authored tools
+    carry no outputSchema either way. The narrower claim does not drift: same
+    tools in both listings, and every byte between them is outputSchema.
     """
     slim, slim_size = await _wire_listing(create_server(spec))
     monkeypatch.setenv("VULTR_MCP_OUTPUT_SCHEMAS", "true")

@@ -1,19 +1,14 @@
 """The parts of openapi.json the interface layer needs, resolved once.
 
-The validator and the compiler ask the same questions of the spec -- what
-parameters does this operation take, what does its 200 response look like, does
-it change state -- so they ask them here rather than each growing its own copy.
+The validator and compiler ask the spec the same questions, so they ask them
+here rather than each growing a copy. Two things a naive reading gets wrong:
 
-Two things this deliberately gets right that a naive reading of the spec does
-not:
-
-* **Path-item parameters.** 234 of Vultr's 330 paths declare their path
-  parameters on the path item, not on the operation. Reading only
-  ``operation.parameters`` loses ``{pullzone-id}`` and friends, which would make
-  every by-id tool look like it was referencing a parameter that doesn't exist.
-* **The container key.** A list response is an envelope -- ``{"clusters": [...],
-  "meta": {...}}`` -- so shaping has to know which key holds the results. That
-  key is derived from the response schema, never hard-coded per tool.
+* **Path-item parameters.** 234 of Vultr's 330 paths declare path parameters on
+  the path item, not the operation, so reading only ``operation.parameters``
+  loses ``{pullzone-id}`` and makes every by-id tool look like it references a
+  parameter that doesn't exist.
+* **The container key.** A list response is an envelope, so shaping has to know
+  which key holds the results. Derived from the schema, never hard-coded.
 """
 
 from __future__ import annotations
@@ -63,17 +58,13 @@ class Parameter:
 
 @dataclass(frozen=True)
 class ResponseShape:
-    """The 200 response of an operation, split into the levels tools reference.
+    """The 200 response, split into the levels ``output.include`` references:
+    ``meta`` sits on the envelope, ``label`` on each item, so both are kept.
 
-    ``output.include`` names fields at both levels -- ``meta`` sits on the
-    envelope, ``label`` sits on each result item -- so both are kept.
-
-    Most Vultr responses are envelopes: ``{"instance": {...}}`` or
-    ``{"instances": [...], "meta": {...}}``. A minority return the resource
-    itself with no wrapper, and those are ``unwrapped``: there is no container
-    key because the payload *is* the item. Treating that as "no readable
-    schema" is what left GET /account/bgp returning a BGP password with no way
-    to shape it.
+    Most Vultr responses are envelopes; a minority return the resource itself
+    and are ``unwrapped``, with no container key because the payload *is* the
+    item. Treating those as "no readable schema" is what left GET /account/bgp
+    returning a BGP password with no way to shape it.
     """
 
     envelope: frozenset[str]

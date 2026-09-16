@@ -1,15 +1,14 @@
 """The closed grammar computed fields are written in.
 
-Computed fields exist because the agent often wants something the API does not
-return -- "how many instances does this cluster have" is a count of an array it
-would otherwise have to fetch in full and tally itself. The derivation is an
-expression in the YAML rather than a Python helper, because a model drafting a
-product area file can write ``length(instances)`` but cannot write and wire up a
-helper function. The grammar is tiny and closed so that anything invented fails
-the build instead of failing at runtime.
+Computed fields answer things the API does not return -- "how many instances
+does this cluster have" is a count of an array the agent would otherwise fetch
+in full and tally. The derivation lives in the YAML rather than a Python helper
+because a model drafting an area file can write ``length(instances)`` but
+cannot wire up a function. The grammar is tiny and closed so anything invented
+fails the build instead of a tool call.
 
-Parsing and evaluation live together here so the validator and the runtime can
-never disagree about what an expression means.
+Parsing and evaluation live together so the validator and runtime can never
+disagree about what an expression means.
 """
 
 from __future__ import annotations

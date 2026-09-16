@@ -673,13 +673,10 @@ async def test_a_container_the_api_does_not_send_is_not_invented(cluster_tool):
     """A wrong container in the spec must not become a fabricated empty field.
 
     Three live endpoints declare a container they do not send. Auto-paging
-    collects `payload[container]` across pages and writes the result back, so
-    with the wrong name it collected nothing and then assigned that nothing.
-
-    Writing the empty list is what does the damage: it makes the declared
-    container present, so shaping proceeds and the envelope allowlist then
-    drops the collection the API really sent, under a name no include list
-    knows. The rows do not survive, and nothing raises.
+    collected `payload[container]` across pages and wrote the result back, so a
+    wrong name collected nothing and then assigned it -- making the declared
+    container present, so shaping proceeded and the envelope allowlist dropped
+    the collection the API really sent. No rows, and nothing raised.
     """
     def handler(request):
         # The collection is here under a name the tool does not expect.
@@ -1245,11 +1242,10 @@ async def test_no_generated_logs_tool_survives():
 def test_options_operations_count_as_writes(spec):
     """Vultr's docker-credentials routes mint credentials despite the verb.
 
-    The generated surface drops them because server.WRITE_METHODS includes
-    OPTIONS. The interface layer listed only POST/PUT/PATCH/DELETE, so the
-    validator would have *required* access: read on one of them -- and a
-    read-only server keeps read tools. A tool for one would have walked a
-    credential-minting operation back onto the safe surface.
+    The generated surface drops them via WRITE_METHODS. The interface layer
+    listed only POST/PUT/PATCH/DELETE, so it would have *required*
+    ``access: read`` on one -- and a read-only server keeps read tools, walking
+    a credential-minting operation back onto the safe surface.
     """
     from vultr_mcp.interface.spec_index import SpecIndex
 

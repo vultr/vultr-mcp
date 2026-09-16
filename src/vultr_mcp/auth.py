@@ -1,25 +1,23 @@
-"""Phase 4 — OAuth via FastMCP OAuthProxy.
+"""OAuth, via FastMCP's OAuthProxy.
 
-Vultr's OIDC provider is a confidential, non-DCR authorization server: every
-token exchange requires a pre-registered client_id + secret. MCP clients
-(claude.ai, ChatGPT) expect Dynamic Client Registration and refuse to store a
-secret. ``OAuthProxy`` bridges the two: it presents a DCR-compliant interface
-to MCP clients while using *our* one approved client's credentials upstream.
+Vultr's OIDC provider is confidential and non-DCR: every token exchange needs a
+pre-registered client_id and secret. MCP clients expect Dynamic Client
+Registration and refuse to store a secret. ``OAuthProxy`` bridges the two,
+presenting a DCR interface downstream while using our one approved client
+upstream.
 
-Token model: the ``token_verifier`` validates Vultr's own RS256 access tokens
-against the provider JWKS, so the proxy forwards Vultr's token through to the
-client. The client then sends that same Vultr token back on each request —
-which is exactly what ``PerRequestVultrAuth`` forwards to api.vultr.com. No
-separate token-exchange step is needed (api.vultr.com accepts the OIDC access
-token directly; verified 2026-07, a 403 role-trust — not a 401 — came back).
+The proxy issues clients a reference JWT of its own and swaps it for the stored
+upstream Vultr token on each request; that upstream token is what
+``PerRequestVultrAuth`` forwards to api.vultr.com.
 
-Enable with VULTR_OIDC_ENABLED=true plus the VULTR_OAUTH_* / VULTR_OIDC_*
-vars. When disabled, ``build_auth`` returns None and the server runs with the
-raw-API-key / header-forwarding path only.
+Enable with VULTR_OIDC_ENABLED=true plus the VULTR_OAUTH_* / VULTR_OIDC_* vars.
+Disabled, ``build_auth`` returns None and only the raw-key path runs.
 """
 
 from __future__ import annotations
 
+import inspect
+import json
 import os
 from dataclasses import dataclass
 
@@ -27,6 +25,26 @@ import httpx
 from fastmcp.server.auth.auth import AccessToken, TokenVerifier
 from fastmcp.server.auth.oauth_proxy import OAuthProxy
 from fastmcp.server.auth.providers.jwt import JWTVerifier
+from starlette.requests import Request
+from starlette.responses import JSONResponse
+from starlette.routing import Route
+
+from vultr_mcp.device_flow import (
+    DEVICE_GRANT_TYPE,
+    DeviceFlowHandlers,
+    device_flow_enabled,
+    device_routes,
+)
+from vultr_mcp.loopback_handoff import completion_page, is_loopback_target
+
+
+def loopback_handoff_enabled() -> bool:
+    """On unless explicitly disabled; the escape hatch is for debugging only."""
+    return os.environ.get("VULTR_MCP_LOOPBACK_HANDOFF", "true").lower() not in (
+        "0",
+        "false",
+        "no",
+    )
 
 
 def _looks_like_jwt(token: str) -> bool:
@@ -34,25 +52,35 @@ def _looks_like_jwt(token: str) -> bool:
     return token.count(".") == 2 and all(token.split("."))
 
 
+def _api_key_access_token(token: str) -> AccessToken:
+    """Wrap an opaque bearer as an AccessToken; api.vultr.com is the real
+    authority on whether it's valid — this only lets it through the MCP
+    layer. Shared by DualTokenVerifier and VultrOAuthProxy so both opaque-
+    token branches build the same object.
+    """
+    return AccessToken(
+        token=token,
+        client_id="vultr-api-key",
+        scopes=[],
+        claims={"auth_method": "api_key"},
+    )
+
+
 class DualTokenVerifier(TokenVerifier):
-    """Accept BOTH Vultr OIDC JWTs and raw Vultr API keys, concurrently.
+    """Accept both Vultr OIDC JWTs and raw Vultr API keys.
 
-    FastMCP's default auth would 401 any non-JWT bearer, which would break the
-    header/API-key path whenever OAuth is enabled. This mirrors the PHP
-    server's VultrAuth: JWT-shaped tokens are verified against Vultr's JWKS
-    (OAuth path); opaque tokens are accepted as raw Vultr API keys and left for
-    api.vultr.com to validate downstream (it is the real authority on keys).
-    Both paths forward their bearer via PerRequestVultrAuth, so a bad key still
-    fails at Vultr with a 401 — the MCP just doesn't gate on it.
+    JWT-shaped tokens verify against Vultr's JWKS; opaque ones are passed
+    through as API keys for api.vultr.com to validate, since it is the real
+    authority on them. A bad key still fails there with a 401.
 
-    Note: with OAuth enabled, a raw key must arrive as ``Authorization:
-    Bearer <key>`` (FastMCP extracts the token from that header before this
-    verifier runs). ``X-Vultr-API-Key`` only applies in the no-auth-layer mode.
+    Behind an OAuthProxy this opaque branch is not what accepts a client's raw
+    key -- ``load_access_token`` gates first, and ``VultrOAuthProxy`` handles
+    that. This stays for standalone use, and as the shared building block.
     """
 
     def __init__(self, jwt_verifier: TokenVerifier) -> None:
-        # Inherit base_url / required_scopes / resource_server_url from the
-        # wrapped verifier so the auth layer sees a fully-formed verifier.
+        # Inherit base_url / required_scopes so the auth layer sees a
+        # fully-formed verifier.
         super().__init__(
             base_url=getattr(jwt_verifier, "base_url", None),
             required_scopes=getattr(jwt_verifier, "required_scopes", None),
@@ -63,12 +91,237 @@ class DualTokenVerifier(TokenVerifier):
         if _looks_like_jwt(token):
             return await self._jwt.verify_token(token)
         # Opaque bearer -> treat as a raw Vultr API key; Vultr validates it.
-        return AccessToken(
-            token=token,
-            client_id="vultr-api-key",
-            scopes=[],
-            claims={"auth_method": "api_key"},
+        return _api_key_access_token(token)
+
+
+class VultrOAuthProxy(OAuthProxy):
+    """OAuthProxy that also accepts raw Vultr API keys, and the device grant.
+
+    ``load_access_token`` is what the auth middleware calls to validate a
+    bearer, and unmodified it requires a proxy-issued JWT before consulting the
+    verifier at all -- so a valid raw API key 401s regardless. Non-JWT bearers
+    are therefore accepted here directly; JWT-shaped ones take the full swap.
+    """
+
+    def __init__(self, *args, **kwargs) -> None:
+        # Shared with the device grant; across replicas the pod that completes
+        # an approval is rarely the pod being polled.
+        self._shared_storage = kwargs.get("client_storage")
+        super().__init__(*args, **kwargs)
+
+    async def load_access_token(self, token: str) -> AccessToken | None:
+        if not _looks_like_jwt(token):
+            return _api_key_access_token(token)
+        return await super().load_access_token(token)
+
+    async def _handle_idp_callback(self, request: Request):
+        """Hand the code back without assuming the loopback port exists.
+
+        The base class 302s to the client's ``redirect_uri``, which strands the
+        code when that is a loopback address on another machine. See
+        ``loopback_handoff``.
+        """
+        response = await super()._handle_idp_callback(request)
+        if not loopback_handoff_enabled():
+            return response
+        target = response.headers.get("location", "") if response is not None else ""
+        # Only a successful authorization carries a code; errors keep the
+        # base class's own redirect so the client sees the OAuth error.
+        if target and "code=" in target and is_loopback_target(target):
+            return completion_page(target)
+        return response
+
+    def get_routes(self, mcp_path: str | None = None) -> list[Route]:
+        """Proxy routes, plus the device grant's own routes, /token wrapper
+        and metadata patch. Here rather than in ``build_auth`` so every OAuth
+        deployment gets it, and so the patches sit beside the routes they
+        modify.
+        """
+        routes = super().get_routes(mcp_path)
+        if not device_flow_enabled():
+            return routes
+
+        handlers = DeviceFlowHandlers(
+            self, self._shared_storage, base_url=str(self.base_url).rstrip("/")
         )
+        self._device_handlers = handlers
+
+        patched: list[Route] = []
+        for route in routes:
+            if isinstance(route, Route) and route.path == "/token":
+                patched.append(
+                    Route(
+                        path=route.path,
+                        endpoint=_with_device_grant(route.endpoint, handlers),
+                        methods=route.methods,
+                        name=route.name,
+                        include_in_schema=route.include_in_schema,
+                    )
+                )
+            elif isinstance(route, Route) and route.path.startswith(
+                "/.well-known/oauth-authorization-server"
+            ):
+                patched.append(
+                    Route(
+                        path=route.path,
+                        endpoint=_advertising_device_grant(route.endpoint, self.base_url),
+                        methods=route.methods,
+                        name=route.name,
+                        include_in_schema=route.include_in_schema,
+                    )
+                )
+            else:
+                patched.append(route)
+
+        return patched + device_routes(handlers)
+
+
+def _is_asgi_endpoint(endpoint) -> bool:
+    """True when the route endpoint is an ASGI app rather than a handler.
+
+    FastMCP wraps several of its OAuth routes in ``cors_middleware``, which
+    returns an ASGI app taking ``(scope, receive, send)``. Others are plain
+    ``(Request) -> Response`` handlers. Both shapes have to be wrappable, so
+    the wrappers below are ASGI apps that adapt whichever they were given.
+    """
+    try:
+        return len(inspect.signature(endpoint).parameters) == 3
+    except (TypeError, ValueError):
+        return False
+
+
+async def _invoke(endpoint, scope, receive, send) -> None:
+    """Call a route endpoint of either shape as an ASGI app."""
+    if _is_asgi_endpoint(endpoint):
+        await endpoint(scope, receive, send)
+        return
+    response = await endpoint(Request(scope, receive))
+    await response(scope, receive, send)
+
+
+async def _drain(receive) -> bytes:
+    """Read a complete request body off the ASGI receive channel."""
+    body = b""
+    while True:
+        message = await receive()
+        if message["type"] != "http.request":
+            break
+        body += message.get("body", b"")
+        if not message.get("more_body"):
+            break
+    return body
+
+
+def _replay(body: bytes):
+    """A receive channel that hands back an already-consumed body.
+
+    Inspecting the token request means reading its body, which would leave
+    nothing for the proxy's own handler. Replaying it keeps the delegation
+    transparent.
+    """
+    sent = False
+
+    async def receive():
+        nonlocal sent
+        if sent:
+            return {"type": "http.disconnect"}
+        sent = True
+        return {"type": "http.request", "body": body, "more_body": False}
+
+    return receive
+
+
+class _DeviceGrantToken:
+    """``/token``, answering device-code polls before delegating.
+
+    A callable object rather than a closure on purpose: Starlette's ``Route``
+    treats a plain function as a ``(Request) -> Response`` handler and only
+    treats non-function callables as ASGI apps. ``cors_middleware`` gets ASGI
+    treatment for the same reason -- it returns an instance.
+    """
+
+    def __init__(self, original, handlers: DeviceFlowHandlers) -> None:
+        self._original = original
+        self._handlers = handlers
+
+    async def __call__(self, scope, receive, send) -> None:
+        if scope["type"] != "http":
+            await _invoke(self._original, scope, receive, send)
+            return
+
+        body = await _drain(receive)
+        handled = await self._handlers.token_grant(Request(scope, receive=_replay(body)))
+        if handled is not None:
+            await handled(scope, receive, send)
+            return
+        await _invoke(self._original, scope, _replay(body), send)
+
+
+def _with_device_grant(original, handlers: DeviceFlowHandlers) -> _DeviceGrantToken:
+    return _DeviceGrantToken(original, handlers)
+
+
+class _DeviceGrantMetadata:
+    """Authorization-server metadata, with the device grant advertised.
+
+    Patches the rendered document rather than rebuilding it, so anything the
+    proxy (or a future FastMCP) puts in there survives untouched. A callable
+    object for the same routing reason as ``_DeviceGrantToken``.
+    """
+
+    def __init__(self, original, base_url) -> None:
+        self._original = original
+        self._base_url = str(base_url).rstrip("/")
+
+    async def __call__(self, scope, receive, send) -> None:
+        if scope["type"] != "http":
+            await _invoke(self._original, scope, receive, send)
+            return
+
+        start: dict = {}
+        chunks: list[bytes] = []
+
+        async def capture(message) -> None:
+            if message["type"] == "http.response.start":
+                start.update(message)
+            elif message["type"] == "http.response.body":
+                chunks.append(message.get("body", b""))
+            else:
+                await send(message)
+
+        await _invoke(self._original, scope, receive, capture)
+        raw = b"".join(chunks)
+
+        try:
+            doc = json.loads(raw)
+        except (ValueError, TypeError):
+            # Not JSON (an error page, a CORS preflight) -- pass it straight on.
+            if start:
+                await send(start)
+            await send({"type": "http.response.body", "body": raw})
+            return
+
+        doc["device_authorization_endpoint"] = f"{self._base_url}/device_authorization"
+        grants = list(doc.get("grant_types_supported") or [])
+        if DEVICE_GRANT_TYPE not in grants:
+            grants.append(DEVICE_GRANT_TYPE)
+        doc["grant_types_supported"] = grants
+
+        payload = json.dumps(doc).encode()
+        headers = [
+            (k, v)
+            for k, v in start.get("headers", [])
+            if k.lower() not in (b"content-length", b"content-type")
+        ]
+        headers.append((b"content-type", b"application/json"))
+        headers.append((b"content-length", str(len(payload)).encode()))
+
+        await send({**start, "headers": headers})
+        await send({"type": "http.response.body", "body": payload})
+
+
+def _advertising_device_grant(original, base_url) -> _DeviceGrantMetadata:
+    return _DeviceGrantMetadata(original, base_url)
 
 
 def _env(key: str) -> str | None:
@@ -188,7 +441,7 @@ def build_auth(
     # Wrap so raw Vultr API keys keep working alongside OAuth at all times.
     token_verifier = DualTokenVerifier(jwt_verifier)
 
-    return OAuthProxy(
+    return VultrOAuthProxy(
         upstream_authorization_endpoint=endpoints.authorization_endpoint,
         upstream_token_endpoint=endpoints.token_endpoint,
         upstream_client_id=client_id,

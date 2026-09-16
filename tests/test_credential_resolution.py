@@ -1,17 +1,13 @@
-"""Which credential PerRequestVultrAuth forwards to api.vultr.com, and when.
+"""Which credential PerRequestVultrAuth forwards upstream, and when.
 
-This is the credential-resolution path: it decides, per request, what ends up in
-the Authorization header sent upstream. It had no test coverage at all, which is
-uncomfortable for the one place a mix-up substitutes one caller's authority for
-another's.
+A mix-up here substitutes one caller's authority for another's. Three sources,
+in priority order:
 
-Three sources, in priority order:
+    1. the verified AccessToken   (OAuth -- the UPSTREAM Vultr token)
+    2. the incoming request       (no auth layer -- the caller's own)
+    3. VULTR_API_KEY from env     (STDIO/local ONLY, never from HTTP)
 
-    1. the verified AccessToken   (OAuth path — the UPSTREAM Vultr token)
-    2. the incoming request       (no auth layer — the caller's own credential)
-    3. VULTR_API_KEY from env     (STDIO/local ONLY — never from HTTP)
-
-The third one is the interesting one, and the reason this file exists.
+The third is why this file exists.
 """
 
 from __future__ import annotations

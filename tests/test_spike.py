@@ -1,9 +1,8 @@
-"""Phase 1/2 spike: prove the two riskiest pieces of the FastMCP port.
+"""The two load-bearing assumptions of the FastMCP port.
 
-1. ``FastMCP.from_openapi`` generates the full Vultr tool surface from
-   openapi.json (replacing the PHP generator + 39 generated tool classes).
-2. Per-request credential forwarding: the ``Authorization`` header on the
-   incoming MCP HTTP request reaches api.vultr.com on the upstream call.
+1. ``from_openapi`` generates the full tool surface from openapi.json.
+2. The incoming request's ``Authorization`` header reaches api.vultr.com on the
+   upstream call.
 """
 
 from __future__ import annotations
