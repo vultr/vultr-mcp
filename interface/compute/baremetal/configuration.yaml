@@ -19,7 +19,8 @@ tools:
       base64-encoded.
 
       Use this tool to inspect or reproduce how a server was configured at
-      first boot.
+      first boot. It is the only source: vultr_compute_baremetal_list and
+      vultr_compute_baremetal_get both omit user data entirely.
 
       Do not use this tool for startup scripts, which are a separate Vultr
       resource with their own tools, or for cloud compute instances, which have
@@ -53,7 +54,8 @@ tools:
       out-of-band access to the machine's screen and keyboard.
 
       Use this tool when someone asks for console or out-of-band access to a
-      specific server, typically because it is unreachable over the network.
+      specific server, typically because it is unreachable over the network. It
+      is the only source: no list or get response carries a console URL.
 
       Do not use this tool for ordinary status checks, which
       vultr_compute_baremetal_get answers, or for cloud compute instances,

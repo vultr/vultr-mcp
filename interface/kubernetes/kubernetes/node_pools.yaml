@@ -19,6 +19,13 @@ tools:
       Use this tool to report a cluster's capacity, to find which pool a node
       belongs to, or to check how autoscaling is configured.
 
+      This call is often unnecessary. vultr_kubernetes_clusters_list and
+      vultr_kubernetes_clusters_get already embed every node pool of each
+      cluster, with the same fields this returns -- labels, taints and
+      individual nodes included. If a cluster response is already in hand, or
+      the question spans clusters, answer from it rather than calling here per
+      cluster.
+
       Do not use this tool for the node pools of a Vultr Compute Cluster, which
       is a different product, or for cloud compute instances in general -- VKE
       nodes appear there too, which is exactly the confusion this tool avoids.
@@ -139,6 +146,11 @@ tools:
 
       Use this tool to see how a pool's nodes are labelled for scheduling.
 
+      These labels are already embedded in each node pool returned by
+      vultr_kubernetes_clusters_list and vultr_kubernetes_clusters_get, so a
+      cluster response answers this without a further call. Reach for this tool
+      when a label's own ID is needed, or when working from a pool ID alone.
+
       Do not use this tool for the pool's own Vultr label, which is a display
       name returned by vultr_kubernetes_node_pools_get, or for taints, which
       vultr_kubernetes_node_pools_taints_list returns.
@@ -233,6 +245,11 @@ tools:
 
       Use this tool to find what a pool's nodes repel, which is what explains a
       pod that will not schedule there.
+
+      These taints are already embedded in each node pool returned by
+      vultr_kubernetes_clusters_list and vultr_kubernetes_clusters_get, so a
+      cluster response answers this without a further call. Reach for this tool
+      when a taint's own ID is needed, or when working from a pool ID alone.
 
       Do not use this tool for labels, which
       vultr_kubernetes_node_pools_labels_list returns, or for firewall rules,

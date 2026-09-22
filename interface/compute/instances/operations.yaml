@@ -15,7 +15,8 @@ tools:
       incoming and outgoing bytes per day.
 
       Use this tool to report how much traffic a specific instance has moved,
-      or to find which day drove a spike.
+      or to find which day drove a spike. It is the only source for per-day
+      figures: vultr_compute_instances_list carries no usage data at all.
 
       Do not use this tool for account-wide bandwidth across every product,
       which vultr_account_bandwidth_get returns, or for bare metal servers,
@@ -57,7 +58,8 @@ tools:
 
       Use this tool to assess co-location risk: instances sharing a host share
       its failure, so this answers whether a redundant pair is genuinely
-      redundant.
+      redundant. It is the only source -- physical host placement appears in no
+      other response, so it cannot be inferred from a list.
 
       Do not use this tool for instances in the same region or VPC, which are
       much weaker relationships and are answered by other tools.
@@ -88,7 +90,9 @@ tools:
       cloud compute instance can be upgraded or changed to.
 
       Use this tool to find what an instance can move to before planning a
-      resize, OS change or application switch.
+      resize, OS change or application switch. It is the only source: the
+      available plans, OS and application IDs appear in no list or get response,
+      which report only what the instance runs today.
 
       Do not use this tool for the instance's current plan or OS, which
       vultr_compute_instances_get returns, or to browse the plan, OS and

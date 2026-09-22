@@ -18,7 +18,8 @@ tools:
       and outgoing bytes per day.
 
       Use this tool to report how much traffic a specific server has moved, or
-      to find which day drove a spike.
+      to find which day drove a spike. It is the only source for per-day
+      figures: vultr_compute_baremetal_list carries no usage data at all.
 
       Do not use this tool for account-wide bandwidth across every product,
       which vultr_account_bandwidth_get returns, or for cloud compute
@@ -52,7 +53,9 @@ tools:
       Metal server can be upgraded or changed to.
 
       Use this tool to find out what a specific server can move to before
-      planning an OS change or application switch.
+      planning an OS change or application switch. It is the only source: the
+      available OS and application IDs appear in no list or get response, which
+      report only what the server runs today.
 
       Do not use this tool for the server's current operating system, which
       vultr_compute_baremetal_get returns, or to browse the marketplace and OS

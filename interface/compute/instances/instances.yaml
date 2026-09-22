@@ -168,6 +168,14 @@ tools:
 
       Use this tool when an instance ID is already known. To find an instance
       by label, hostname, IP, or tag, use vultr_compute_instances_list first.
+
+      That list already carries the common fields -- region, plan, ram, disk,
+      os, main_ip, status, power_status, label, hostname, tags,
+      firewall_group_id -- so a question about any of those is answered from it
+      without calling this tool. Call this one for what the list omits:
+      netmask_v4, gateway_v4, internal_ip, vpcs, os_id, app_id, image_id,
+      snapshot_id, vpc_only, user_scheme and allowed_bandwidth.
+
       This tool returns no IPv6 detail; get_instance_ipv6 is currently the only
       source for that.
 

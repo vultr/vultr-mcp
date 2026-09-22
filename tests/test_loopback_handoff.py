@@ -64,6 +64,23 @@ def test_page_carries_the_code_and_the_delivery_target():
     assert 'id="manual"' in body and 'id="done"' in body
 
 
+def test_fallback_panel_offers_the_target_as_a_link():
+    """The probe failing does not mean the client is remote.
+
+    A browser that gates public-to-local requests refuses the fetch without
+    asking the network, so a same-machine client lands here too -- and for a
+    CLI with no --code option, a page offering only the code is a dead end. A
+    top-level navigation is not gated the same way, so the link is the way out
+    for exactly the case the probe cannot detect.
+    """
+    body = completion_page(CODE_URL).body.decode()
+    manual = body.split('id="manual"', 1)[1]
+
+    assert f'href="{html.escape(CODE_URL, quote=True)}"' in manual
+    # A new tab, so a target that does not answer cannot take the code with it.
+    assert 'target="_blank"' in manual
+
+
 def test_page_is_never_cached():
     """It carries an authorization code; nothing should retain it."""
     page = completion_page(CODE_URL)

@@ -20,6 +20,11 @@ tools:
       Use this tool to list, find, count, or select VKE clusters, and to answer
       questions about managed Kubernetes.
 
+      Each cluster embeds its node pools in full -- plan, node count,
+      autoscaler bounds, status, labels, taints and individual nodes -- so
+      questions about pools, labels, taints or node counts are answered from
+      this one response, without calling the node pool tools per cluster.
+
       Do not use this tool for Vultr Compute Clusters, which are GPU and fabric
       compute and are listed by vultr_compute_clusters_list, or for Object
       Storage clusters. Both are different products that also call themselves
@@ -185,7 +190,9 @@ tools:
       upgraded to.
 
       Use this tool to check whether an upgrade is available for a specific
-      cluster before planning one.
+      cluster before planning one. It is the only source: neither the cluster
+      list nor get reports available upgrades, only the version running now, so
+      "can this be upgraded?" always needs this call.
 
       Do not use this tool for every Kubernetes version Vultr supports, which
       vultr_kubernetes_versions_list returns, or for the version a cluster
@@ -219,7 +226,10 @@ tools:
 
       Use this tool to find what a cluster is being billed for beyond its
       nodes, or to trace a stray volume or load balancer back to the cluster
-      that created it.
+      that created it. It is the only source: the cluster list and get describe
+      the cluster itself and never mention the volumes or load balancers it
+      provisioned, and those resources carry no cluster reference of their own
+      in vultr_storage_blocks_list or vultr_network_load_balancers_list.
 
       Do not use this tool for the cluster's nodes, which belong to its node
       pools, or to list block storage and load balancers in general, which have

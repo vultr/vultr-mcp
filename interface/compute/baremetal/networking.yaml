@@ -18,9 +18,11 @@ tools:
       each address's netmask, gateway, MAC address, reverse DNS entry, and
       whether it is the main address or an additional one.
 
-      Use this tool when a server has more than one address, or when the
-      netmask, gateway, MAC or reverse DNS is needed.
-      vultr_compute_baremetal_get returns only the main address.
+      Use this tool when a server has more than one address, or when reverse
+      DNS or the per-address type is needed -- neither appears anywhere else.
+      For the main address alone, vultr_compute_baremetal_get already returns
+      main_ip with netmask_v4, gateway_v4 and mac_address, so those questions
+      need no call here.
 
       Do not use this tool for cloud compute instances, which have their own
       tool, or for reserved IPs that are not yet attached to a server.
@@ -58,8 +60,12 @@ tools:
       Lists every IPv6 address assigned to one Vultr Bare Metal server, with
       each address's network and prefix size.
 
-      Use this tool to report a server's IPv6 configuration or to check whether
-      IPv6 is assigned at all.
+      Use this tool when a server has more than one IPv6 address, or when the
+      per-address type is needed. For the main address alone,
+      vultr_compute_baremetal_get already returns v6_main_ip, v6_network and
+      v6_network_size, so a question about a server's primary IPv6 does not
+      need this call. Bare metal differs from cloud compute here: instances
+      carry no IPv6 on their get at all.
 
       Do not use this tool for IPv4 addresses, which
       vultr_compute_baremetal_ipv4_list returns, or for cloud compute
@@ -97,7 +103,10 @@ tools:
       server's private IP address and MAC address on each.
 
       Use this tool to find which private networks a specific server reaches,
-      or its address inside one.
+      or its address inside one. It is the only source for the addressing:
+      vultr_compute_baremetal_get names the VPCs a server is attached to but
+      carries neither its private ip_address nor mac_address on them, and
+      vultr_compute_baremetal_list omits VPCs altogether.
 
       Do not use this tool to list VPCs in general, or to see everything
       attached to a given VPC, which are answered from the VPC side.

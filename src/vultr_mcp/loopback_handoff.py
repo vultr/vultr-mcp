@@ -10,6 +10,20 @@ that delivers it to the listener itself via ``fetch`` -- keeping the
 same-machine case automatic -- and shows it for pasting if that fails. Removing
 the human step entirely needs the client to poll, which is ``device_flow``.
 
+Why the fetch is not the only path
+----------------------------------
+That probe is a request from a public origin to a local one, which browsers
+increasingly gate: Chrome preflights it and a bare CLI listener does not answer
+with ``Access-Control-Allow-Private-Network``, so the request is refused before
+it is made and ``no-cors`` does not exempt it. A rejected probe therefore means
+"could not ask", not "nothing is listening", and a same-machine client ends up
+on the paste path it never needed -- with nowhere to paste, for a client whose
+CLI has no ``--code`` option.
+
+A top-level navigation is not gated that way, being what the ordinary 302 did.
+So the fallback panel offers the target as a link as well as showing the code:
+one of the two fits every case, and the page no longer has to guess which.
+
 Non-loopback redirects get the ordinary 302.
 """
 
@@ -78,6 +92,8 @@ p{margin:0 0 16px;color:var(--muted)}
   border-radius:8px;background:var(--bg);color:var(--fg)}
 .code button{padding:12px 16px;font-size:14px;font-weight:600;border:0;border-radius:8px;
   background:var(--accent);color:#fff;cursor:pointer;white-space:nowrap}
+.btn{display:inline-block;padding:12px 18px;font-size:14px;font-weight:600;border-radius:8px;
+  background:var(--accent);color:#fff;text-decoration:none;margin:0 0 18px}
 .ok{font-size:40px;line-height:1;margin-bottom:10px;color:var(--ok)}
 .spin{width:20px;height:20px;border:2px solid var(--line);border-top-color:var(--accent);
   border-radius:50%;animation:s .8s linear infinite;margin-bottom:14px}
@@ -117,9 +133,14 @@ def completion_page(target: str) -> HTMLResponse:
 
   <div id="manual" hidden>
     <h1>Almost there</h1>
-    <p>Your client is running on a different machine than this browser, so it
-       could not receive the authorization automatically. Copy this code and
-       paste it into the client that started the sign-in.</p>
+    <p>The browser could not hand the authorization back on its own. If the
+       client that started the sign-in is running on <b>this machine</b>,
+       finish it here:</p>
+    <p><a class="btn" href="{safe_target}" target="_blank"
+          rel="noopener noreferrer">Finish sign-in</a></p>
+    <p>If it is running somewhere else &mdash; an agent on an instance, a
+       remote box over SSH &mdash; copy this code and paste it into the client
+       instead.</p>
     <div class="code">
       <input id="c" value="{safe_code}" readonly onclick="this.select()">
       <button type="button" onclick="cp()">Copy</button>
@@ -130,12 +151,15 @@ def completion_page(target: str) -> HTMLResponse:
   </div>
 </div>
 <script>
-// Deliver the code to a listener on THIS machine, if there is one. When the
-// client is local this is the request it has been waiting for and it
-// completes exactly as it would have after a redirect. When the client is on
-// a remote host the request cannot connect and we fall through to the paste
-// path. no-cors because we never need to read the reply -- only to make the
-// request arrive.
+// Deliver the code to a listener on THIS machine, if there is one. When it
+// works this is the request the client has been waiting for and it completes
+// exactly as it would have after a redirect. no-cors because we never need to
+// read the reply -- only to make the request arrive.
+//
+// A rejection is NOT a verdict that the client is remote: a browser that
+// gates public-to-local requests refuses this one without asking the network.
+// So the fallback panel carries both ways out, and does not claim to know
+// which applies.
 var target = "{safe_target}";
 function show(id) {{
   document.getElementById("probe").hidden = true;

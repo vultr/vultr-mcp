@@ -128,6 +128,13 @@ tools:
       Use this tool when a server ID is already known. To find one by label,
       IP, or region, use vultr_compute_baremetal_list first.
 
+      That list already carries cpu_count, ram, disk, os, plan, region,
+      main_ip, power_status, status, label and tags, so a question about any of
+      those needs no call here. Call this one for what the list omits:
+      netmask_v4, gateway_v4, internal_ip, mac_address, vpcs, os_id, app_id,
+      image_id, snapshot_id, user_scheme, and the main IPv6 address as
+      v6_main_ip, v6_network and v6_network_size.
+
       Do not use this tool for Vultr cloud compute instances, which are virtual
       machines with their own tools.
 

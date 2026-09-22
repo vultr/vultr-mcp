@@ -156,7 +156,10 @@ tools:
       instance's private IP address and MAC address on each.
 
       Use this tool to find which private networks a specific instance reaches,
-      or its address inside one.
+      or its address inside one. It is the only source for the addressing:
+      vultr_compute_instances_get names the VPCs an instance is attached to but
+      carries neither its private ip_address nor mac_address on them, and
+      vultr_compute_instances_list omits VPCs altogether.
 
       Do not use this tool to list VPCs in general, or to see everything
       attached to a given VPC, which are answered from the VPC side.

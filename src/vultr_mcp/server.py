@@ -18,10 +18,22 @@ from fastmcp import FastMCP
 from fastmcp.server.dependencies import get_http_headers
 from fastmcp.server.providers.openapi import MCPType, RouteMap
 
+from vultr_mcp.audit import AuditMiddleware, audit_enabled
+from vultr_mcp.diagnostics import InstrumentedTransport, PathTemplates
 from vultr_mcp.interface.compiler import CompiledInterface, compile_interface
 from vultr_mcp.interface.tools import InterfaceTool
 
 VULTR_API_BASE = os.environ.get("VULTR_API_BASE_URL", "https://api.vultr.com/v2")
+
+
+def package_version() -> str:
+    """The installed package version, for /healthz and the MCP handshake."""
+    try:
+        from importlib.metadata import version
+
+        return version("vultr-mcp")
+    except Exception:  # noqa: BLE001 - never fail a boot or a health check over this
+        return "unknown"
 
 # Identity and credential-management tags, kept off the hosted surface: these
 # tools would always 403 under the OAuth client's IAM policy, and excluding them
@@ -429,10 +441,18 @@ def create_server(
 
     ssl_verify = os.environ.get("SSL_VERIFY", "true").lower() not in ("false", "0", "no")
 
+    # Wrapped at the transport because the generated surface and the interface
+    # layer share this client: one place sees both, and a call site added later
+    # cannot slip past it. `verify` moves onto the inner transport -- httpx
+    # ignores it on the client once a transport is supplied.
+    transport: httpx.AsyncBaseTransport = httpx.AsyncHTTPTransport(verify=ssl_verify)
+    if audit_enabled():
+        transport = InstrumentedTransport(transport, PathTemplates(spec.get("paths", {})))
+
     client = httpx.AsyncClient(
         base_url=VULTR_API_BASE,
         auth=PerRequestVultrAuth(),
-        verify=ssl_verify,
+        transport=transport,
         timeout=30.0,
         headers={"User-Agent": "vultr-mcp-server/2.0 (python; fastmcp)"},
     )
@@ -465,6 +485,10 @@ def create_server(
         openapi_spec=spec,
         client=client,
         name="Vultr MCP Server",
+        # Without this FastMCP reports its own library version in `initialize`,
+        # so a client asking what it is talking to gets "3.4.3" -- which says
+        # nothing about which build is serving. Same reasoning as /healthz.
+        version=package_version(),
         route_maps=_build_route_maps(exclude_tags, read_only, suppressed),
         mcp_component_fn=None if _output_schemas_enabled() else _strip_output_schema,
         auth=auth,
@@ -472,6 +496,10 @@ def create_server(
 
     for tool in interface_tools:
         server.add_tool(InterfaceTool.build(tool, client))
+
+    # Attached last so it wraps every tool, generated and hand-authored alike.
+    if audit_enabled():
+        server.add_middleware(AuditMiddleware())
 
     return server
 

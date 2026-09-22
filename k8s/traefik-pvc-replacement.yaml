@@ -1,0 +1,29 @@
+# Replacement for the traefik ACME volume, after block storage
+# bfbbe6c6-048b-4453-94c0-a6cd8cf1013e was orphaned: its record still pointed at
+# instance ff872097-fa58-4b2d-be71-31da0d3706a8, which no longer exists, so both
+# detach and re-attach fail with "Unable to get instance config".
+#
+# The old volume held only /data/acme.json, so nothing is lost that Let's Encrypt
+# will not re-issue on first request. Labels and annotations match the Helm
+# release so a later `helm upgrade` adopts this claim rather than fighting it.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: traefik
+  namespace: traefik
+  labels:
+    app.kubernetes.io/instance: traefik-traefik
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: traefik
+    helm.sh/chart: traefik-41.0.0
+  annotations:
+    helm.sh/resource-policy: keep
+    meta.helm.sh/release-name: traefik
+    meta.helm.sh/release-namespace: traefik
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: vultr-block-storage
+  resources:
+    requests:
+      storage: 1Gi

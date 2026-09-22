@@ -26,23 +26,14 @@ from vultr_mcp.server import (
     create_server,
     excluded_categories_from_env,
     load_spec,
+    package_version,
     read_only_from_env,
 )
 
-def _version() -> str:
-    """The installed version, read rather than hard-coded so a bump in
-    pyproject.toml is the only place it lives -- and so /healthz can answer
-    "did the new image land?" from outside the cluster.
-    """
-    try:
-        from importlib.metadata import version
-
-        return version("vultr-mcp")
-    except Exception:  # noqa: BLE001 - a health endpoint must never fail to answer
-        return "unknown"
-
-
-VERSION = _version()
+# Read rather than hard-coded so a bump in pyproject.toml is the only place it
+# lives, and so /healthz can answer "did the new image land?" from outside the
+# cluster. Shared with the MCP handshake, which reports the same string.
+VERSION = package_version()
 
 _LANDING_PATH = Path(__file__).resolve().parent / "static" / "index.html"
 
