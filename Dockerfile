@@ -72,7 +72,9 @@ RUN --mount=type=secret,id=clicktail_url,required=true python - <<'EOF'
 import sys
 import urllib.request
 
-url = open("/run/secrets/clicktail_url").read().strip()
+# utf-8-sig and strip: a secret set by piping from PowerShell arrives as
+# BOM + URL + CRLF, and the BOM alone makes urllib reject the URL (URLError).
+url = open("/run/secrets/clicktail_url", encoding="utf-8-sig").read().strip()
 try:
     urllib.request.urlretrieve(url, "/clicktail")
 except Exception as exc:  # noqa: BLE001
