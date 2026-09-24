@@ -1,7 +1,7 @@
 """HTTP composition: root server plus path-based category endpoints.
 
 ``/`` and ``/mcp`` serve the full surface; ``/instances`` and friends serve one
-category each, so a client can load ~15 tools instead of ~180. Exclusions and
+category each, so a client can load ~15 tools instead of ~190. Exclusions and
 the read-only gate always apply on top.
 
 Each app is built eagerly: a lazily mounted one cannot start its MCP session
@@ -20,6 +20,7 @@ from starlette.requests import Request
 from starlette.responses import HTMLResponse, JSONResponse
 from starlette.routing import Mount, Route
 
+from vultr_mcp import landing
 from vultr_mcp.server import (
     DEFAULT_EXCLUDED_CATEGORIES,
     all_categories,
@@ -165,6 +166,8 @@ def create_http_app(spec: dict | None = None):
     root_app = _http(root_server)
 
     mounted: list[tuple[str, object]] = []
+    # The servers themselves, kept for the docs page's endpoint list.
+    category_servers: list[tuple[str, object]] = []
     for slug, tag in _category_endpoints(spec, excluded):
         server = create_server(
             spec,
@@ -174,6 +177,7 @@ def create_http_app(spec: dict | None = None):
             auth=auth,
         )
         mounted.append((slug, _http(server)))
+        category_servers.append((slug, server))
 
     @asynccontextmanager
     async def lifespan(app: Starlette):
@@ -214,13 +218,27 @@ def create_http_app(spec: dict | None = None):
     # the trailing slash.
     bare_paths = {f"/{name}" for name, _ in mounted} | {"/mcp"}
 
-    landing_html = _load_landing_html()
+    landing_template = _load_landing_html()
+    landing_cache: dict[str, str] = {}
+
+    async def landing_page() -> str:
+        # Built on first view rather than at boot: listing tools is async, and
+        # boot is kept to what serving MCP needs. The tool set is fixed for the
+        # life of the process, so the page is built once.
+        if "html" not in landing_cache:
+            try:
+                endpoints = [(slug, await landing.tools_of(server)) for slug, server in category_servers]
+                total = len(await landing.tools_of(root_server))
+                landing_cache["html"] = landing.render(landing_template, total, endpoints)
+            except Exception:  # noqa: BLE001 - the docs page must not fail over its list
+                return landing.unavailable(landing_template)
+        return landing_cache["html"]
 
     async def app_with_bare_paths(scope, receive, send):
         # Browser hitting the root gets human docs; MCP clients (POST, or GET
         # for the SSE stream) fall through to the protocol app at "/".
         if _wants_landing_page(scope):
-            await HTMLResponse(landing_html)(scope, receive, send)
+            await HTMLResponse(await landing_page())(scope, receive, send)
             return
         if scope["type"] == "http" and scope.get("path") in bare_paths:
             fixed = scope["path"] + "/"

@@ -343,6 +343,11 @@ def _finish(record: dict[str, Any], started: float, upstream: list[dict[str, Any
             record["overhead_ms"] = round(record["duration_ms"] - upstream_ms, 1)
 
         blame = diagnostics.fault(record.get("outcome", "error"), upstream)
+        # An argument the tool does not have fails before any upstream call,
+        # which fault() can only read as ours. It is the caller's: an eval
+        # separating model mistakes from infrastructure needs to see it that way.
+        if "ArgumentError" in record.get("error_chain", ()):
+            blame = "caller"
         if blame is not None:
             record["fault"] = blame
     except Exception:  # noqa: BLE001 - auditing must not break a call

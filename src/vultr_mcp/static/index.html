@@ -208,373 +208,20 @@
     <p>The base URL is <code>https://vultrmcp.com/</code>. The <strong>root</strong> exposes the full read-only tool surface through one connection. Each category also gets its own endpoint exposing only that category's tools — useful when your client has limited connection slots or you want a smaller, cheaper tool set.</p>
     <p class="muted" style="margin-top:6px;">The root doubles as this page: only a top-level browser navigation gets the docs, so MCP clients — including browser-based agent UIs — reach the protocol at the same URL. Both <code>https://vultrmcp.com</code> and <code>https://vultrmcp.com/</code> work; the trailing-slash form is canonical.</p>
     <pre><code>https://vultrmcp.com/                    # all tools (one connection)
+https://vultrmcp.com/mcp                 # alias of the root, identical tools
 https://vultrmcp.com/instances           # VPS instance tools only
 https://vultrmcp.com/kubernetes          # VKE tools only
 https://vultrmcp.com/dns                 # DNS tools only
 https://vultrmcp.com/container-registry  # multi-word categories are slugified</code></pre>
         <p class="muted" style="margin-bottom:4px;">The root serves all of these combined; each endpoint below serves only its own tools. Click one to see the tools it exposes. Append the path to the base URL — e.g. <code>https://vultrmcp.com/load-balancer</code>.</p>
     <details class="ep-browse">
-      <summary>Browse all endpoints<span class="ep-count">35 endpoints · 180 tools</span></summary>
+      <summary>Browse all endpoints<span class="ep-count"><!--EP_COUNT--></span></summary>
       <div class="ep-controls"><button type="button" id="ep-toggle">Expand all</button></div>
           <div class="ep-scroll">
-      <details class="ep">
-            <summary><span class="ep-path">/account</span><span class="ep-count">4 tools</span></summary>
-            <div class="ep-tools">
-            <code>get_account</code>
-            <code>get_account_bandwidth</code>
-            <code>get_account_bgp</code>
-            <code>list_custom_subscriptions</code>
-            </div>
-          </details>
-          <details class="ep">
-            <summary><span class="ep-path">/application</span><span class="ep-count">1 tool</span></summary>
-            <div class="ep-tools">
-            <code>list_applications</code>
-            </div>
-          </details>
-          <details class="ep">
-            <summary><span class="ep-path">/backup</span><span class="ep-count">2 tools</span></summary>
-            <div class="ep-tools">
-            <code>get_backup</code>
-            <code>list_backups</code>
-            </div>
-          </details>
-          <details class="ep">
-            <summary><span class="ep-path">/baremetal</span><span class="ep-count">10 tools</span></summary>
-            <div class="ep-tools">
-            <code>get_bandwidth_baremetal</code>
-            <code>get_bare_metal_userdata</code>
-            <code>get_bare_metal_vnc</code>
-            <code>get_bare_metals_upgrades</code>
-            <code>get_baremetal</code>
-            <code>get_ipv4_baremetal</code>
-            <code>get_ipv6_baremetal</code>
-            <code>list_baremetal_vpc2</code>
-            <code>list_baremetal_vpcs</code>
-            <code>list_baremetals</code>
-            </div>
-          </details>
-          <details class="ep">
-            <summary><span class="ep-path">/billing</span><span class="ep-count">6 tools</span></summary>
-            <div class="ep-tools">
-            <code>get_invoice</code>
-            <code>get_invoice_items</code>
-            <code>list_billing_history</code>
-            <code>list_invoices</code>
-            <code>pending_charges</code>
-            <code>pending_charges_csv</code>
-            </div>
-          </details>
-          <details class="ep">
-            <summary><span class="ep-path">/block</span><span class="ep-count">4 tools</span></summary>
-            <div class="ep-tools">
-            <code>get_block</code>
-            <code>get_block_snapshot</code>
-            <code>list_block_snapshots</code>
-            <code>list_blocks</code>
-            </div>
-          </details>
-          <details class="ep">
-            <summary><span class="ep-path">/cdns</span><span class="ep-count">7 tools</span></summary>
-            <div class="ep-tools">
-            <code>get_pullzone</code>
-            <code>get_pushzone</code>
-            <code>get_pushzone_2</code>
-            <code>get_pushzone_files</code>
-            <code>list_pullzones</code>
-            <code>list_pushzones</code>
-            <code>purge_pullzone</code>
-            </div>
-          </details>
-          <details class="ep">
-            <summary><span class="ep-path">/clusters</span><span class="ep-count">4 tools</span></summary>
-            <div class="ep-tools">
-            <code>get_cluster</code>
-            <code>get_cluster_availability</code>
-            <code>get_cluster_metrics</code>
-            <code>list_clusters</code>
-            </div>
-          </details>
-          <details class="ep">
-            <summary><span class="ep-path">/container-registry</span><span class="ep-count">14 tools</span></summary>
-            <div class="ep-tools">
-            <code>Read_Artifact</code>
-            <code>Read_Robot</code>
-            <code>list_registries</code>
-            <code>list_registry_plans</code>
-            <code>list_registry_regions</code>
-            <code>list_registry_repositories</code>
-            <code>list_registry_repository_artifacts</code>
-            <code>list_registry_robots</code>
-            <code>list_replications</code>
-            <code>list_retention_rules</code>
-            <code>read_registry</code>
-            <code>read_registry_repository</code>
-            <code>read_replication</code>
-            <code>read_retention_rule</code>
-            </div>
-          </details>
-          <details class="ep">
-            <summary><span class="ep-path">/dns</span><span class="ep-count">6 tools</span></summary>
-            <div class="ep-tools">
-            <code>get_dns_domain</code>
-            <code>get_dns_domain_dnssec</code>
-            <code>get_dns_domain_record</code>
-            <code>get_dns_domain_soa</code>
-            <code>list_dns_domain_records</code>
-            <code>list_dns_domains</code>
-            </div>
-          </details>
-          <details class="ep">
-            <summary><span class="ep-path">/firewall</span><span class="ep-count">4 tools</span></summary>
-            <div class="ep-tools">
-            <code>get_firewall_group</code>
-            <code>get_firewall_group_rule</code>
-            <code>list_firewall_group_rules</code>
-            <code>list_firewall_groups</code>
-            </div>
-          </details>
-          <details class="ep">
-            <summary><span class="ep-path">/instance-templates</span><span class="ep-count">2 tools</span></summary>
-            <div class="ep-tools">
-            <code>get_instance_template</code>
-            <code>list_instance_templates</code>
-            </div>
-          </details>
-          <details class="ep">
-            <summary><span class="ep-path">/instances</span><span class="ep-count">15 tools</span></summary>
-            <div class="ep-tools">
-            <code>get_instance</code>
-            <code>get_instance_backup_schedule</code>
-            <code>get_instance_bandwidth</code>
-            <code>get_instance_ipv4</code>
-            <code>get_instance_ipv6</code>
-            <code>get_instance_iso_status</code>
-            <code>get_instance_job</code>
-            <code>get_instance_neighbors</code>
-            <code>get_instance_upgrades</code>
-            <code>get_instance_userdata</code>
-            <code>list_instance_ipv6_reverse</code>
-            <code>list_instance_private_networks</code>
-            <code>list_instance_vpc2</code>
-            <code>list_instance_vpcs</code>
-            <code>list_instances</code>
-            </div>
-          </details>
-          <details class="ep">
-            <summary><span class="ep-path">/iso</span><span class="ep-count">3 tools</span></summary>
-            <div class="ep-tools">
-            <code>iso_get</code>
-            <code>list_isos</code>
-            <code>list_public_isos</code>
-            </div>
-          </details>
-          <details class="ep">
-            <summary><span class="ep-path">/kubernetes</span><span class="ep-count">12 tools</span></summary>
-            <div class="ep-tools">
-            <code>get_kubernetes_available_upgrades</code>
-            <code>get_kubernetes_clusters</code>
-            <code>get_kubernetes_clusters_config</code>
-            <code>get_kubernetes_resources</code>
-            <code>get_kubernetes_versions</code>
-            <code>get_nodepool</code>
-            <code>get_nodepools</code>
-            <code>list_kubernetes_clusters</code>
-            <code>list_nodepool_labels</code>
-            <code>list_nodepool_taints</code>
-            <code>read_nodepool_label</code>
-            <code>read_nodepool_taint</code>
-            </div>
-          </details>
-          <details class="ep">
-            <summary><span class="ep-path">/load-balancer</span><span class="ep-count">7 tools</span></summary>
-            <div class="ep-tools">
-            <code>get_load_balancer</code>
-            <code>get_load_balancer_forwarding_rule</code>
-            <code>get_load_balancer_reverse_dns</code>
-            <code>get_loadbalancer_firewall_rule</code>
-            <code>list_load_balancer_forwarding_rules</code>
-            <code>list_load_balancers</code>
-            <code>list_loadbalancer_firewall_rules</code>
-            </div>
-          </details>
-          <details class="ep">
-            <summary><span class="ep-path">/logs</span><span class="ep-count">1 tool</span></summary>
-            <div class="ep-tools">
-            <code>list_logs</code>
-            </div>
-          </details>
-          <details class="ep">
-            <summary><span class="ep-path">/managed-databases</span><span class="ep-count">29 tools</span></summary>
-            <div class="ep-tools">
-            <code>available_services</code>
-            <code>get_backup_information</code>
-            <code>get_connection_pool</code>
-            <code>get_database</code>
-            <code>get_database_connector</code>
-            <code>get_database_connector_configuration_schema</code>
-            <code>get_database_connector_status</code>
-            <code>get_database_db</code>
-            <code>get_database_quota</code>
-            <code>get_database_topic</code>
-            <code>get_database_usage</code>
-            <code>get_database_user</code>
-            <code>list_advanced_options</code>
-            <code>list_advanced_options_kafka_connect</code>
-            <code>list_advanced_options_kafka_rest</code>
-            <code>list_advanced_options_schema_registry</code>
-            <code>list_available_versions</code>
-            <code>list_connection_pools</code>
-            <code>list_database_available_connectors</code>
-            <code>list_database_connectors</code>
-            <code>list_database_dbs</code>
-            <code>list_database_plans</code>
-            <code>list_database_quotas</code>
-            <code>list_database_topics</code>
-            <code>list_database_users</code>
-            <code>list_databases</code>
-            <code>list_maintenance_updates</code>
-            <code>list_service_alerts</code>
-            <code>view_migration_status</code>
-            </div>
-          </details>
-          <details class="ep">
-            <summary><span class="ep-path">/marketplace</span><span class="ep-count">2 tools</span></summary>
-            <div class="ep-tools">
-            <code>list_marketplace_app_variables</code>
-            <code>list_marketplace_apps</code>
-            </div>
-          </details>
-          <details class="ep">
-            <summary><span class="ep-path">/os</span><span class="ep-count">1 tool</span></summary>
-            <div class="ep-tools">
-            <code>list_os</code>
-            </div>
-          </details>
-          <details class="ep">
-            <summary><span class="ep-path">/plans</span><span class="ep-count">2 tools</span></summary>
-            <div class="ep-tools">
-            <code>list_metal_plans</code>
-            <code>list_plans</code>
-            </div>
-          </details>
-          <details class="ep">
-            <summary><span class="ep-path">/private-networks</span><span class="ep-count">2 tools</span></summary>
-            <div class="ep-tools">
-            <code>get_network</code>
-            <code>list_networks</code>
-            </div>
-          </details>
-          <details class="ep">
-            <summary><span class="ep-path">/region</span><span class="ep-count">2 tools</span></summary>
-            <div class="ep-tools">
-            <code>list_available_plans_region</code>
-            <code>list_regions</code>
-            </div>
-          </details>
-          <details class="ep">
-            <summary><span class="ep-path">/reserved-ip</span><span class="ep-count">2 tools</span></summary>
-            <div class="ep-tools">
-            <code>get_reserved_ip</code>
-            <code>list_reserved_ips</code>
-            </div>
-          </details>
-          <details class="ep">
-            <summary><span class="ep-path">/s3</span><span class="ep-count">5 tools</span></summary>
-            <div class="ep-tools">
-            <code>get_object_storage</code>
-            <code>list_object_storage_cluster_tiers</code>
-            <code>list_object_storage_clusters</code>
-            <code>list_object_storage_tiers</code>
-            <code>list_object_storages</code>
-            </div>
-          </details>
-          <details class="ep">
-            <summary><span class="ep-path">/serverless-inference</span><span class="ep-count">3 tools</span></summary>
-            <div class="ep-tools">
-            <code>get_inference</code>
-            <code>get_inference_usage</code>
-            <code>list_inference</code>
-            </div>
-          </details>
-          <details class="ep">
-            <summary><span class="ep-path">/snapshot</span><span class="ep-count">2 tools</span></summary>
-            <div class="ep-tools">
-            <code>get_snapshot</code>
-            <code>list_snapshots</code>
-            </div>
-          </details>
-          <details class="ep">
-            <summary><span class="ep-path">/ssh</span><span class="ep-count">2 tools</span></summary>
-            <div class="ep-tools">
-            <code>get_ssh_key</code>
-            <code>list_ssh_keys</code>
-            </div>
-          </details>
-          <details class="ep">
-            <summary><span class="ep-path">/startup</span><span class="ep-count">2 tools</span></summary>
-            <div class="ep-tools">
-            <code>get_startup_script</code>
-            <code>list_startup_scripts</code>
-            </div>
-          </details>
-          <details class="ep">
-            <summary><span class="ep-path">/storage-gateways</span><span class="ep-count">2 tools</span></summary>
-            <div class="ep-tools">
-            <code>get_storage_gateway</code>
-            <code>list_storage_gateways</code>
-            </div>
-          </details>
-          <details class="ep">
-            <summary><span class="ep-path">/subaccount</span><span class="ep-count">1 tool</span></summary>
-            <div class="ep-tools">
-            <code>list_subaccounts</code>
-            </div>
-          </details>
-          <details class="ep">
-            <summary><span class="ep-path">/tickets</span><span class="ep-count">4 tools</span></summary>
-            <div class="ep-tools">
-            <code>get_ticket</code>
-            <code>get_ticket_reply_attachment</code>
-            <code>list_ticket_replies</code>
-            <code>list_tickets</code>
-            </div>
-          </details>
-          <details class="ep">
-            <summary><span class="ep-path">/vfs</span><span class="ep-count">5 tools</span></summary>
-            <div class="ep-tools">
-            <code>getVFS</code>
-            <code>getVFSAttachment</code>
-            <code>listRegions</code>
-            <code>listVFS</code>
-            <code>listVFSAttachments</code>
-            </div>
-          </details>
-          <details class="ep">
-            <summary><span class="ep-path">/vpc2</span><span class="ep-count">3 tools</span></summary>
-            <div class="ep-tools">
-            <code>get_vpc2</code>
-            <code>list_vpc2</code>
-            <code>list_vpc2_nodes</code>
-            </div>
-          </details>
-          <details class="ep">
-            <summary><span class="ep-path">/vpcs</span><span class="ep-count">9 tools</span></summary>
-            <div class="ep-tools">
-            <code>get_nat_gateway</code>
-            <code>get_nat_gateway_firewall_rule</code>
-            <code>get_nat_gateway_port_forwarding_rule</code>
-            <code>get_vpc</code>
-            <code>list_nat_gateway_firewall_rules</code>
-            <code>list_nat_gateway_port_forwarding_rules</code>
-            <code>list_nat_gateways</code>
-            <code>list_vpc_attachments</code>
-            <code>list_vpcs</code>
-            </div>
-          </details>
+<!--EP_LIST-->
     </div>
     </details>
-    <p class="muted" style="margin-top:10px;">Paths are bare — no trailing slash needed.</p>
+    <p class="muted" style="margin-top:10px;">Paths are bare — no trailing slash needed. Hover a tool to see what it returns. Tools are named <code>vultr_&lt;area&gt;_&lt;resource&gt;_&lt;action&gt;</code> — e.g. <code>vultr_compute_instances_list</code> — and a <code>_get</code> tool takes the <code>id</code> its matching <code>_list</code> tool returns.</p>
   </section>
 
   <section id="auth">
@@ -583,6 +230,7 @@ https://vultrmcp.com/container-registry  # multi-word categories are slugified</
 
     <h3>1. OAuth (zero-config)</h3>
     <p>Point your MCP client at <code>https://vultrmcp.com/</code> and start the connection. You'll be redirected to Vultr to sign in and consent — no client ID or secret to paste, no API key to manage. Your client stores the resulting token and reuses it. This is the smoothest path for GUI clients with a browser handy (e.g. Claude).</p>
+    <p><strong>How long you stay signed in.</strong> Access tokens last an hour and your client renews them on its own, so an active connection keeps working without prompting you. You're asked to sign in again only after 30 days without using it, or if access is revoked.</p>
 
     <h3>2. API key (header)</h3>
     <p>Send your Vultr API key as a Bearer token on every request:</p>
@@ -743,12 +391,18 @@ openclaw mcp login vultr</code></pre>
     <h3>Identity tools are excluded</h3>
     <p>API-key, user, IAM, SCIM, organization and OIDC management tools are intentionally not exposed, so an agent can't rotate credentials or alter identity. Manage those in the Vultr console.</p>
 
+    <h3>When Vultr's API has a problem</h3>
+    <p>Every tool calls <code>api.vultr.com</code> as you, and passes Vultr's own error straight through — for example <code>Vultr API returned 502: We are currently conducting some software upgrades.</code> A 5xx means Vultr's API failed, not your request, so the fix is to try again later rather than to change the question. A 401 or 403 means the credential can't do that, exactly as it would against the API directly.</p>
+
+    <h3>Arguments are checked</h3>
+    <p>A tool called with an argument it doesn't have is refused, not silently ignored, and the error lists the arguments it does take — for example <code>has no argument 'cluster_id' (did you mean 'vke_id'?)</code>. Agents correct themselves in one retry, and a filter that doesn't exist can't quietly return unfiltered results.</p>
+
     <h3>No write tools yet</h3>
     <p>The server currently exposes reads only, so an agent can report on your infrastructure but not change it — ask it to create, resize, or delete something and it will tell you it has no tool for that. Provisioning stays in the Vultr console or the API for now. Write tools will arrive as an opt-in you turn on per user within your organization, so the safe surface stays the default for everyone who doesn't.</p>
   </section>
 
   <footer>
-    <p>Vultr MCP Server · v2 (Python / FastMCP). Tools are generated from Vultr's OpenAPI spec. An official Vultr resource.</p>
+    <p>Vultr MCP Server · v2 (Python / FastMCP). Tools are reviewed definitions over Vultr's OpenAPI spec, each describing exactly what it returns. An official Vultr resource.</p>
   </footer>
 
 </div>

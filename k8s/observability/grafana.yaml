@@ -477,7 +477,7 @@ data:
           "id": 9,
           "type": "table",
           "title": "Failed tool calls",
-          "description": "fault: upstream = Vultr erred, auth = bad or missing credential, request = the call was invalid, unreachable = no response, mcp = this server. Match request_id against Upstream errors for the API's own message.",
+          "description": "fault: upstream = Vultr erred, auth = bad or missing credential, request = the call was invalid, unreachable = no response, caller = an argument the tool does not have (the agent's mistake), mcp = this server. Match request_id against Upstream errors for the API's own message.",
           "datasource": {
             "type": "grafana-clickhouse-datasource",
             "uid": "clickhouse-vultr-mcp"
@@ -573,6 +573,43 @@ data:
               "format": 1,
               "queryType": "table",
               "rawSql": "SELECT JSONExtractString(line, 'method') AS method, JSONExtractString(line, 'path') AS path, count() AS calls, round(quantile(0.95)(JSONExtractFloat(line, 'duration_ms'))) AS p95_ms, countIf(JSONExtractInt(line, 'status') >= 500) AS server_errors FROM vultr_mcp.log_mcp_upstream_call WHERE $__timeFilter(timestamp) GROUP BY method, path ORDER BY p95_ms DESC LIMIT 50"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {},
+            "overrides": []
+          },
+          "options": {
+            "showHeader": true,
+            "cellHeight": "sm"
+          }
+        },
+        {
+          "id": 12,
+          "type": "table",
+          "title": "Arguments the tools don't have",
+          "description": "Calls refused because an argument name is not one the tool has. The error named the right parameter, so this is usually one retry. A name that recurs across clients is a naming problem.",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "clickhouse-vultr-mcp"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 41,
+            "w": 24,
+            "h": 8
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "grafana-clickhouse-datasource",
+                "uid": "clickhouse-vultr-mcp"
+              },
+              "editorType": "sql",
+              "format": 1,
+              "queryType": "table",
+              "rawSql": "SELECT JSONExtractString(line, 'tool') AS tool, JSONExtractString(line, 'argument_names') AS arguments_passed, count() AS refused, uniqExact(JSONExtractString(line, 'mcp_client_id')) AS clients, max(timestamp) AS last_seen FROM vultr_mcp.log_mcp_tool_call WHERE $__timeFilter(timestamp) AND has(JSONExtract(line, 'error_chain', 'Array(String)'), 'ArgumentError') GROUP BY tool, arguments_passed ORDER BY refused DESC LIMIT 50"
             }
           ],
           "fieldConfig": {

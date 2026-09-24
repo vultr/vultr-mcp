@@ -167,7 +167,7 @@ def audit():
                        {f('pod')} AS pod, {f('request_id')} AS request_id
                 FROM {TOOL} {WHERE} AND {f('outcome')} != 'ok' ORDER BY timestamp DESC LIMIT 200""",
             0, 22, 24, 9,
-            description="fault: upstream = Vultr erred, auth = bad or missing credential, request = the call was invalid, unreachable = no response, mcp = this server. Match request_id against Upstream errors for the API's own message.")
+            description="fault: upstream = Vultr erred, auth = bad or missing credential, request = the call was invalid, unreachable = no response, caller = an argument the tool does not have (the agent's mistake), mcp = this server. Match request_id against Upstream errors for the API's own message.")
 
     # Row 4: the upstream side.
     b.table("Upstream errors",
@@ -183,6 +183,17 @@ def audit():
                        countIf(JSONExtractInt(line, 'status') >= 500) AS server_errors
                 FROM {UP} {WHERE} GROUP BY method, path ORDER BY p95_ms DESC LIMIT 50""",
             14, 31, 10, 10, description="path is the API's path template, so IDs do not split one endpoint into many rows.")
+
+    # Row 5: argument names the agent guessed wrong. Refused since 2.1.10, each one
+    # a retry; the evidence for or against renaming a parameter (vke_id -> cluster_id).
+    b.table("Arguments the tools don't have",
+            f"""SELECT {f('tool')} AS tool, JSONExtractString(line, 'argument_names') AS arguments_passed,
+                       count() AS refused, uniqExact({f('mcp_client_id')}) AS clients, max(timestamp) AS last_seen
+                FROM {TOOL} {WHERE} AND has(JSONExtract(line, 'error_chain', 'Array(String)'), 'ArgumentError')
+                GROUP BY tool, arguments_passed ORDER BY refused DESC LIMIT 50""",
+            0, 41, 24, 8,
+            description="Calls refused because an argument name is not one the tool has. The error named the right "
+                        "parameter, so this is usually one retry. A name that recurs across clients is a naming problem.")
 
     return dashboard("vultr-mcp-audit", "vultr-mcp audit", b, "now-24h")
 

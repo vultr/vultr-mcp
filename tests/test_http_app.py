@@ -80,19 +80,16 @@ async def test_root_serves_landing_page_to_browsers(monkeypatch, spec):
             ):
                 assert client in body, f"client section missing {client!r}"
 
-            # Every default-mounted category endpoint must be documented, so the
-            # page can't drift from the real surface as the spec grows. Compute
-            # the full default set directly (the env override above only trims
-            # what this test process boots, not what the page should list).
-            from vultr_mcp.app import slugify
-            from vultr_mcp.server import DEFAULT_EXCLUDED_CATEGORIES, all_categories
+            # The endpoint list is built from the servers this process mounts, so
+            # it cannot drift from the real surface. (It used to be typed into the
+            # HTML, and this test asserted the typed names -- which is how the page
+            # still advertised tools renamed a month earlier.) This process mounts
+            # only /instances; test_landing covers the full default set.
+            assert "/instances" in body
+            assert "1 endpoint · " in body
 
-            excluded = set(DEFAULT_EXCLUDED_CATEGORIES)
-            for slug in sorted(slugify(t) for t in all_categories(spec) - excluded):
-                assert f"/{slug}" in body, f"landing page missing endpoint /{slug}"
-
-            # The expandable tool lists must carry real tool names, not just slugs.
-            for tool_name in ("list_instances", "list_dns_domains", "list_kubernetes_clusters"):
+            # The expandable tool lists carry the real, current tool names.
+            for tool_name in ("vultr_compute_instances_list", "vultr_compute_instances_get"):
                 assert tool_name in body, f"endpoint accordion missing tool {tool_name!r}"
 
             # The page must not advertise tools the read-only server won't serve.

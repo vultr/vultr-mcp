@@ -25,7 +25,7 @@ spec:
         - name: ghcr-creds
       containers:
         - name: vultr-mcp
-          image: ghcr.io/vultr/vultr-mcp:2.1.9
+          image: ghcr.io/vultr/vultr-mcp:2.1.10
           imagePullPolicy: Always
           ports:
             - containerPort: 8080
@@ -108,7 +108,7 @@ spec:
         # Lines are dropped, not queued, when ClickHouse is down -- clicktail's
         # stated design, and stdout still carries every record.
         - name: clicktail
-          image: ghcr.io/vultr/vultr-mcp:2.1.9
+          image: ghcr.io/vultr/vultr-mcp:2.1.10
           imagePullPolicy: Always
           command: ["/usr/local/bin/clicktail"]
           env:

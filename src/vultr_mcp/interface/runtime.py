@@ -16,6 +16,7 @@ not be answered confidently from a partial one.
 
 from __future__ import annotations
 
+import difflib
 import os
 from typing import Any
 from urllib.parse import quote
@@ -216,6 +217,60 @@ def _filter_meta(
     return meta
 
 
+class ArgumentError(ValueError):
+    """The caller passed an argument this tool does not have.
+
+    Its own class so the audit record's error chain says which kind of mistake
+    it was -- countable, separate from the API refusing a well-formed call.
+    """
+
+
+# An unknown argument is refused only when it carries a value. A stray key set
+# to null or "" asks for nothing, so refusing it would cost a retry for no gain.
+_EMPTY = (None, "", [], {})
+
+
+def check_arguments(tool: CompiledTool, arguments: dict[str, Any]) -> None:
+    """Refuse argument names the tool does not have, naming the ones it does.
+
+    Silently ignoring them was the worse failure. In the audit records, calls
+    with an unknown argument mostly "succeeded": ``label_contains`` on a tool
+    that has only ``label`` returned the unfiltered list, and the agent reported
+    it as filtered. The rest failed confusingly -- ``cluster_id`` where the tool
+    takes ``vke_id`` left the path unfilled. One clear refusal costs one retry;
+    the message is written so the retry can be right.
+
+    The schema the agent was shown is the source of truth for what is accepted.
+    """
+    schema = tool.input_schema or {}
+    accepted = sorted(schema.get("properties", {}))
+    unknown = sorted(
+        name for name, value in arguments.items() if name not in accepted and value not in _EMPTY
+    )
+    if not unknown:
+        return
+
+    required = list(schema.get("required", []))
+    missing = [name for name in required if arguments.get(name) in _EMPTY]
+    described = []
+    for name in unknown:
+        # One stray name standing in for the one required name that is absent is
+        # the clearest case there is (cluster_id for vke_id), even though the two
+        # spellings share little. Otherwise only suggest a genuinely close
+        # spelling: a loose guess (label_contains -> label) would steer an agent
+        # into an exact-match filter it did not ask for.
+        if len(unknown) == 1 and len(missing) == 1:
+            guess = missing[0]
+        else:
+            close = difflib.get_close_matches(name, accepted, n=1, cutoff=0.75)
+            guess = close[0] if close else None
+        described.append(f"{name!r}" + (f" (did you mean {guess!r}?)" if guess else ""))
+
+    noun = "argument" if len(unknown) == 1 else "arguments"
+    accepts = ", ".join(f"{a} (required)" if a in required else a for a in accepted) or "no arguments"
+    raise ArgumentError(f"{tool.name} has no {noun} {', '.join(described)}. It accepts: {accepts}.")
+
+
 def build_request(
     tool: CompiledTool, arguments: dict[str, Any]
 ) -> tuple[str, dict[str, Any]]:
@@ -286,6 +341,7 @@ async def execute(
     tool: CompiledTool, arguments: dict[str, Any], client: httpx.AsyncClient
 ) -> dict[str, Any]:
     """Run one compiled tool end to end."""
+    check_arguments(tool, arguments)
     path, query = build_request(tool, arguments)
 
     filtering = tool.filters_client_side and any(

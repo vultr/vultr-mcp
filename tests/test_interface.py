@@ -1584,3 +1584,96 @@ def test_a_supplied_path_parameter_still_resolves(compiled):
 
     assert path == "/kubernetes/clusters/8534d058-8bd9-45dc-96df-c79b46a3e543/resources"
     assert "{" not in path
+
+
+# --------------------------------------------------------------------------
+# An argument the tool does not have.
+# --------------------------------------------------------------------------
+#
+# The cases are the real ones from the eval harness's audit records: 5 of 2,014
+# calls used an argument name the tool lacks, and 4 of those "succeeded" by
+# silently ignoring it.
+
+
+def _tool(compiled, name):
+    return next(t for t in compiled.tools if t.name == name)
+
+
+def test_a_wrong_name_for_the_one_required_argument_is_named_and_corrected(compiled):
+    """The VKE resources ticket: cluster_id where the tool takes vke_id."""
+    tool = _tool(compiled, "vultr_kubernetes_clusters_resources_get")
+    with pytest.raises(runtime.ArgumentError) as caught:
+        runtime.check_arguments(tool, {"cluster_id": "8534d058-8bd9-45dc-96df-c79b46a3e543"})
+    assert str(caught.value) == (
+        "vultr_kubernetes_clusters_resources_get has no argument 'cluster_id' "
+        "(did you mean 'vke_id'?). It accepts: vke_id (required)."
+    )
+
+
+def test_an_unsupported_filter_is_refused_rather_than_silently_ignored(compiled):
+    """label_contains on a tool with only label returned the unfiltered list,
+    and the agent reported it as filtered. No guess: steering it to the exact
+    `label` filter would answer a question it did not ask."""
+    tool = _tool(compiled, "vultr_storage_blocks_list")
+    with pytest.raises(runtime.ArgumentError) as caught:
+        runtime.check_arguments(tool, {"label_contains": "KEEP"})
+    message = str(caught.value)
+    assert "'label_contains'" in message and "did you mean" not in message
+    assert "label" in message.split("It accepts:")[1]
+
+
+def test_the_accepted_names_make_the_retry_obvious(compiled):
+    """per_page is page_size here; the list says so without a guess."""
+    tool = _tool(compiled, "vultr_compute_baremetal_list")
+    with pytest.raises(runtime.ArgumentError) as caught:
+        runtime.check_arguments(tool, {"per_page": 100})
+    assert "page_size" in str(caught.value).split("It accepts:")[1]
+
+
+def test_a_close_misspelling_gets_a_suggestion(compiled):
+    tool = _tool(compiled, "vultr_kubernetes_clusters_resources_get")
+    with pytest.raises(runtime.ArgumentError) as caught:
+        runtime.check_arguments(tool, {"vke_id": "x", "vkeid": "y"})
+    assert "(did you mean 'vke_id'?)" in str(caught.value)
+
+
+def test_an_empty_stray_argument_asks_for_nothing_and_is_allowed(compiled):
+    tool = _tool(compiled, "vultr_kubernetes_clusters_resources_get")
+    runtime.check_arguments(tool, {"vke_id": "8534d058", "cluster_id": None, "extra": ""})
+
+
+def test_correct_arguments_pass(compiled):
+    tool = _tool(compiled, "vultr_compute_baremetal_list")
+    runtime.check_arguments(tool, {"page_size": 50, "label": "web"})
+
+
+async def test_a_refused_call_never_reaches_the_api(compiled):
+    tool = _tool(compiled, "vultr_kubernetes_clusters_resources_get")
+
+    def refuse(request):
+        raise AssertionError(f"an API call was made: {request.url}")
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(refuse), base_url="https://api.test/v2") as client:
+        with pytest.raises(runtime.ArgumentError):
+            await runtime.execute(tool, {"cluster_id": "8534d058"}, client)
+
+
+async def test_a_refused_argument_is_the_callers_fault_in_the_audit_record(capsys, monkeypatch):
+    """Not ours: an eval that separates model mistakes from infrastructure
+    failures reads the fault field to do it."""
+    import json as _json
+
+    from fastmcp import Client as _Client
+
+    from vultr_mcp.server import load_spec
+
+    monkeypatch.setenv("VULTR_MCP_AUDIT_LOG", "true")
+    server = create_server(load_spec())
+    async with _Client(server) as client:
+        result = await client.call_tool(
+            "vultr_kubernetes_clusters_resources_get", {"cluster_id": "8534d058"}, raise_on_error=False
+        )
+    assert result.is_error
+    records = [_json.loads(l) for l in capsys.readouterr().out.splitlines() if '"mcp.tool_call"' in l]
+    assert records[-1]["fault"] == "caller"
+    assert "ArgumentError" in records[-1]["error_chain"]
