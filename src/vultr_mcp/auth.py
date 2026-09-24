@@ -19,16 +19,21 @@ from __future__ import annotations
 import inspect
 import json
 import os
+import time
 from dataclasses import dataclass
+from typing import Any
 
 import httpx
 from fastmcp.server.auth.auth import AccessToken, TokenVerifier
 from fastmcp.server.auth.oauth_proxy import OAuthProxy
 from fastmcp.server.auth.providers.jwt import JWTVerifier
+from mcp.server.auth.provider import AuthorizationCode, AuthorizationParams, RefreshToken, TokenError
+from mcp.shared.auth import OAuthClientInformationFull, OAuthToken
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.routing import Route
 
+from vultr_mcp.audit import emit_auth
 from vultr_mcp.device_flow import (
     DEVICE_GRANT_TYPE,
     DeviceFlowHandlers,
@@ -36,6 +41,20 @@ from vultr_mcp.device_flow import (
     device_routes,
 )
 from vultr_mcp.loopback_handoff import completion_page, is_loopback_target
+from vultr_mcp.refresh_coalescer import build_refresh_coalescer, token_key
+
+
+def _error_code(exc: BaseException) -> str:
+    return getattr(exc, "error", None) or type(exc).__name__
+
+
+def _error_fields(exc: BaseException) -> dict[str, Any]:
+    """What the client was told: the OAuth error code and its description --
+    for a failed refresh, Vultr's own reason, e.g. "Invalid refresh token"."""
+    fields: dict[str, Any] = {"error": _error_code(exc)}
+    if isinstance(exc, TokenError) and exc.error_description:
+        fields["error_description"] = exc.error_description[:300]
+    return fields
 
 
 def loopback_handoff_enabled() -> bool:
@@ -107,12 +126,94 @@ class VultrOAuthProxy(OAuthProxy):
         # Shared with the device grant; across replicas the pod that completes
         # an approval is rarely the pod being polled.
         self._shared_storage = kwargs.get("client_storage")
+        # Vultr revokes a whole token family when one refresh token is used
+        # twice, so concurrent refreshes must become one upstream call -- across
+        # pods, which FastMCP's own per-process lock cannot see. See
+        # refresh_coalescer.
+        self._refresh_coalescer = build_refresh_coalescer(kwargs.get("upstream_client_secret"))
         super().__init__(*args, **kwargs)
 
     async def load_access_token(self, token: str) -> AccessToken | None:
         if not _looks_like_jwt(token):
             return _api_key_access_token(token)
         return await super().load_access_token(token)
+
+    async def authorize(self, client: OAuthClientInformationFull, params: AuthorizationParams) -> str:
+        started = time.perf_counter()
+        try:
+            url = await super().authorize(client, params)
+        except Exception as exc:
+            emit_auth("authorize", "error", client.client_id, started, error=_error_code(exc))
+            raise
+        emit_auth("authorize", "ok", client.client_id, started)
+        return url
+
+    async def exchange_authorization_code(
+        self, client: OAuthClientInformationFull, authorization_code: AuthorizationCode
+    ) -> OAuthToken:
+        started = time.perf_counter()
+        try:
+            token = await super().exchange_authorization_code(client, authorization_code)
+        except Exception as exc:
+            emit_auth("code_exchange", "error", client.client_id, started, **_error_fields(exc))
+            raise
+        emit_auth("code_exchange", "ok", client.client_id, started, **await self._account_of(token))
+        return token
+
+    async def load_refresh_token(
+        self, client: OAuthClientInformationFull, refresh_token: str
+    ) -> RefreshToken | None:
+        # A duplicate of a refresh that is in flight or just finished: the
+        # winner has rotated the token out of FastMCP's store, so the base
+        # class would refuse it here, before exchange_refresh_token could hand
+        # it the winner's result. Checked first, so a rescued duplicate does not
+        # log the base class's "forces the client to re-authenticate" warning.
+        started = time.perf_counter()
+        scopes = await self._refresh_coalescer.claimed_scopes(
+            token_key(refresh_token), client.client_id or ""
+        )
+        if scopes is not None:
+            return RefreshToken(token=refresh_token, client_id=client.client_id or "", scopes=scopes)
+        found = await super().load_refresh_token(client, refresh_token)
+        if found is None:
+            # Unknown, already rotated, expired or revoked: the client is told
+            # invalid_grant and has to sign in again from scratch.
+            emit_auth("refresh", "refused", client.client_id, started, error="invalid_grant",
+                      error_description="refresh token not found (rotated, expired or revoked)")
+        return found
+
+    async def exchange_refresh_token(
+        self, client: OAuthClientInformationFull, refresh_token: RefreshToken, scopes: list[str]
+    ) -> OAuthToken:
+        started = time.perf_counter()
+        resolved: list[str] = []
+        # Bound here: zero-argument super() does not work inside the lambda.
+        exchange = super().exchange_refresh_token
+        try:
+            token = await self._refresh_coalescer.run(
+                token_key(refresh_token.token),
+                client.client_id or "",
+                scopes,
+                lambda: exchange(client, refresh_token, scopes),
+                report=resolved.append,
+            )
+        except Exception as exc:
+            emit_auth("refresh", "error", client.client_id, started,
+                      resolved_by=resolved[0] if resolved else None, **_error_fields(exc))
+            raise
+        emit_auth("refresh", "ok", client.client_id, started,
+                  resolved_by=resolved[0] if resolved else None, **await self._account_of(token))
+        return token
+
+    async def _account_of(self, token: OAuthToken) -> dict[str, Any]:
+        """acctid and sub behind a token just issued, resolved the way a request's
+        bearer is -- so an auth record names the same account its tool calls do."""
+        try:
+            access = await OAuthProxy.load_access_token(self, token.access_token)
+        except Exception:  # noqa: BLE001 - auditing never fails a sign-in
+            return {}
+        claims = getattr(access, "claims", None) or {}
+        return {k: claims[k] for k in ("acctid", "sub") if claims.get(k) is not None}
 
     async def _handle_idp_callback(self, request: Request):
         """Hand the code back without assuming the loopback port exists.

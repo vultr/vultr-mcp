@@ -21,8 +21,23 @@ on the paste path it never needed -- with nowhere to paste, for a client whose
 CLI has no ``--code`` option.
 
 A top-level navigation is not gated that way, being what the ordinary 302 did.
-So the fallback panel offers the target as a link as well as showing the code:
-one of the two fits every case, and the page no longer has to guess which.
+So the ways out are offered as a link as well as text to paste: one of them
+fits every case, and the page no longer has to guess which.
+
+Why success is not a dead end either
+------------------------------------
+The probe resolving proves only that something answered on that port, never
+that the client accepted the hand-off -- ``no-cors`` yields an opaque response,
+so an error status and a rejection by a listener that wants a real navigation
+both look like success. Observed 2026-09-22: the page said "Connected" while
+Claude Code sat at its own paste prompt, with the link hidden behind a verdict
+the page was not entitled to. The ways out are therefore always on the page,
+folded away rather than removed.
+
+Clients differ in what they want pasted -- a whole callback URL, or the bare
+code -- so both are offered. The code alone is useless to a client whose prompt
+wants the URL, and the URL a user can see is ours, carrying the upstream code
+rather than the proxy-issued one.
 
 Non-loopback redirects get the ordinary 302.
 """
@@ -100,6 +115,9 @@ p{margin:0 0 16px;color:var(--muted)}
 @keyframes s{to{transform:rotate(360deg)}}
 [hidden]{display:none!important}
 small{color:var(--muted);font-size:13px}
+details{margin-top:18px;border-top:1px solid var(--line);padding-top:14px}
+details summary{cursor:pointer;font-weight:600;font-size:14px;margin-bottom:12px}
+details[open] summary{margin-bottom:14px}
 """
 
 
@@ -127,28 +145,37 @@ def completion_page(target: str) -> HTMLResponse:
 
   <div id="done" hidden>
     <div class="ok">&#10003;</div>
-    <h1>Connected</h1>
-    <p>You can close this window and return to your terminal.</p>
+    <h1>Handed back</h1>
+    <p>Your client should have picked this up. Check your terminal.</p>
   </div>
 
   <div id="manual" hidden>
     <h1>Almost there</h1>
-    <p>The browser could not hand the authorization back on its own. If the
-       client that started the sign-in is running on <b>this machine</b>,
-       finish it here:</p>
+    <p>The browser could not hand the authorization back on its own.</p>
+  </div>
+
+  <details id="ways" hidden open>
+    <summary>Terminal still waiting?</summary>
+    <p>If the client that started the sign-in is running on <b>this
+       machine</b>, finish it here:</p>
     <p><a class="btn" href="{safe_target}" target="_blank"
           rel="noopener noreferrer">Finish sign-in</a></p>
-    <p>If it is running somewhere else &mdash; an agent on an instance, a
-       remote box over SSH &mdash; copy this code and paste it into the client
-       instead.</p>
+    <p>Or hand it over by hand. Most clients want the whole callback URL
+       &mdash; it is what your address bar would have shown:</p>
+    <div class="code">
+      <input id="u" value="{safe_target}" readonly onclick="this.select()">
+      <button type="button" onclick="cp('u')">Copy</button>
+    </div>
+    <p>Some want the code on its own instead:</p>
     <div class="code">
       <input id="c" value="{safe_code}" readonly onclick="this.select()">
-      <button type="button" onclick="cp()">Copy</button>
+      <button type="button" onclick="cp('c')">Copy</button>
     </div>
-    <p><small>Most command-line clients accept it with a
-       <code>--code</code> option. The code is single use and expires within a
-       few minutes.</small></p>
-  </div>
+    <p><small>Command-line clients take one or the other &mdash; a
+       <code>URL &gt;</code> prompt wants the first, a <code>--code</code>
+       option the second. Both are single use and expire within a few
+       minutes.</small></p>
+  </details>
 </div>
 <script>
 // Deliver the code to a listener on THIS machine, if there is one. When it
@@ -164,9 +191,15 @@ var target = "{safe_target}";
 function show(id) {{
   document.getElementById("probe").hidden = true;
   document.getElementById(id).hidden = false;
+  // Always reachable AND always open: a probe that resolved cannot prove the
+  // client accepted anything, so there is no outcome that earns folding these
+  // away. Observed with Claude Code, whose probe resolves every time and
+  // delivers nothing -- behind a summary, the way out is something you find
+  // only after deciding the page lied to you.
+  document.getElementById("ways").hidden = false;
 }}
-function cp() {{
-  var el = document.getElementById("c");
+function cp(which) {{
+  var el = document.getElementById(which);
   el.select();
   (navigator.clipboard ? navigator.clipboard.writeText(el.value)
                        : Promise.reject()).catch(function () {{

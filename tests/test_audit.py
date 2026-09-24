@@ -121,3 +121,82 @@ async def test_audit_failure_cannot_break_a_call(server, capsys, monkeypatch):
     async with Client(server) as client:
         result = await client.call_tool("echo", {"label": "still-works"})
     assert result is not None
+
+
+# -- the file sink a log shipper tails ----------------------------------------
+
+
+def _reset_writers():
+    from vultr_mcp import audit
+
+    audit._writers.clear()
+
+
+def test_emit_writes_one_file_per_event_type(tmp_path, monkeypatch, capsys):
+    """A shipper maps a file to a table, and the two shapes share few columns."""
+    from vultr_mcp import audit
+
+    _reset_writers()
+    monkeypatch.setenv("VULTR_MCP_AUDIT_DIR", str(tmp_path))
+
+    audit.emit({"event": "mcp.tool_call", "tool": "vultr_account_get", "outcome": "ok"})
+    audit.emit({"event": "mcp.upstream_call", "path": "/v2/account", "status": 200})
+    _reset_writers()
+
+    tool_calls = (tmp_path / "mcp_tool_call.log").read_text(encoding="utf-8").strip()
+    upstream = (tmp_path / "mcp_upstream_call.log").read_text(encoding="utf-8").strip()
+
+    # The line must arrive as the JSON object it already is -- no level, no
+    # second timestamp, nothing prepended by the logging machinery.
+    assert json.loads(tool_calls)["tool"] == "vultr_account_get"
+    assert json.loads(upstream)["status"] == 200
+
+    # stdout keeps its copy: the file is for the shipper, stdout is for a person.
+    assert '"mcp.tool_call"' in capsys.readouterr().out
+
+
+def test_files_exist_empty_before_the_first_call(tmp_path, monkeypatch):
+    """A tailer skips what a file already holds when it finds it, so the files
+    must appear at boot, before any record could be written into them."""
+    from vultr_mcp import audit
+
+    _reset_writers()
+    monkeypatch.setenv("VULTR_MCP_AUDIT_DIR", str(tmp_path))
+
+    audit.AuditMiddleware()
+    _reset_writers()
+
+    assert (tmp_path / "mcp_tool_call.log").read_bytes() == b""
+    assert (tmp_path / "mcp_upstream_call.log").read_bytes() == b""
+    # Sign-ins and refreshes too: the first one after a rollout is exactly the
+    # kind of record this file exists for.
+    assert (tmp_path / "mcp_auth.log").read_bytes() == b""
+
+
+def test_emit_still_works_when_the_directory_cannot_be_written(tmp_path, monkeypatch, capsys):
+    """A log sink that takes the server down with it is worse than no sink."""
+    from vultr_mcp import audit
+
+    _reset_writers()
+    # A path under a regular file cannot be created as a directory.
+    blocker = tmp_path / "not-a-dir"
+    blocker.write_text("x", encoding="utf-8")
+    monkeypatch.setenv("VULTR_MCP_AUDIT_DIR", str(blocker / "logs"))
+
+    audit.emit({"event": "mcp.tool_call", "tool": "vultr_account_get"})
+    _reset_writers()
+
+    assert '"vultr_account_get"' in capsys.readouterr().out
+
+
+def test_no_directory_configured_means_stdout_only(tmp_path, monkeypatch, capsys):
+    from vultr_mcp import audit
+
+    _reset_writers()
+    monkeypatch.delenv("VULTR_MCP_AUDIT_DIR", raising=False)
+
+    audit.emit({"event": "mcp.tool_call", "tool": "vultr_account_get"})
+    _reset_writers()
+
+    assert list(tmp_path.iterdir()) == []
+    assert '"vultr_account_get"' in capsys.readouterr().out

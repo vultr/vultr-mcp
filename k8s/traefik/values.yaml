@@ -1,6 +1,6 @@
 # Traefik Helm values for Vultr MCP
 # Install with:
-#   helm install traefik traefik/traefik --namespace traefik --create-namespace -f k8s/traefik-values.yaml
+#   helm install traefik traefik/traefik --namespace traefik --create-namespace -f k8s/traefik/values.yaml
 
 deployment:
   kind: Deployment

@@ -30,6 +30,7 @@ from __future__ import annotations
 import contextvars
 import re
 import time
+import zlib
 from typing import Any, Iterable
 
 import httpx
@@ -102,6 +103,53 @@ def redact_unknown(segments: list[str]) -> str:
     return "/" + "/".join(out)
 
 
+# Enough for an upstream error message, not enough to be a copy of the body.
+MAX_UPSTREAM_ERROR_CHARS = 200
+
+
+def error_snippet(body: bytes) -> str:
+    """The upstream's own words on a failure, truncated.
+
+    Without this, "the API returned 500" and "we turned something into a 500"
+    are told apart by inference -- we spent a bug report matching
+    ``response_bytes`` against the byte length of a quoted error string to
+    establish which had happened. The body is only kept for a non-2xx, where
+    it is an error message rather than a customer's data.
+    """
+    text = body[: MAX_UPSTREAM_ERROR_CHARS * 4].decode("utf-8", "replace").strip()
+    return text[:MAX_UPSTREAM_ERROR_CHARS]
+
+
+def decode_error_body(body: bytes, encoding: str | None) -> bytes | None:
+    """Undo Content-Encoding on a failure's opening bytes; None when that can't be done.
+
+    The streamed path holds wire bytes, and the API compresses its errors: a
+    gzipped 403 went into four records as ``\\ufffd\\x08...`` rather than its
+    message. Works on a truncated head, since only the first bytes are kept --
+    a decompressobj yields what it can without needing the end of the stream.
+    """
+    if not encoding or encoding.strip().lower() == "identity":
+        return body
+    # Stacked encodings are applied left to right, so the outermost is last.
+    # Only a single gzip or deflate layer is undone; anything else is reported
+    # as undecodable rather than stored as noise.
+    if "," in encoding:
+        return None
+    name = encoding.strip().lower()
+    try:
+        if name in ("gzip", "x-gzip"):
+            return zlib.decompressobj(16 + zlib.MAX_WBITS).decompress(body)
+        if name == "deflate":
+            # zlib-wrapped per the RFC, but raw deflate is common in the wild.
+            try:
+                return zlib.decompressobj().decompress(body)
+            except zlib.error:
+                return zlib.decompressobj(-zlib.MAX_WBITS).decompress(body)
+    except zlib.error:
+        return None
+    return None
+
+
 def record_upstream(entry: dict[str, Any]) -> None:
     """Attribute one upstream call to the tool call in flight, if there is one.
 
@@ -156,6 +204,16 @@ class InstrumentedTransport(httpx.AsyncBaseTransport):
 
         entry["status"] = response.status_code
 
+        # `response_bytes` counts what the path it took could see: the decoded
+        # body when the transport hands one over, the wire bytes when we count
+        # a stream. A compressed response therefore reads far smaller than the
+        # JSON it carries -- 31 days of bandwidth measured 517 streamed and
+        # 2032 decoded. Recording the encoding is what stops someone reading
+        # a size as evidence of a payload it cannot be compared against.
+        encoding = response.headers.get("content-encoding")
+        if encoding:
+            entry["response_encoding"] = encoding
+
         # A transport that hands back an already-materialised body has nothing
         # left to time, and wrapping its stream would record nothing at all --
         # httpx never iterates a response whose content is set. Finish here
@@ -163,6 +221,8 @@ class InstrumentedTransport(httpx.AsyncBaseTransport):
         if hasattr(response, "_content"):
             entry["duration_ms"] = round((time.perf_counter() - started) * 1000, 1)
             entry["response_bytes"] = len(response._content)
+            if response.status_code >= 400 and response._content:
+                entry["upstream_error"] = error_snippet(response._content)
             record_upstream(entry)
             return response
 
@@ -187,10 +247,15 @@ class _TimedStream(httpx.AsyncByteStream):
         self._entry = entry
         self._bytes = 0
         self._done = False
+        self._head = b""
 
     async def __aiter__(self):
         async for chunk in self._inner:
             self._bytes += len(chunk)
+            # Only a failure's opening bytes, and only while short of the cap:
+            # a success streams past untouched, holding nothing.
+            if self._entry.get("status", 0) >= 400 and len(self._head) < MAX_UPSTREAM_ERROR_CHARS * 4:
+                self._head += chunk
             yield chunk
         self._finish()
 
@@ -206,6 +271,12 @@ class _TimedStream(httpx.AsyncByteStream):
         self._done = True
         self._entry["duration_ms"] = round((time.perf_counter() - self._started) * 1000, 1)
         self._entry["response_bytes"] = self._bytes
+        if self._head:
+            encoding = self._entry.get("response_encoding")
+            body = decode_error_body(self._head, encoding)
+            self._entry["upstream_error"] = (
+                error_snippet(body) if body else f"({encoding}-encoded body, not decoded)"
+            )
         record_upstream(self._entry)
 
 

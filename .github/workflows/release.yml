@@ -1,0 +1,127 @@
+name: Release
+
+# Pushing a version tag publishes the image: v2.1.9 builds the tagged commit
+# and pushes ghcr.io/vultr/vultr-mcp:2.1.9. Deploying stays a person's step --
+# `kubectl apply -f k8s/deployment.yaml` -- so nothing here reaches the cluster.
+#
+# Built from the tag rather than a laptop so the image is exactly a commit.
+# Hand builds ship whatever the checkout has uncommitted, and two builds under
+# one tag are indistinguishable from /healthz.
+on:
+  push:
+    tags: ["v[0-9]+.[0-9]+.[0-9]+"]
+
+permissions:
+  contents: read
+
+# Two pushes of the same tag must not race each other to the registry.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  IMAGE: ghcr.io/vultr/vultr-mcp
+
+jobs:
+  # The same tests, interface validation and live smoke test as every push.
+  ci:
+    uses: ./.github/workflows/ci.yml
+    secrets: inherit
+
+  publish:
+    needs: ci
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+
+      # One version, stated three times: the tag, pyproject.toml (what /healthz
+      # reports), and the image deployment.yaml will roll out. If they
+      # disagree, the image is not what anyone thinks it is.
+      - name: Check the tag matches the version everywhere it is stated
+        id: version
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          project="$(grep -m1 '^version = ' pyproject.toml | cut -d'"' -f2)"
+          manifest="$(grep -o "image: ${IMAGE}:[^[:space:]]*" k8s/deployment.yaml | sed 's/.*://' | sort -u | tr '\n' ' ' | sed 's/ $//')"
+          echo "tag=$tag pyproject.toml=$project deployment.yaml=$manifest"
+          if [ "$project" != "$tag" ] || [ "$manifest" != "$tag" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match pyproject.toml ($project) and every image in k8s/deployment.yaml ($manifest). Bump all three together."
+            exit 1
+          fi
+          echo "version=$tag" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # A tag names one build. Pushing over an existing one would leave pods
+      # that pulled the old image and pods that pull the new one both claiming
+      # the same version.
+      - name: Refuse to overwrite a published version
+        run: |
+          if docker manifest inspect "$IMAGE:${{ steps.version.outputs.version }}" > /dev/null 2>&1; then
+            echo "::error::$IMAGE:${{ steps.version.outputs.version }} is already published. Bump the version instead of re-tagging."
+            exit 1
+          fi
+
+      - uses: docker/setup-buildx-action@v4
+
+      # The with-shipper target: the image deployment.yaml runs, sidecar and
+      # all. amd64 only, because the clicktail binary is x86-64. Its URL is a
+      # repository secret passed as a build secret -- masked in this log, and
+      # never written into the image the way a build arg would be.
+      - name: Build and push
+        id: build
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          target: with-shipper
+          platforms: linux/amd64
+          push: true
+          tags: ${{ env.IMAGE }}:${{ steps.version.outputs.version }}
+          secrets: |
+            clicktail_url=${{ secrets.CLICKTAIL_URL }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # The pushed image, not the build cache: pull it back, start it the way
+      # the pod does, and check it reports the version it was tagged with and
+      # carries the sidecar's binary.
+      - name: Verify the published image
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          ref="$IMAGE@${{ steps.build.outputs.digest }}"
+          # Not `clicktail --help`: it is configured by env, and may start
+          # tailing and never exit.
+          docker run --rm --entrypoint sh "$ref" -c 'test -x /usr/local/bin/clicktail' \
+            || { echo "::error::clicktail is missing from the image"; exit 1; }
+          docker run -d --name smoke -p 8080:8080 --read-only --tmpfs /tmp "$ref"
+          for _ in $(seq 1 60); do
+            health="$(curl -sf localhost:8080/healthz || true)"
+            [ -n "$health" ] && break
+            sleep 1
+          done
+          docker logs smoke 2>&1 | tail -20
+          echo "healthz: $health"
+          echo "$health" | grep -q "\"version\":\"$VERSION\"" \
+            || { echo "::error::/healthz did not report $VERSION"; exit 1; }
+
+      - name: Summary
+        run: |
+          {
+            echo "### Published \`$IMAGE:${{ steps.version.outputs.version }}\`"
+            echo
+            echo "Digest: \`${{ steps.build.outputs.digest }}\`"
+            echo
+            echo "Deploy (with KUBECONFIG pointing at the VKE cluster):"
+            echo
+            echo '```'
+            echo "kubectl apply -f k8s/deployment.yaml"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

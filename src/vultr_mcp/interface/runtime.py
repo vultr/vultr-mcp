@@ -231,6 +231,16 @@ def build_request(
     for plan in tool.parameters:
         value = arguments.get(plan.agent_name, plan.default)
         if value is None:
+            # A missing path parameter used to leave its own placeholder in the
+            # URL, and we would send `/kubernetes/clusters/{vke-id}/resources`
+            # upstream -- where the API answers 404 "Invalid resource ID",
+            # indistinguishable from a cluster that does not exist. Reported as
+            # a server bug twice before anyone suspected the caller's argument
+            # name. A query parameter may be absent; a path segment may not.
+            if plan.location == "path":
+                raise ValueError(
+                    f"{tool.name} requires {plan.agent_name!r}, which was not supplied"
+                )
             continue
         if plan.location == "path":
             path = path.replace("{" + plan.api_name + "}", quote(str(value), safe=""))

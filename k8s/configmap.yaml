@@ -26,6 +26,18 @@ data:
   # aud defaults to VULTR_OAUTH_CLIENT_ID; override only if Vultr changes it.
   # VULTR_OIDC_AUDIENCE: ""
 
+  # ---- Audit records ----
+  # Where the records are written as files, one per event type, for the
+  # clicktail sidecar to tail into ClickHouse. Must match the audit-logs
+  # mountPath in deployment.yaml. Unset means stdout only, which dies with the pod.
+  VULTR_MCP_AUDIT_DIR: "/var/log/vultr-mcp"
+  # No rotation, by design: clicktail collapses shipped bytes off the front of
+  # each file, so a drained file stays near empty. A file this large means the
+  # sidecar has stopped draining it, and the app stops writing that file
+  # (stdout keeps every record) rather than fill the volume. Two event types
+  # x 64MB stays well under the audit-logs sizeLimit.
+  VULTR_MCP_AUDIT_FILE_MAX_MB: "64"
+
   # ---- Tool surface ----
   # Read-only. Stated explicitly rather than left to the default so the write
   # posture of this deployment is visible in the manifest, not just in code.

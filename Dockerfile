@@ -1,5 +1,21 @@
 # syntax=docker/dockerfile:1
-FROM python:3.12-slim
+
+# Two images from one file:
+#
+#   docker build .                        the server alone (the default)
+#   docker build --target with-shipper .  the server plus the clicktail log
+#                                          shipper, for the sidecar in
+#                                          k8s/deployment.yaml
+#
+# The default never touches the shipper stages -- BuildKit builds only what the
+# target needs -- so building this repo downloads nothing that is not public.
+
+FROM python:3.12-slim AS app
+
+# Links the image on ghcr.io to this repo, so the package inherits the repo's
+# access rules -- and so a GitHub Actions job using GITHUB_TOKEN can push to it
+# later, which it cannot for a package first pushed by hand without this link.
+LABEL org.opencontainers.image.source="https://github.com/vultr/vultr-mcp"
 
 # uv for fast, reproducible installs from the locked deps.
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
@@ -41,3 +57,36 @@ RUN useradd -u 1000 -m app && chown -R app:app /app
 USER app
 
 CMD ["python", "-m", "vultr_mcp"]
+
+
+# clicktail, an internal log shipper. Where it comes from is not in this repo:
+# the download URL is a build secret (id=clicktail_url), which BuildKit never
+# writes into the image or its history the way it does build args. The bytes
+# are pinned here, in review, by checksum -- a new binary is a diff to this
+# line, not a quiet change to a secret.
+#
+#   docker build --target with-shipper --secret id=clicktail_url,env=CLICKTAIL_URL .
+FROM python:3.12-slim AS clicktail
+ARG CLICKTAIL_SHA256=0e66c08de5825f47b4f259dab438e348f37ba4cce750ceeb8f9187cbab6a782f
+RUN --mount=type=secret,id=clicktail_url,required=true python - <<'EOF'
+import sys
+import urllib.request
+
+url = open("/run/secrets/clicktail_url").read().strip()
+try:
+    urllib.request.urlretrieve(url, "/clicktail")
+except Exception as exc:  # noqa: BLE001
+    # The exception's text can carry the URL, and CI logs of a public repo are
+    # public. The type is enough to act on.
+    sys.exit(f"clicktail download failed: {type(exc).__name__}")
+EOF
+RUN echo "${CLICKTAIL_SHA256}  /clicktail" | sha256sum -c - && chmod 0755 /clicktail
+
+# Baked in rather than fetched at pod start, so a pod never depends on where
+# the binary is hosted. The server never runs or imports it.
+FROM app AS with-shipper
+COPY --from=clicktail /clicktail /usr/local/bin/clicktail
+
+
+# Last, so it is what a plain `docker build .` produces.
+FROM app

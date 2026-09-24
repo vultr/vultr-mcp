@@ -1,0 +1,278 @@
+# ClickHouse for the audit records the clicktail sidecar ships (see the
+# clicktail container in deployment.yaml). Cluster-internal only: no ingress,
+# and nothing but the sidecar and whatever reads it for dashboards should dial it.
+#
+# Passwords live only in the cluster. Create them once, before applying this
+# file. `password` is clicktail's (read by this StatefulSet and the sidecar);
+# `grafana-password` is the read-only dashboard login (clickhouse-users below):
+#
+#   kubectl create secret generic clickhouse-credentials \
+#     --from-literal=password="$(openssl rand -hex 24)" \
+#     --from-literal=grafana-password="$(openssl rand -hex 24)"
+#
+# That needs openssl; Windows PowerShell has none, and the substitutions then
+# come back empty without an error. The README has a PowerShell equivalent.
+#
+# Two users, and no others reachable over the network: the image's entrypoint
+# turns CLICKHOUSE_USER/PASSWORD into `clicktail` (replacing `default`), and
+# grafana.xml adds `grafana`. Both are config, rebuilt on every container start,
+# so a password follows the secret on restart -- measured, old ones stop
+# working. To rotate: edit the secret, then restart this pod AND the vultr-mcp
+# pods, whose sidecars read `password` only at start. CLICKHOUSE_DB and the
+# tables are created once, on the first boot of an empty volume.
+#
+# The record is the JSON in `line`; query it with JSONExtract*, e.g.
+#
+#   SELECT timestamp, JSONExtractString(line, 'tool') AS tool,
+#          JSONExtractString(line, 'outcome') AS outcome
+#   FROM vultr_mcp.log_mcp_tool_call ORDER BY timestamp DESC LIMIT 50
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: clickhouse-initdb
+  labels:
+    app: clickhouse
+data:
+  # Run by the image's entrypoint once, on the first boot of an empty volume.
+  #
+  # The tables are pre-created so retention is declared here rather than
+  # applied by hand after the first record ships. Clicktail would otherwise
+  # create them itself on first ship, without a TTL; it adopts existing tables
+  # as long as the schema matches. The schema below is clicktail's own, copied
+  # from SHOW CREATE TABLE on a table it made -- change it only in step with
+  # clicktail.
+  #
+  # 30 days. Partitions are daily, so expiry drops whole parts rather than
+  # rewriting them. A new event type gets a new file and a new table, created
+  # by clicktail without a TTL: add it here, and ALTER it on a live volume.
+  # On a volume that already exists, the equivalent is, per table:
+  #
+  #   ALTER TABLE vultr_mcp.log_mcp_tool_call
+  #     MODIFY TTL toDateTime(timestamp) + INTERVAL 30 DAY
+  retention.sql: |
+    CREATE TABLE IF NOT EXISTS vultr_mcp.log_mcp_tool_call
+    (
+        `timestamp` DateTime64(6, 'UTC'),
+        `source` String,
+        `line` String
+    )
+    ENGINE = MergeTree
+    PARTITION BY toYYYYMMDD(timestamp)
+    ORDER BY (source, timestamp)
+    TTL toDateTime(timestamp) + INTERVAL 30 DAY
+    SETTINGS index_granularity = 8192, ttl_only_drop_parts = 1;
+
+    CREATE TABLE IF NOT EXISTS vultr_mcp.log_mcp_upstream_call
+    (
+        `timestamp` DateTime64(6, 'UTC'),
+        `source` String,
+        `line` String
+    )
+    ENGINE = MergeTree
+    PARTITION BY toYYYYMMDD(timestamp)
+    ORDER BY (source, timestamp)
+    TTL toDateTime(timestamp) + INTERVAL 30 DAY
+    SETTINGS index_granularity = 8192, ttl_only_drop_parts = 1;
+
+    -- Sign-ins and token refreshes (audit.emit_auth, 2.1.9).
+    CREATE TABLE IF NOT EXISTS vultr_mcp.log_mcp_auth
+    (
+        `timestamp` DateTime64(6, 'UTC'),
+        `source` String,
+        `line` String
+    )
+    ENGINE = MergeTree
+    PARTITION BY toYYYYMMDD(timestamp)
+    ORDER BY (source, timestamp)
+    TTL toDateTime(timestamp) + INTERVAL 30 DAY
+    SETTINGS index_granularity = 8192, ttl_only_drop_parts = 1;
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: clickhouse-users
+  labels:
+    app: clickhouse
+data:
+  # The read-only login for Grafana. Config, not CREATE USER: the password is
+  # read from the environment at startup (from_env), so it lives only in the
+  # clickhouse-credentials secret -- never in git, and never in a ConfigMap.
+  #
+  # Two locks, either of which alone stops a write: the grant is SELECT on
+  # vultr_mcp only, and readonly=2 refuses writes and DDL outright. It is 2,
+  # not 1, because Grafana's ClickHouse plugin sets per-query settings (its
+  # query timeout is max_execution_time), which readonly=1 refuses; 2 still
+  # forbids changing readonly itself. The constraints cap what a dashboard
+  # query can take from a 2Gi server, however the plugin sets them.
+  grafana.xml: |
+    <clickhouse>
+      <profiles>
+        <grafana_readonly>
+          <readonly>2</readonly>
+          <max_execution_time>60</max_execution_time>
+          <max_memory_usage>1000000000</max_memory_usage>
+          <constraints>
+            <max_execution_time><max>300</max></max_execution_time>
+            <max_memory_usage><max>1000000000</max></max_memory_usage>
+          </constraints>
+        </grafana_readonly>
+      </profiles>
+      <users>
+        <grafana>
+          <password from_env="CLICKHOUSE_GRAFANA_PASSWORD"/>
+          <networks><ip>::/0</ip></networks>
+          <profile>grafana_readonly</profile>
+          <quota>default</quota>
+          <grants>
+            <query>GRANT SELECT ON vultr_mcp.*</query>
+          </grants>
+        </grafana>
+      </users>
+    </clickhouse>
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: clickhouse
+  labels:
+    app: clickhouse
+spec:
+  replicas: 1
+  serviceName: clickhouse
+  selector:
+    matchLabels:
+      app: clickhouse
+  template:
+    metadata:
+      labels:
+        app: clickhouse
+    spec:
+      # The image's own clickhouse user. Its entrypoint only chowns when started
+      # as root; the image already makes its config and data dirs writable for
+      # any uid, and fsGroup covers the fresh block volume.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 101
+        runAsGroup: 101
+        fsGroup: 101
+      containers:
+        - name: clickhouse
+          # An LTS line (.3 and .8 are LTS), pinned to the minor so a restart
+          # never jumps a major.
+          image: clickhouse/clickhouse-server:26.8
+          # Fail closed. An empty secret value is not an error to kubectl --
+          # `$(openssl ...)` in a shell without openssl creates the secret with
+          # both passwords blank -- and to ClickHouse a blank password is no
+          # password, which would open both logins to the whole cluster.
+          command:
+            - /bin/sh
+            - -c
+            - |
+              if [ -z "$CLICKHOUSE_PASSWORD" ] || [ -z "$CLICKHOUSE_GRAFANA_PASSWORD" ]; then
+                echo "refusing to start: a password in secret clickhouse-credentials is empty" >&2
+                exit 1
+              fi
+              exec /entrypoint.sh
+          ports:
+            - name: native
+              containerPort: 9000
+            - name: http
+              containerPort: 8123
+          env:
+            - name: CLICKHOUSE_DB
+              value: vultr_mcp
+            - name: CLICKHOUSE_USER
+              value: clicktail
+            - name: CLICKHOUSE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: clickhouse-credentials
+                  key: password
+            # Read by users.d/grafana.xml, not by the entrypoint.
+            - name: CLICKHOUSE_GRAFANA_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: clickhouse-credentials
+                  key: grafana-password
+          resources:
+            # ClickHouse sizes its own memory ceiling from the cgroup limit
+            # (90% of it), so the limit is the knob, not a guard it can hit
+            # by surprise.
+            requests:
+              cpu: 100m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 2Gi
+          startupProbe:
+            httpGet:
+              path: /ping
+              port: http
+            periodSeconds: 5
+            failureThreshold: 24
+          livenessProbe:
+            httpGet:
+              path: /ping
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+          readinessProbe:
+            httpGet:
+              path: /ping
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/clickhouse
+            - name: initdb
+              mountPath: /docker-entrypoint-initdb.d
+              readOnly: true
+            # One file, by subPath: mounting the whole users.d directory would
+            # hide it from the entrypoint, which writes the clicktail user there.
+            - name: users
+              mountPath: /etc/clickhouse-server/users.d/grafana.xml
+              subPath: grafana.xml
+              readOnly: true
+      volumes:
+        - name: initdb
+          configMap:
+            name: clickhouse-initdb
+        - name: users
+          configMap:
+            name: clickhouse-users
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        # What traefik's claim uses; 10Gi is the class's practical floor.
+        storageClassName: vultr-block-storage
+        resources:
+          requests:
+            storage: 10Gi
+---
+# Headless: the StatefulSet's governing service, and also the name the sidecar
+# dials (clickhouse:9000), which resolves straight to the one pod.
+apiVersion: v1
+kind: Service
+metadata:
+  name: clickhouse
+  labels:
+    app: clickhouse
+spec:
+  clusterIP: None
+  selector:
+    app: clickhouse
+  ports:
+    - name: native
+      port: 9000
+      targetPort: native
+    - name: http
+      port: 8123
+      targetPort: http

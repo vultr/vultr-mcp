@@ -1546,3 +1546,41 @@ def test_the_shipped_exclusion_removes_the_tool_from_the_surface(spec):
         "purge-pullzone is still reachable; the exclusion is not wired to the "
         "route maps"
     )
+
+
+# --------------------------------------------------------------------------
+# A path parameter that never arrived.
+# --------------------------------------------------------------------------
+
+
+def test_missing_path_parameter_is_an_error_not_a_templated_url(compiled):
+    """Never send a placeholder upstream as though it were an id.
+
+    Observed in the field: a caller supplying `cluster_id` to a tool whose
+    parameter is `vke_id` produced `GET /kubernetes/clusters/{vke-id}/resources`
+    against the API, which answered 404 "Invalid resource ID" -- a message that
+    reads as "your cluster does not exist" and sent two people looking at the
+    wrong layer. The caller's mistake has to surface as the caller's mistake.
+    """
+    tool = next(
+        t for t in compiled.tools if t.name == "vultr_kubernetes_clusters_resources_get"
+    )
+
+    with pytest.raises(ValueError) as caught:
+        runtime.build_request(tool, {"cluster_id": "8534d058-8bd9-45dc-96df-c79b46a3e543"})
+
+    message = str(caught.value)
+    assert tool.name in message
+    # The message has to name the argument, or it cannot be acted on.
+    assert "vke_id" in message
+
+
+def test_a_supplied_path_parameter_still_resolves(compiled):
+    """The fix must not break the ordinary case it guards."""
+    tool = next(
+        t for t in compiled.tools if t.name == "vultr_kubernetes_clusters_resources_get"
+    )
+    path, _ = runtime.build_request(tool, {"vke_id": "8534d058-8bd9-45dc-96df-c79b46a3e543"})
+
+    assert path == "/kubernetes/clusters/8534d058-8bd9-45dc-96df-c79b46a3e543/resources"
+    assert "{" not in path

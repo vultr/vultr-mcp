@@ -18,11 +18,14 @@ spec:
         runAsNonRoot: true
         runAsUser: 1000
         fsGroup: 1000
+      # ghcr.io packages start private. The secret holds a classic PAT with
+      # read:packages only -- not the write:packages token used to push.
+      # Moved off atl.vultrcr.com (vcr-creds) when that registry hit its quota.
       imagePullSecrets:
-        - name: vcr-creds
+        - name: ghcr-creds
       containers:
         - name: vultr-mcp
-          image: atl.vultrcr.com/vrnd/vultr-mcp:2.1.5
+          image: ghcr.io/vultr/vultr-mcp:2.1.9
           imagePullPolicy: Always
           ports:
             - containerPort: 8080
@@ -88,6 +91,65 @@ spec:
           volumeMounts:
             - name: tmp
               mountPath: /tmp
+            # The audit records, as files for a shipper to tail. Shared with a
+            # sidecar rather than sent anywhere by this container: the server
+            # knows the path and nothing about what reads it.
+            - name: audit-logs
+              mountPath: /var/log/vultr-mcp
+        # Ships the audit files to ClickHouse (k8s/observability/). Same image,
+        # different entrypoint: the binary is only in the Dockerfile's
+        # with-shipper target, which is what the release workflow publishes --
+        # a plain `docker build .` lacks it and this container would not start.
+        # This tag and the server's must move together. One table per file,
+        # log_<filename> -- log_mcp_tool_call and log_mcp_upstream_call.
+        #
+        # Its credentials come from their own secret, never vultr-mcp-secrets:
+        # the server container has no reason to hold a ClickHouse password.
+        # Lines are dropped, not queued, when ClickHouse is down -- clicktail's
+        # stated design, and stdout still carries every record.
+        - name: clicktail
+          image: ghcr.io/vultr/vultr-mcp:2.1.9
+          imagePullPolicy: Always
+          command: ["/usr/local/bin/clicktail"]
+          env:
+            - name: CLICKTAIL_WATCH_DIR
+              value: /var/log/vultr-mcp
+            - name: CLICKTAIL_CLICKHOUSE_URL
+              value: clickhouse:9000
+            - name: CLICKTAIL_CLICKHOUSE_DATABASE
+              value: vultr_mcp
+            - name: CLICKTAIL_CLICKHOUSE_USER
+              value: clicktail
+            - name: CLICKTAIL_CLICKHOUSE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: clickhouse-credentials
+                  key: password
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            # Read-write: collapsing shipped bytes off the front is a write.
+            - name: audit-logs
+              mountPath: /var/log/vultr-mcp
       volumes:
         - name: tmp
           emptyDir: {}
+        # emptyDir, not a volume that outlives the pod: the file is a handoff
+        # to the shipper, not the store. Anything unshipped when a pod dies is
+        # lost, which is the cost of not putting a queue in the request path.
+        # sizeLimit is a backstop -- the app stops writing a file at
+        # VULTR_MCP_AUDIT_FILE_MAX_MB, so this should never be the thing that
+        # binds. Collapsing needs ext4 or xfs under the emptyDir.
+        - name: audit-logs
+          emptyDir:
+            sizeLimit: 1Gi

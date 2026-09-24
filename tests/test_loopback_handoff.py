@@ -64,21 +64,50 @@ def test_page_carries_the_code_and_the_delivery_target():
     assert 'id="manual"' in body and 'id="done"' in body
 
 
-def test_fallback_panel_offers_the_target_as_a_link():
+def test_page_offers_the_target_as_a_link():
     """The probe failing does not mean the client is remote.
 
     A browser that gates public-to-local requests refuses the fetch without
-    asking the network, so a same-machine client lands here too -- and for a
-    CLI with no --code option, a page offering only the code is a dead end. A
-    top-level navigation is not gated the same way, so the link is the way out
-    for exactly the case the probe cannot detect.
+    asking the network, so a same-machine client lands there too. A top-level
+    navigation is not gated the same way, so the link is the way out for
+    exactly the case the probe cannot detect.
     """
     body = completion_page(CODE_URL).body.decode()
-    manual = body.split('id="manual"', 1)[1]
+    ways = body.split('id="ways"', 1)[1]
 
-    assert f'href="{html.escape(CODE_URL, quote=True)}"' in manual
+    assert f'href="{html.escape(CODE_URL, quote=True)}"' in ways
     # A new tab, so a target that does not answer cannot take the code with it.
-    assert 'target="_blank"' in manual
+    assert 'target="_blank"' in ways
+
+
+def test_ways_out_survive_an_apparently_successful_probe():
+    """A resolved no-cors fetch is not evidence the client accepted anything.
+
+    Observed: the page claimed "Connected" while the CLI still sat at its paste
+    prompt, with every way out hidden behind that verdict. So the block is
+    revealed on both outcomes, and open -- no outcome earns folding it away
+    when the outcome itself is what cannot be trusted.
+    """
+    body = completion_page(CODE_URL).body.decode()
+
+    assert 'document.getElementById("ways").hidden = false;' in body
+    assert '<details id="ways" hidden open>' in body
+    # Nothing may make the reveal conditional on how the probe settled.
+    assert "ways.open" not in body
+
+
+def test_page_offers_both_the_callback_url_and_the_bare_code():
+    """Clients disagree about which one they want pasted.
+
+    Claude Code prompts for the whole callback URL; OpenClaw takes the code via
+    --code. Offering only the code strands the first, and the URL a user can
+    see in the address bar is ours -- it carries the upstream code, not the
+    proxy-issued one the client is waiting for.
+    """
+    ways = completion_page(CODE_URL).body.decode().split('id="ways"', 1)[1]
+
+    assert f'id="u" value="{html.escape(CODE_URL, quote=True)}"' in ways
+    assert 'id="c" value="vd-abc123"' in ways
 
 
 def test_page_is_never_cached():

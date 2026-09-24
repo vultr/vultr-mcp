@@ -10,6 +10,8 @@ on:
   pull_request:
   # So a spec bump can be checked without opening a PR first.
   workflow_dispatch:
+  # So release.yml publishes only what passed the same checks.
+  workflow_call:
 
 jobs:
   test:

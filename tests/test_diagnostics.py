@@ -8,6 +8,7 @@ plumbing: a wrong ``fault`` sends someone to the wrong team for a day.
 from __future__ import annotations
 
 import asyncio
+import zlib
 
 import httpx
 import pytest
@@ -193,3 +194,118 @@ class TestFault:
 
     def test_a_transport_failure_is_the_api_being_unreachable(self):
         assert fault("error", [{"error_type": "ConnectTimeout"}]) == "unreachable"
+
+
+# -- upstream error bodies ----------------------------------------------------
+
+
+def test_error_snippet_keeps_the_message_and_truncates():
+    """Enough of the upstream's words to identify the failure, no more."""
+    from vultr_mcp.diagnostics import MAX_UPSTREAM_ERROR_CHARS, error_snippet
+
+    assert error_snippet(b'{"error":"Unable to retrieve VPCs","status":500}') == (
+        '{"error":"Unable to retrieve VPCs","status":500}'
+    )
+    assert len(error_snippet(b"x" * 5000)) == MAX_UPSTREAM_ERROR_CHARS
+    # A body that is not valid UTF-8 must not take the record down with it.
+    assert error_snippet(b"\xff\xfe bad") != ""
+
+
+async def test_a_compressed_response_records_its_encoding():
+    """A size is only evidence if you know what it measures.
+
+    The streamed path counts wire bytes and the buffered path counts decoded
+    ones, so the same payload reads at two sizes. Without the encoding beside
+    it, a small number looks like a small payload -- which is exactly the
+    inference a bug report turned on.
+    """
+    import httpx
+
+    from vultr_mcp import diagnostics
+
+    calls: list[dict] = []
+    diagnostics.UPSTREAM_CALLS.set(calls)
+
+    def handler(request):
+        import gzip
+
+        body = gzip.compress(b'{"bandwidth":{}}')
+        return httpx.Response(200, content=body, headers={"content-encoding": "gzip"})
+
+    transport = diagnostics.InstrumentedTransport(httpx.MockTransport(handler))
+    async with httpx.AsyncClient(base_url="https://api.vultr.example/v2", transport=transport) as c:
+        await c.get("/instances/abc/bandwidth")
+
+    assert calls[-1]["response_encoding"] == "gzip"
+
+
+class _Chunks(httpx.AsyncByteStream):
+    """A streamed body, delivered in fixed-size pieces like the wire does."""
+
+    def __init__(self, body: bytes, size: int = 7) -> None:
+        self._body, self._size = body, size
+
+    async def __aiter__(self):
+        for i in range(0, len(self._body), self._size):
+            yield self._body[i : i + self._size]
+
+
+async def _streamed_error(status, body, encoding):
+    from vultr_mcp import diagnostics
+
+    calls: list[dict] = []
+    diagnostics.UPSTREAM_CALLS.set(calls)
+    headers = {"content-encoding": encoding} if encoding else {}
+    transport = diagnostics.InstrumentedTransport(
+        httpx.MockTransport(lambda r: httpx.Response(status, stream=_Chunks(body), headers=headers))
+    )
+    async with httpx.AsyncClient(base_url="https://api.vultr.example/v2", transport=transport) as c:
+        response = await c.get("/instances/abc/vpcs")
+    return response, calls[-1]
+
+
+async def test_a_gzipped_streamed_error_records_its_message():
+    """The production failure: four 403s were recorded as gzip bytes -- the
+    upstream_error of each began U+FFFD 0x08 -- so what the API said was lost."""
+    import gzip
+
+    message = b'{"error":"Unauthorized IP address: 203.0.113.9","status":403}'
+    response, record = await _streamed_error(403, gzip.compress(message), "gzip")
+
+    assert record["upstream_error"] == message.decode()
+    assert record["response_encoding"] == "gzip"
+    # The caller's view is untouched: httpx still decodes the body for it.
+    assert response.json()["status"] == 403
+
+
+async def test_a_deflated_streamed_error_records_its_message():
+    message = b'{"error":"Unable to retrieve VPCs","status":500}'
+    _, record = await _streamed_error(500, zlib.compress(message), "deflate")
+    assert record["upstream_error"] == message.decode()
+
+
+async def test_only_the_head_of_a_long_compressed_error_is_needed():
+    """Only the first bytes are kept, so decoding must work on a truncated stream."""
+    import gzip
+    import random
+
+    from vultr_mcp.diagnostics import MAX_UPSTREAM_ERROR_CHARS
+
+    rng = random.Random(7)
+    noise = "".join(rng.choice("abcdefghij0123456789") for _ in range(20_000))
+    body = gzip.compress(f'{{"error":"Upstream exploded","trace":"{noise}"}}'.encode())
+    assert len(body) > MAX_UPSTREAM_ERROR_CHARS * 4  # truly truncated on capture
+
+    _, record = await _streamed_error(502, body, "gzip")
+    assert record["upstream_error"].startswith('{"error":"Upstream exploded"')
+    assert len(record["upstream_error"]) <= MAX_UPSTREAM_ERROR_CHARS
+
+
+async def test_an_encoding_it_cannot_undo_is_named_not_stored_as_noise():
+    _, record = await _streamed_error(403, b"\x8b\x0b\x80\x7b\x22\x65", "br")
+    assert record["upstream_error"] == "(br-encoded body, not decoded)"
+
+
+async def test_a_plain_streamed_error_is_unchanged():
+    _, record = await _streamed_error(404, b'{"error":"Invalid resource ID","status":404}', None)
+    assert record["upstream_error"] == '{"error":"Invalid resource ID","status":404}'
