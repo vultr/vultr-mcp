@@ -205,13 +205,29 @@ async def test_a_lock_is_released_only_by_its_owner():
 
 
 def _proxy(monkeypatch):
-    from vultr_mcp.auth import build_auth
+    """A real VultrOAuthProxy, built without the network.
 
-    from tests.test_auth import FAKE, _enable_env  # noqa: PLC0415 - reuse the fixtures
+    The endpoints and env mirror test_auth's. Copied, not imported: tests/ is
+    not a package, and ``from tests...`` only resolves when the repo root is on
+    sys.path -- true under ``python -m pytest``, false under CI's ``uv run pytest``.
+    """
+    from vultr_mcp.auth import UpstreamEndpoints, build_auth
 
-    _enable_env(monkeypatch)
+    for name, value in {
+        "VULTR_OIDC_ENABLED": "true",
+        "VULTR_OIDC_PROVIDER_ID": "prov-123",
+        "VULTR_OAUTH_CLIENT_ID": "client-abc",
+        "VULTR_OAUTH_CLIENT_SECRET": "secret-xyz",
+        "MCP_RESOURCE_URL": "https://vultrmcp.com",
+    }.items():
+        monkeypatch.setenv(name, value)
     monkeypatch.delenv("REDIS_HOST", raising=False)
-    return build_auth(endpoints=FAKE)
+    return build_auth(endpoints=UpstreamEndpoints(
+        authorization_endpoint="https://my.vultr.com/oauth/authorize",
+        token_endpoint="https://api.vultr.com/v2/oidc/provider/prov-123/token",
+        jwks_uri="https://api.vultr.com/v2/oidc/issuer/iss-456/jwks",
+        issuer="https://api.vultr.com/v2/oidc/provider/prov-123",
+    ))
 
 
 async def test_the_proxy_turns_a_cross_pod_race_into_one_upstream_refresh(monkeypatch):
