@@ -343,7 +343,8 @@ async def _refresh(pod, token="refresh-0"):
 
 async def test_a_race_is_recorded_as_one_upstream_refresh_and_its_shared_duplicates(monkeypatch, auth_records):
     up = _Upstream()
-    _stub_base(monkeypatch, up, {"refresh-0"}, claims={"acctid": 6716887, "sub": "user-1"})
+    # A made-up account: tests live in a public repo.
+    _stub_base(monkeypatch, up, {"refresh-0"}, claims={"acctid": 4242, "sub": "user-1"})
     pod_a, pod_b = _proxy(monkeypatch), _proxy(monkeypatch)
     pod_b._refresh_coalescer._backend = pod_a._refresh_coalescer._backend
 
@@ -354,7 +355,7 @@ async def test_a_race_is_recorded_as_one_upstream_refresh_and_its_shared_duplica
     assert [r["outcome"] for r in refreshes] == ["ok", "ok", "ok"]
     assert sorted(r["resolved_by"] for r in refreshes) == ["shared_finished", "shared_inflight", "upstream"]
     # The account, as the tool-call records name it; never a token.
-    assert all(r["acctid"] == 6716887 and r["sub"] == "user-1" for r in refreshes)
+    assert all(r["acctid"] == 4242 and r["sub"] == "user-1" for r in refreshes)
     assert not any("access-" in str(r) or "refresh-" in str(r) for r in refreshes)
 
 
