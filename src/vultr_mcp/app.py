@@ -1,8 +1,9 @@
 """HTTP composition: root server plus path-based category endpoints.
 
-``/`` and ``/mcp`` serve the full surface; ``/instances`` and friends serve one
-category each, so a client can load ~15 tools instead of ~190. Exclusions and
-the read-only gate always apply on top.
+``/`` and ``/mcp`` serve the full surface; ``/mcp/instances`` and friends serve
+one category each, so a client can load ~15 tools instead of ~190. The older
+``/instances`` form still works. Exclusions and the read-only gate always apply
+on top.
 
 Each app is built eagerly: a lazily mounted one cannot start its MCP session
 manager's lifespan after the parent is already running.
@@ -200,15 +201,22 @@ def create_http_app(spec: dict | None = None):
             }
         )
 
-    # Route order matters: health + specific category mounts before the
-    # catch-all root mount.
+    # Route order matters: the first match wins, so every mount comes before
+    # any shorter prefix of it.
     routes = [Route("/healthz", healthz, methods=["GET"])]
-    routes += [Mount(f"/{name}", app=sub_app) for name, sub_app in mounted]
+    # Categories live under "/mcp", beside the full surface: "/mcp/instances".
+    # They must precede Mount("/mcp"), which would otherwise take them.
+    routes += [Mount(f"/mcp/{name}", app=sub_app) for name, sub_app in mounted]
     # "/mcp" is the conventional streamable-HTTP path and the first thing people
     # try, but it is not a category, so it used to 404 in the catch-all. Root
     # stays canonical: a browser hitting it gets the docs page, which "/mcp"
     # has no reason to do.
     routes.append(Mount("/mcp", app=root_app))
+    # The bare "/instances" form came first. It stays so no existing client
+    # configuration breaks, but it is no longer the documented path: at the top
+    # level, category names share one namespace with /authorize, /token,
+    # /consent and /healthz, and a new category could collide with a route.
+    routes += [Mount(f"/{name}", app=sub_app) for name, sub_app in mounted]
     routes.append(Mount("/", app=root_app))
 
     starlette_app = Starlette(routes=routes, lifespan=lifespan)
@@ -216,7 +224,7 @@ def create_http_app(spec: dict | None = None):
     # Starlette would 307 "/instances" -> "/instances/", and MCP clients don't
     # follow that on POST. Rewriting internally means nobody has to remember
     # the trailing slash.
-    bare_paths = {f"/{name}" for name, _ in mounted} | {"/mcp"}
+    bare_paths = {f"/{name}" for name, _ in mounted} | {f"/mcp/{name}" for name, _ in mounted} | {"/mcp"}
 
     landing_template = _load_landing_html()
     landing_cache: dict[str, str] = {}

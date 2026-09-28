@@ -204,8 +204,9 @@ def audit():
 STATUS_CLASS = ("if(JSONHas(line, 'status'), concat(toString(intDiv(JSONExtractInt(line, 'status'), 100)), 'xx'), "
                 "'no response')")
 
-# (row title, ticket text, SQL predicate on the upstream path). The predicate uses the
-# recorded path template, so every instance's calls for an endpoint land in one series.
+# (row title, ticket text, SQL predicate on the upstream path[, series label]). The predicate
+# uses the recorded path template, so every instance's calls for an endpoint land in one
+# series. The label defaults to the status class.
 TICKETS = [
     ("RND-165 — instance upgrades: 500",
      "**Filed:** `vultr_compute_instances_upgrades_get` (`type=plans`) returns 500.\n\n"
@@ -219,12 +220,17 @@ TICKETS = [
      "endpoint, which fails the same way without sending `per_page` — so paging is not the cause. "
      "`/v2/vpcs` and VPC attachments are unaffected.",
      "(JSONExtractString(line, 'path') LIKE '/v2/instances/%/vpcs' OR JSONExtractString(line, 'path') LIKE '/v2/instances/%/private-networks')"),
-    ("VKE — cluster resources: 404",
+    ("VKE — cluster resources: 404 under OAuth",
      "**Filed:** `vultr_kubernetes_clusters_resources_get` 404'd — the caller passed `cluster_id` "
      "where the tool takes `vke_id`, and the path went out with the placeholder unfilled.\n\n"
-     "**Fixed in 2.1.8:** a missing path argument now fails before any API call, naming it. "
-     "**Resolved when** this row shows calls with no 404. An empty row means it has not been retried.",
-     "JSONExtractString(line, 'path') LIKE '/v2/kubernetes/clusters/%/resources'"),
+     "**Our half, fixed in 2.1.8:** a wrong argument name is refused before any API call.\n\n"
+     "**Still failing, upstream:** every endpoint on the cluster itself (get, resources, upgrades, "
+     "config) gets Vultr's 404 `Invalid resource ID`, while the same cluster's node pools answer 200. "
+     "Same shape as RND-163. A 400 `invalid resource format` is a label passed as the ID.\n\n"
+     "**Resolved when** the *cluster* series shows 2xx.",
+     "JSONExtractString(line, 'path') LIKE '/v2/kubernetes/clusters/%'",
+     # Cluster-level and node-pool calls split: the contrast between them is the evidence.
+     f"concat(if(JSONExtractString(line, 'path') LIKE '%/node-pools%', 'node pools ', 'cluster '), {STATUS_CLASS})"),
     ("Not yet ticketed — instance IPv4 / IPv6",
      "**Seen 2026-09-23 on the eval instance:** IPv4 list 500 `Unable to retrieve instance information.`; "
      "IPv6 list 503 `IPv6 is currently available for this server, but a subnet has not been assigned`.\n\n"
@@ -245,19 +251,20 @@ def tickets():
                        max(timestamp) AS last_call,
                        argMaxIf({f('upstream_error')}, timestamp, JSONExtractInt(line, 'status') >= 400) AS latest_vultr_error
                 FROM {UP} {WHERE}
-                  AND ({' OR '.join('(' + p + ')' for _, _, p in TICKETS)}
+                  AND ({' OR '.join('(' + p + ')' for _, _, p, *_ in TICKETS)}
                        OR JSONExtractString(line, 'path') LIKE '/v2/instances/%/bandwidth')
                 GROUP BY path ORDER BY path""",
             0, y, 24, 7,
             description="One row per endpoint named in a ticket. ok_pct is the share of 2xx answers from the Vultr API.")
     y += 7
 
-    for title, text, pred in TICKETS:
+    for title, text, pred, *label in TICKETS:
+        series_by = label[0] if label else STATUS_CLASS
         b.row(title, y)
         y += 1
         b.text("The ticket", text, 0, y, 6, 8)
         b.series("Vultr's answers",
-                 f"""SELECT $__timeInterval(timestamp) AS time, {STATUS_CLASS} AS status, count() AS responses
+                 f"""SELECT $__timeInterval(timestamp) AS time, {series_by} AS status, count() AS responses
                      FROM {UP} {WHERE} AND {pred} GROUP BY time, status ORDER BY time""",
                  6, y, 9, 8, stack=True)
         b.table("Latest failures, in Vultr's words",

@@ -38,7 +38,7 @@ def _block(slug: str, tools: list[tuple[str, str]]) -> str:
     )
     return (
         '          <details class="ep">\n'
-        f'            <summary><span class="ep-path">/{html.escape(slug)}</span>'
+        f'            <summary><span class="ep-path">/mcp/{html.escape(slug)}</span>'
         f'<span class="ep-count">{n} tool{"" if n == 1 else "s"}</span></summary>\n'
         f'            <div class="ep-tools">\n{items}\n            </div>\n'
         "          </details>"

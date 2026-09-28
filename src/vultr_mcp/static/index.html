@@ -207,13 +207,13 @@
     <h2>Endpoints</h2>
     <p>The base URL is <code>https://vultrmcp.com/</code>. The <strong>root</strong> exposes the full read-only tool surface through one connection. Each category also gets its own endpoint exposing only that category's tools — useful when your client has limited connection slots or you want a smaller, cheaper tool set.</p>
     <p class="muted" style="margin-top:6px;">The root doubles as this page: only a top-level browser navigation gets the docs, so MCP clients — including browser-based agent UIs — reach the protocol at the same URL. Both <code>https://vultrmcp.com</code> and <code>https://vultrmcp.com/</code> work; the trailing-slash form is canonical.</p>
-    <pre><code>https://vultrmcp.com/                    # all tools (one connection)
-https://vultrmcp.com/mcp                 # alias of the root, identical tools
-https://vultrmcp.com/instances           # VPS instance tools only
-https://vultrmcp.com/kubernetes          # VKE tools only
-https://vultrmcp.com/dns                 # DNS tools only
-https://vultrmcp.com/container-registry  # multi-word categories are slugified</code></pre>
-        <p class="muted" style="margin-bottom:4px;">The root serves all of these combined; each endpoint below serves only its own tools. Click one to see the tools it exposes. Append the path to the base URL — e.g. <code>https://vultrmcp.com/load-balancer</code>.</p>
+    <pre><code>https://vultrmcp.com/                        # all tools (one connection)
+https://vultrmcp.com/mcp                     # alias of the root, identical tools
+https://vultrmcp.com/mcp/instances           # VPS instance tools only
+https://vultrmcp.com/mcp/kubernetes          # VKE tools only
+https://vultrmcp.com/mcp/dns                 # DNS tools only
+https://vultrmcp.com/mcp/container-registry  # multi-word categories are slugified</code></pre>
+        <p class="muted" style="margin-bottom:4px;">The root serves all of these combined; each endpoint below serves only its own tools. Click one to see the tools it exposes. Add the category to the end of <code>/mcp</code> — e.g. <code>https://vultrmcp.com/mcp/load-balancer</code>. The older form without <code>/mcp</code>, such as <code>https://vultrmcp.com/instances</code>, still works.</p>
     <details class="ep-browse">
       <summary>Browse all endpoints<span class="ep-count"><!--EP_COUNT--></span></summary>
       <div class="ep-controls"><button type="button" id="ep-toggle">Expand all</button></div>
@@ -226,25 +226,16 @@ https://vultrmcp.com/container-registry  # multi-word categories are slugified</
 
   <section id="auth">
     <h2>Authorization</h2>
-    <p>Two ways to authenticate. Both end up talking to <code>api.vultr.com</code> as you.</p>
+    <p>You sign in with your Vultr account, and every call then goes to <code>api.vultr.com</code> as you.</p>
 
-    <h3>1. OAuth (zero-config)</h3>
+    <h3>OAuth</h3>
     <p>Point your MCP client at <code>https://vultrmcp.com/</code> and start the connection. You'll be redirected to Vultr to sign in and consent — no client ID or secret to paste, no API key to manage. Your client stores the resulting token and reuses it. This is the smoothest path for GUI clients with a browser handy (e.g. Claude).</p>
     <p><strong>How long you stay signed in.</strong> Access tokens last an hour and your client renews them on its own, so an active connection keeps working without prompting you. You're asked to sign in again only after 30 days without using it, or if access is revoked.</p>
-
-    <h3>2. API key (header)</h3>
-    <p>Send your Vultr API key as a Bearer token on every request:</p>
-    <pre><code>Authorization: Bearer YOUR_VULTR_API_KEY</code></pre>
-    <p>Get a key from the <a href="https://my.vultr.com/settings/#settingsapi">Vultr console → Account → API</a>. This is the most reliable path for headless/terminal agents and the only way to <strong>deterministically pick which organization</strong> you act on (see caveats).</p>
-
-    <div class="note">
-      <strong>Header name matters.</strong> Because the OAuth layer is active, a raw API key must arrive as <code>Authorization: Bearer &lt;key&gt;</code>. The alternate <code>X-Vultr-API-Key</code> header only works on a deployment with no OAuth layer.
-    </div>
   </section>
 
   <section id="clients">
     <h2>Connect your client</h2>
-    <p>Point any MCP client at the root URL — or a <a href="#endpoints">category endpoint</a> for a smaller tool set — and authenticate one of two ways: zero-config <strong>OAuth</strong> (sign in through the browser, nothing to paste) or an <strong>API-key</strong> Bearer header. Both are shown per client below. The OAuth handshake looks like this:</p>
+    <p>Point any MCP client at the root URL — or a <a href="#endpoints">category endpoint</a> for a smaller tool set — and sign in through your browser when the client asks. There is nothing to paste. The OAuth handshake looks like this:</p>
 
     <figure style="margin:20px 0;">
       <div style="overflow-x:auto;">
@@ -287,7 +278,7 @@ https://vultrmcp.com/container-registry  # multi-word categories are slugified</
     </figure>
 
     <div class="note">
-      <strong>Which organization?</strong> The OAuth consent screen has no org picker — the token binds to whichever org your Vultr session is in at sign-in (usually your owner/primary org). To target a <em>specific</em> org, use API-key mode. See <a href="#caveats">Caveats</a>.
+      <strong>Which organization?</strong> The OAuth consent screen has no org picker — the token binds to whichever org your Vultr session is in at sign-in (usually your owner/primary org). To use a <em>specific</em> org, switch to it in the Vultr console before you sign in. See <a href="#caveats">Caveats</a>.
     </div>
 
     <p class="muted" style="margin:18px 0 2px;">Steps reflect current UIs (mid-2026); vendor labels shift, so treat them as a guide.</p>
@@ -306,7 +297,7 @@ https://vultrmcp.com/container-registry  # multi-word categories are slugified</
         <ol>
           <li>Settings → Cursor Settings → <strong>Tools &amp; MCP</strong>.</li>
           <li><strong>Add custom MCP</strong> → in <code>mcp.json</code> set <code>"type": "http"</code>, <code>"url": "https://vultrmcp.com/"</code>.</li>
-          <li>Save → <strong>Needs login</strong> opens the browser OAuth flow (or add an <code>Authorization: Bearer</code> header for API-key mode).</li>
+          <li>Save → <strong>Needs login</strong> opens the browser OAuth flow.</li>
           <li>Tools appear under <strong>Available Tools</strong>.</li>
         </ol>
       </div>
@@ -315,7 +306,7 @@ https://vultrmcp.com/container-registry  # multi-word categories are slugified</
         <ol>
           <li>Open the <strong>MCP Servers</strong> panel (agent customizations view) — or edit <code>mcp.json</code> (repo root or <code>.vscode/mcp.json</code>).</li>
           <li>Click <strong>+</strong> to add a server (or <strong>Browse Marketplace</strong>) → custom HTTP server, URL <code>https://vultrmcp.com/</code>.</li>
-          <li>On the auth challenge, sign in through the browser (or add an <code>Authorization: Bearer</code> header for API-key mode).</li>
+          <li>On the auth challenge, sign in through the browser.</li>
           <li>It appears under <strong>Workspace</strong> / <strong>User</strong> with a green check; tools are live in agent chat.</li>
         </ol>
       </div>
@@ -325,14 +316,10 @@ https://vultrmcp.com/container-registry  # multi-word categories are slugified</
           <li><code>codex mcp add vultr --url https://vultrmcp.com/</code></li>
           <li>OAuth: <code>codex mcp login vultr</code> opens the browser.</li>
         </ol>
-        <p class="muted" style="margin-bottom:6px;">API-key / headless — in <code>~/.codex/config.toml</code>:</p>
-        <pre><code>[mcp_servers.vultr]
-url = "https://vultrmcp.com/"
-bearer_token_env_var = "VULTR_API_KEY"</code></pre>
       </div>
       <div class="card">
         <h3>opencode</h3>
-        <p class="muted" style="margin-top:0;">In <code>opencode.json</code> — omit <code>headers</code> for auto-OAuth, or add one for API-key mode:</p>
+        <p class="muted" style="margin-top:0;">In <code>opencode.json</code> — OAuth starts automatically:</p>
         <pre><code>{
   "mcp": {
     "vultr": {
@@ -345,7 +332,7 @@ bearer_token_env_var = "VULTR_API_KEY"</code></pre>
       </div>
       <div class="card">
         <h3>Hermes Agent</h3>
-        <p class="muted" style="margin-top:0;">In <code>~/.hermes/config.yaml</code> — <code>auth: oauth</code>, or a <code>headers</code> block for API-key mode:</p>
+        <p class="muted" style="margin-top:0;">In <code>~/.hermes/config.yaml</code>:</p>
         <pre><code>mcp_servers:
   vultr:
     url: "https://vultrmcp.com/"
@@ -362,12 +349,12 @@ openclaw mcp login vultr</code></pre>
       </div>
       <div class="card">
         <h3>Claude Desktop &amp; stdio-only clients</h3>
-        <p class="muted" style="margin-top:0;">Clients without native remote MCP (older Claude Desktop, Zed, others) bridge via <code>mcp-remote</code> — OAuth runs on first launch; add <code>--header</code> for API-key mode:</p>
+        <p class="muted" style="margin-top:0;">Clients without native remote MCP (older Claude Desktop, Zed, others) bridge via <code>mcp-remote</code> — OAuth runs on first launch:</p>
         <pre><code>npx -y mcp-remote https://vultrmcp.com/</code></pre>
       </div>
       <div class="card">
         <h3>Any MCP client</h3>
-        <p class="muted" style="margin-top:0;">Native remote (Streamable HTTP): give it <code>https://vultrmcp.com/</code> and either leave credentials blank for OAuth or set <code>Authorization: Bearer YOUR_VULTR_API_KEY</code>. stdio-only: use the <code>mcp-remote</code> bridge above.</p>
+        <p class="muted" style="margin-top:0;">Native remote (Streamable HTTP): give it <code>https://vultrmcp.com/</code> and leave credentials blank, and the client signs in with OAuth. stdio-only: use the <code>mcp-remote</code> bridge above.</p>
       </div>
     </div>
   </section>
@@ -376,14 +363,14 @@ openclaw mcp login vultr</code></pre>
     <h2>Caveats &amp; gotchas</h2>
 
     <h3>Multiple organizations</h3>
-    <p>Every Vultr credential is scoped to exactly one organization — the API resolves the org from the credential itself, and there is no per-request org switch. To use two orgs, add <strong>two connections</strong>, each with that org's own API key. This is the only way to target a specific org deterministically.</p>
+    <p>Every Vultr credential is scoped to exactly one organization — the API resolves the org from the credential itself, and there is no per-request org switch. To use two orgs, add <strong>two connections</strong> under different names, and sign in to each with the Vultr console switched to that org.</p>
 
     <div class="note">
-      <strong>OAuth binds to your active org — with no picker.</strong> The consent flow has no organization selector; the token silently binds to whichever org your Vultr console session is in when you click <em>Authorize</em> (in practice, your owner/primary org). If you need a specific org, use API-key mode. Double-check the intended org before consenting.
+      <strong>OAuth binds to your active org — with no picker.</strong> The consent flow has no organization selector; the token silently binds to whichever org your Vultr console session is in when you click <em>Authorize</em> (in practice, your owner/primary org). Switch the console to the org you want first, and double-check it before consenting.
     </div>
 
     <h3>OAuth support varies by client</h3>
-    <p>Zero-config OAuth relies on the client supporting the MCP OAuth flow (authorization code + PKCE + dynamic client registration). GUI clients with a browser handle this best. On a headless server or a harness with immature OAuth support, prefer API-key mode — it always works.</p>
+    <p>Zero-config OAuth relies on the client supporting the MCP OAuth flow (authorization code + PKCE + dynamic client registration). GUI clients with a browser handle this best. On a headless machine, use a client that lets you finish sign-in by pasting a code, such as OpenClaw's <code>openclaw mcp login vultr --code</code>.</p>
 
     <h3>Corporate VPN / TLS interception</h3>
     <p>If your network does TLS interception, node-based bridges (<code>mcp-remote</code>) may reject the certificate. Point Node at your VPN's CA with <code>NODE_EXTRA_CA_CERTS=/path/to/ca.pem</code> rather than disabling TLS verification.</p>

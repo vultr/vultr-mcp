@@ -181,6 +181,26 @@ def _identity() -> dict[str, Any]:
         return {"auth_method": "unknown"}
 
 
+def _endpoint() -> dict[str, Any]:
+    """Which URL the call came in on: the path and the Host header.
+
+    What decides when an old address can be retired -- the bare /<category>
+    paths /mcp/<category> replaced, and vultrmcp.com once mcp.vultr.com is up.
+    No query string: it is not part of an endpoint, and nothing a client puts
+    there belongs in this log. Empty under STDIO, where there is no request.
+    """
+    try:
+        from fastmcp.server.dependencies import get_http_request
+
+        request = get_http_request()
+        return {
+            "endpoint": request.url.path.rstrip("/") or "/",
+            "host": request.headers.get("host"),
+        }
+    except Exception:  # noqa: BLE001 - no HTTP request in scope
+        return {}
+
+
 def _result_size(result: Any) -> int | None:
     """How many items came back, never what they were.
 
@@ -300,6 +320,7 @@ class AuditMiddleware(Middleware):
             if isinstance(arguments, dict):
                 record["argument_names"] = sorted(arguments)
             record.update(_identity())
+            record.update(_endpoint())
 
             ctx = getattr(context, "fastmcp_context", None)
             if ctx is not None:

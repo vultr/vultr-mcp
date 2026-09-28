@@ -85,7 +85,7 @@ async def test_root_serves_landing_page_to_browsers(monkeypatch, spec):
             # HTML, and this test asserted the typed names -- which is how the page
             # still advertised tools renamed a month earlier.) This process mounts
             # only /instances; test_landing covers the full default set.
-            assert "/instances" in body
+            assert "/mcp/instances" in body
             assert "1 endpoint · " in body
 
             # The expandable tool lists carry the real, current tool names.
@@ -256,3 +256,87 @@ async def test_mcp_alias_works_without_a_trailing_slash(monkeypatch, spec):
             await task
         except (asyncio.CancelledError, Exception):
             pass
+
+
+async def test_categories_are_served_under_mcp(monkeypatch, spec):
+    """"/mcp/instances" is the documented form of a category endpoint.
+
+    It must serve exactly what the older "/instances" does -- the same server,
+    reached two ways -- and must not fall through to Mount("/mcp"), which
+    matches the same prefix and would hand back the full surface instead.
+    """
+    monkeypatch.setenv("VULTR_MCP_CATEGORY_ENDPOINTS", "instances,dns")
+    app = create_http_app(spec)
+    port = _free_port()
+    server, task = await _serve(app, port)
+    try:
+        nested = await _names(port, "/mcp/instances")
+        assert nested == await _names(port, "/instances")
+        assert len(nested) < len(await _names(port, "/mcp"))
+        assert "dns_domain" not in " ".join(nested).lower()
+        assert await _names(port, "/mcp/dns") == await _names(port, "/dns")
+    finally:
+        server.should_exit = True
+        task.cancel()
+        try:
+            await task
+        except (asyncio.CancelledError, Exception):
+            pass
+
+
+async def test_mcp_category_paths_work_without_a_trailing_slash(monkeypatch, spec):
+    """Same reason as the /mcp alias: a 307 on POST strands every client."""
+    monkeypatch.setenv("VULTR_MCP_CATEGORY_ENDPOINTS", "instances")
+    app = create_http_app(spec)
+    port = _free_port()
+    server, task = await _serve(app, port)
+    try:
+        import httpx
+
+        async with httpx.AsyncClient() as hc:
+            resp = await hc.post(
+                f"http://127.0.0.1:{port}/mcp/instances",
+                json={"jsonrpc": "2.0", "id": 1, "method": "ping"},
+                headers={"Accept": "application/json, text/event-stream"},
+            )
+        assert resp.status_code != 307, "bare /mcp/instances redirected; clients will not follow"
+        assert resp.status_code == 200
+    finally:
+        server.should_exit = True
+        task.cancel()
+        try:
+            await task
+        except (asyncio.CancelledError, Exception):
+            pass
+
+
+def test_the_audit_record_names_the_endpoint_and_host(monkeypatch, spec, capsys):
+    """Which address a call used is what decides when an old one can go.
+
+    An unknown argument is refused before any request to Vultr, so this makes
+    no network call.
+    """
+    import json
+
+    from starlette.testclient import TestClient
+
+    monkeypatch.setenv("VULTR_MCP_CATEGORY_ENDPOINTS", "instances")
+    app = create_http_app(spec)
+    call = {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "tools/call",
+        "params": {"name": "vultr_compute_instances_get", "arguments": {"cluster_id": "x"}},
+    }
+    with TestClient(app) as client:
+        capsys.readouterr()
+        for path in ("/mcp/instances", "/instances/"):
+            client.post(path, json=call, headers={"Accept": "application/json, text/event-stream"})
+
+    records = [
+        json.loads(line)
+        for line in capsys.readouterr().out.splitlines()
+        if '"mcp.tool_call"' in line
+    ]
+    assert [r["endpoint"] for r in records] == ["/mcp/instances", "/instances"]
+    assert all(r["host"] == "testserver" for r in records)

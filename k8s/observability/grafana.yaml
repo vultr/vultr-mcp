@@ -672,7 +672,7 @@ data:
               "editorType": "sql",
               "format": 1,
               "queryType": "table",
-              "rawSql": "SELECT JSONExtractString(line, 'path') AS path, count() AS calls, countIf(JSONExtractInt(line, 'status') BETWEEN 200 AND 299) AS ok, round(100 * ok / greatest(calls, 1), 1) AS ok_pct, max(timestamp) AS last_call, argMaxIf(JSONExtractString(line, 'upstream_error'), timestamp, JSONExtractInt(line, 'status') >= 400) AS latest_vultr_error FROM vultr_mcp.log_mcp_upstream_call WHERE $__timeFilter(timestamp) AND ((JSONExtractString(line, 'path') LIKE '/v2/instances/%/upgrades') OR ((JSONExtractString(line, 'path') LIKE '/v2/instances/%/vpcs' OR JSONExtractString(line, 'path') LIKE '/v2/instances/%/private-networks')) OR (JSONExtractString(line, 'path') LIKE '/v2/kubernetes/clusters/%/resources') OR ((JSONExtractString(line, 'path') LIKE '/v2/instances/%/ipv4' OR JSONExtractString(line, 'path') LIKE '/v2/instances/%/ipv6')) OR JSONExtractString(line, 'path') LIKE '/v2/instances/%/bandwidth') GROUP BY path ORDER BY path"
+              "rawSql": "SELECT JSONExtractString(line, 'path') AS path, count() AS calls, countIf(JSONExtractInt(line, 'status') BETWEEN 200 AND 299) AS ok, round(100 * ok / greatest(calls, 1), 1) AS ok_pct, max(timestamp) AS last_call, argMaxIf(JSONExtractString(line, 'upstream_error'), timestamp, JSONExtractInt(line, 'status') >= 400) AS latest_vultr_error FROM vultr_mcp.log_mcp_upstream_call WHERE $__timeFilter(timestamp) AND ((JSONExtractString(line, 'path') LIKE '/v2/instances/%/upgrades') OR ((JSONExtractString(line, 'path') LIKE '/v2/instances/%/vpcs' OR JSONExtractString(line, 'path') LIKE '/v2/instances/%/private-networks')) OR (JSONExtractString(line, 'path') LIKE '/v2/kubernetes/clusters/%') OR ((JSONExtractString(line, 'path') LIKE '/v2/instances/%/ipv4' OR JSONExtractString(line, 'path') LIKE '/v2/instances/%/ipv6')) OR JSONExtractString(line, 'path') LIKE '/v2/instances/%/bandwidth') GROUP BY path ORDER BY path"
             }
           ],
           "fieldConfig": {
@@ -929,7 +929,7 @@ data:
         {
           "id": 10,
           "type": "row",
-          "title": "VKE \u2014 cluster resources: 404",
+          "title": "VKE \u2014 cluster resources: 404 under OAuth",
           "collapsed": false,
           "gridPos": {
             "x": 0,
@@ -951,7 +951,7 @@ data:
           },
           "options": {
             "mode": "markdown",
-            "content": "**Filed:** `vultr_kubernetes_clusters_resources_get` 404'd \u2014 the caller passed `cluster_id` where the tool takes `vke_id`, and the path went out with the placeholder unfilled.\n\n**Fixed in 2.1.8:** a missing path argument now fails before any API call, naming it. **Resolved when** this row shows calls with no 404. An empty row means it has not been retried."
+            "content": "**Filed:** `vultr_kubernetes_clusters_resources_get` 404'd \u2014 the caller passed `cluster_id` where the tool takes `vke_id`, and the path went out with the placeholder unfilled.\n\n**Our half, fixed in 2.1.8:** a wrong argument name is refused before any API call.\n\n**Still failing, upstream:** every endpoint on the cluster itself (get, resources, upgrades, config) gets Vultr's 404 `Invalid resource ID`, while the same cluster's node pools answer 200. Same shape as RND-163. A 400 `invalid resource format` is a label passed as the ID.\n\n**Resolved when** the *cluster* series shows 2xx."
           }
         },
         {
@@ -979,7 +979,7 @@ data:
               "editorType": "sql",
               "format": 0,
               "queryType": "timeseries",
-              "rawSql": "SELECT $__timeInterval(timestamp) AS time, if(JSONHas(line, 'status'), concat(toString(intDiv(JSONExtractInt(line, 'status'), 100)), 'xx'), 'no response') AS status, count() AS responses FROM vultr_mcp.log_mcp_upstream_call WHERE $__timeFilter(timestamp) AND JSONExtractString(line, 'path') LIKE '/v2/kubernetes/clusters/%/resources' GROUP BY time, status ORDER BY time"
+              "rawSql": "SELECT $__timeInterval(timestamp) AS time, concat(if(JSONExtractString(line, 'path') LIKE '%/node-pools%', 'node pools ', 'cluster '), if(JSONHas(line, 'status'), concat(toString(intDiv(JSONExtractInt(line, 'status'), 100)), 'xx'), 'no response')) AS status, count() AS responses FROM vultr_mcp.log_mcp_upstream_call WHERE $__timeFilter(timestamp) AND JSONExtractString(line, 'path') LIKE '/v2/kubernetes/clusters/%' GROUP BY time, status ORDER BY time"
             }
           ],
           "fieldConfig": {
@@ -1035,7 +1035,7 @@ data:
               "editorType": "sql",
               "format": 1,
               "queryType": "table",
-              "rawSql": "SELECT timestamp AS time, JSONExtractString(line, 'tool') AS tool, JSONExtractInt(line, 'status') AS status, JSONExtractString(line, 'upstream_error') AS vultr_says, round(JSONExtractFloat(line, 'duration_ms')) AS ms, JSONExtractString(line, 'request_id') AS request_id FROM vultr_mcp.log_mcp_upstream_call WHERE $__timeFilter(timestamp) AND JSONExtractString(line, 'path') LIKE '/v2/kubernetes/clusters/%/resources' AND (JSONExtractInt(line, 'status') >= 400 OR NOT JSONHas(line, 'status')) ORDER BY timestamp DESC LIMIT 100"
+              "rawSql": "SELECT timestamp AS time, JSONExtractString(line, 'tool') AS tool, JSONExtractInt(line, 'status') AS status, JSONExtractString(line, 'upstream_error') AS vultr_says, round(JSONExtractFloat(line, 'duration_ms')) AS ms, JSONExtractString(line, 'request_id') AS request_id FROM vultr_mcp.log_mcp_upstream_call WHERE $__timeFilter(timestamp) AND JSONExtractString(line, 'path') LIKE '/v2/kubernetes/clusters/%' AND (JSONExtractInt(line, 'status') >= 400 OR NOT JSONHas(line, 'status')) ORDER BY timestamp DESC LIMIT 100"
             }
           ],
           "fieldConfig": {
