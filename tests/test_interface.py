@@ -1677,3 +1677,21 @@ async def test_a_refused_argument_is_the_callers_fault_in_the_audit_record(capsy
     records = [_json.loads(l) for l in capsys.readouterr().out.splitlines() if '"mcp.tool_call"' in l]
     assert records[-1]["fault"] == "caller"
     assert "ArgumentError" in records[-1]["error_chain"]
+
+
+def test_the_instance_list_names_the_application_it_runs(compiled):
+    """A Marketplace instance is identified only by image_id / app_id.
+
+    It is typically deployed with no label and the hostname "vultr.guest", and
+    its os reads as the base system, so without these the list cannot tell a
+    Minecraft server from an OpenClaw box and an agent has to fetch every
+    instance to find one. Found testing the live /instances route, 2026-09-28.
+    """
+    tool = next(t for t in compiled.tools if t.name == "vultr_compute_instances_list")
+    assert {"image_id", "app_id"} <= set(tool.output.item_include)
+
+    getter = next(t for t in compiled.tools if t.name == "vultr_compute_instances_get")
+    omitted = getter.description.split("Call this one for what the list omits:")[1].split(".")[0]
+    assert "image_id" not in omitted and "app_id" not in omitted, (
+        "the get tool still tells agents the list omits fields it now returns"
+    )

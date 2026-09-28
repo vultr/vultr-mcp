@@ -23,17 +23,20 @@ family: account
 # every row to {} -- which is what it did until this was found.
 #
 # There is no tool for the pending-charges CSV export, and the reason is in the
-# declined block rather than in a comment nobody would find.
+# excluded block rather than in a comment nobody would find.
 
-declined:
+excluded:
   pending-charges-csv:
     reason: >-
-      Returns a CSV document, and `runtime.call_api` ends every request with
-      `response.json()`, so a tool for it raises JSONDecodeError on every call.
-      Confirmed against production 2026-09-02, where the smoke run reported
-      bad-json for it. A tool that cannot succeed is worse than none;
-      vultr_account_pending_charges_list answers the same question as data.
-      Revisit if the runtime learns to pass a non-JSON body through.
+      The same uninvoiced line items vultr_account_pending_charges_list returns,
+      as one CSV document -- 21 MB for a large account on 2026-09-28. It was
+      declined at first, on the belief that no tool for it could succeed, but a
+      decline leaves the generated tool served, and the generated tool passes
+      the CSV through as text. So it was reachable, useless to any agent at that
+      size, and held whole in the pod's memory: it was one of the responses in
+      flight when a 2.1.11 pod was OOM-killed at its 512 MiB limit. Excluded
+      rather than shaped because the JSON tool already carries the data in a
+      form that can be filtered and bounded; a CSV adds nothing an agent can use.
 
 tools:
   - name: vultr_account_billing_history_list

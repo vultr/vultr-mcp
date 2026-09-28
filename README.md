@@ -48,7 +48,7 @@ To work with two organizations at once, add the server twice under different nam
 
 ## Endpoints
 
-`https://vultrmcp.com/mcp` serves all 191 tools. Some clients struggle with that many, and a model picks the right tool more often from a shorter list. Each category has its own endpoint serving only its tools. Add the category to the end of `/mcp`:
+`https://vultrmcp.com/mcp` serves all 190 tools. Some clients struggle with that many, and a model picks the right tool more often from a shorter list. Each category has its own endpoint serving only its tools. Add the category to the end of `/mcp`:
 
 | Endpoint | Tools | Covers |
 |---|---:|---|
@@ -56,7 +56,7 @@ To work with two organizations at once, add the server twice under different nam
 | `/mcp/application` | 2 | One-Click and Marketplace applications and their variables |
 | `/mcp/backup` | 2 | Automatic instance backups |
 | `/mcp/baremetal` | 9 | Bare Metal servers, their IPs, bandwidth, upgrades and VPCs |
-| `/mcp/billing` | 6 | Billing history, invoices and pending charges |
+| `/mcp/billing` | 5 | Billing history, invoices and pending charges |
 | `/mcp/block` | 4 | Block Storage volumes and their snapshots |
 | `/mcp/cdns` | 7 | CDN pull zones, push zones and their files |
 | `/mcp/clusters` | 5 | Compute Clusters (GPU and fabric), availability and metrics |

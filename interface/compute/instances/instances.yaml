@@ -27,8 +27,14 @@ tools:
       or servers, in the active Vultr organization.
 
       Use this tool to list, find, count, or select instances, and to answer
-      questions about their power state, region, plan, operating system, or
-      tags.
+      questions about their power state, region, plan, operating system,
+      tags, or the application they were deployed with.
+
+      An instance deployed from the Marketplace often has no label and a
+      generic hostname, and its os shows only the base system, such as Ubuntu.
+      image_id names the Marketplace application it runs, such as
+      minecraft-vanilla or openclaw, and app_id the One-Click application;
+      both are 0 or empty for a plain operating system install.
 
       Do not use this tool for Vultr Bare Metal servers, Vultr Kubernetes
       Engine worker nodes, or the member instances of a Compute Cluster. Those
@@ -141,6 +147,12 @@ tools:
         - server_status
         - main_ip
         - os
+        # What the instance was deployed with. For a Marketplace instance these
+        # are the only fields naming the application -- the label is usually
+        # empty, the hostname generic, and os just the base system -- so without
+        # them "which one is my Minecraft server" took a get per instance.
+        - image_id
+        - app_id
         - vcpu_count
         - ram
         - disk
@@ -170,14 +182,14 @@ tools:
       by label, hostname, IP, or tag, use vultr_compute_instances_list first.
 
       That list already carries the common fields -- region, plan, ram, disk,
-      os, main_ip, status, power_status, label, hostname, tags,
-      firewall_group_id -- so a question about any of those is answered from it
-      without calling this tool. Call this one for what the list omits:
-      netmask_v4, gateway_v4, internal_ip, vpcs, os_id, app_id, image_id,
-      snapshot_id, vpc_only, user_scheme and allowed_bandwidth.
+      os, image_id, app_id, main_ip, status, power_status, label, hostname,
+      tags, firewall_group_id -- so a question about any of those is answered
+      from it without calling this tool. Call this one for what the list omits:
+      netmask_v4, gateway_v4, internal_ip, vpcs, os_id, snapshot_id, vpc_only,
+      user_scheme and allowed_bandwidth.
 
-      This tool returns no IPv6 detail; get_instance_ipv6 is currently the only
-      source for that.
+      This tool returns no IPv6 detail; vultr_compute_instances_ipv6_list is
+      currently the only source for that.
 
       Do not use this tool for Vultr Bare Metal servers or Vultr Kubernetes
       Engine worker nodes.

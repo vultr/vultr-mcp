@@ -1,12 +1,12 @@
 # The tool surface and the interface layer
 
-How the 191 tools are produced, reviewed and kept in step with Vultr's OpenAPI spec. For using the server, start with the [README](../README.md).
+How the 190 tools are produced, reviewed and kept in step with Vultr's OpenAPI spec. For using the server, start with the [README](../README.md).
 
 ## The tool surface
 
 Tools come from two places. `FastMCP.from_openapi()` generates them from `openapi.json`; `interface/` defines them by hand, and **a hand-authored tool replaces the generated one** for the same operation.
 
-The read-only surface is **191 tools** — 179 hand-authored, plus 12 generated ones belonging to operations that were reviewed and deliberately declined. Every read operation the server exposes is hand-authored. The count does not grow as the layer does, because the replacement is one-for-one.
+The read-only surface is **190 tools** — 179 hand-authored, plus 11 generated ones belonging to operations that were reviewed and deliberately declined. Every read operation the server exposes is hand-authored. The count does not grow as the layer does, because the replacement is one-for-one.
 
 ### Three states an operation can be in
 
