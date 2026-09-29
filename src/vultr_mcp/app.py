@@ -1,9 +1,10 @@
-"""HTTP composition: root server plus path-based category endpoints.
+"""HTTP composition: root server plus path-based group endpoints.
 
-``/`` and ``/mcp`` serve the full surface; ``/mcp/instances`` and friends serve
-one category each, so a client can load ~15 tools instead of ~190. The older
-``/instances`` form still works. Exclusions and the read-only gate always apply
-on top.
+``/`` and ``/mcp`` serve the full surface; ``/mcp/compute`` and the other eight
+serve one product family each (see ENDPOINT_GROUPS), so a client can load a
+few dozen tools instead of ~190. The older per-category paths -- ``/instances``,
+``/mcp/instances`` -- still work, as aliases of their group. Exclusions and the
+read-only gate always apply on top.
 
 Each app is built eagerly: a lazily mounted one cannot start its MCP session
 manager's lifespan after the parent is already running.
@@ -96,25 +97,66 @@ def slugify(tag: str) -> str:
     return "-".join(tag.lower().split())
 
 
-def _category_endpoints(spec: dict, excluded: set[str]) -> list[tuple[str, str]]:
-    """(slug, tag) pairs for the categories that get their own endpoint.
+# The endpoints a client can load instead of the full surface, each a product
+# family: /mcp/compute serves the vultr_compute_* tools, and so on. They used to
+# be one per OpenAPI tag -- 34 of them, several with one or two tools -- which
+# is far finer than a person thinks about their infrastructure, and left tool
+# descriptions pointing at related tools the endpoint did not load.
+#
+# Grouped by the family in the tool names, with two deliberate choices:
+# kubernetes stays apart from compute, because VKE clusters and Compute Clusters
+# are the pair agents confuse; and catalog absorbs marketplace, since both
+# answer "what can I deploy". Values are category slugs (slugify of the tag).
+# Every category must appear exactly once -- test_http_app fails otherwise, so a
+# new tag in the spec cannot quietly go without an endpoint.
+ENDPOINT_GROUPS: dict[str, tuple[str, ...]] = {
+    "compute": ("instances", "baremetal", "snapshot", "backup", "startup", "instance-templates", "clusters"),
+    "network": ("dns", "firewall", "load-balancer", "reserved-ip", "vpcs", "cdns", "private-networks"),
+    "databases": ("managed-databases",),
+    "account": ("account", "billing", "logs", "ssh", "subaccount", "tickets"),
+    "catalog": ("plans", "region", "os", "iso", "application", "marketplace"),
+    "storage": ("block", "s3", "vfs", "storage-gateways"),
+    "registry": ("container-registry",),
+    "kubernetes": ("kubernetes",),
+    "inference": ("serverless-inference",),
+}
 
-    The slug is the URL path; the tag is the real OpenAPI tag used to filter
-    tools. Default: every category that survives exclusion. Override with
-    VULTR_MCP_CATEGORY_ENDPOINTS (comma-separated slugs; empty string mounts
-    the root server only). Requests are matched by slug so users never need to
-    type a space or capital.
+
+def _group_endpoints(spec: dict, excluded: set[str]) -> list[tuple[str, set[str], list[str]]]:
+    """(group, tags, category slugs) for each endpoint to mount.
+
+    The tags filter the group's tools; the category slugs are the old
+    one-endpoint-per-tag paths, which stay mounted as aliases of their group so
+    no configuration written against them breaks. Default: every group with a
+    category that survives exclusion. VULTR_MCP_CATEGORY_ENDPOINTS narrows that
+    to the groups named -- by group, or by an old category name, which selects
+    the group it now belongs to. An empty string mounts the root server only.
+
+    A category in no group still gets an endpoint of its own, with a warning:
+    serving it beats hiding it, and the test catches it before it ships.
     """
     available = {slugify(tag): tag for tag in (all_categories(spec) - excluded)}
+    groups = {g: [c for c in cats if c in available] for g, cats in ENDPOINT_GROUPS.items()}
+    assigned = {c for cats in ENDPOINT_GROUPS.values() for c in cats}
+    for slug in sorted(available.keys() - assigned):
+        print(f"warning: category {slug!r} is in no endpoint group; serving it on its own")
+        groups[slug] = [slug]
+    groups = {g: cats for g, cats in groups.items() if cats}
+
     raw = os.environ.get("VULTR_MCP_CATEGORY_ENDPOINTS")
-    if raw is None:
-        return sorted(available.items())
-    requested = {slugify(c) for c in raw.split(",") if c.strip()}
-    unknown = requested - available.keys()
-    if unknown:
-        # Don't fail the whole server over a typo — skip and log.
-        print(f"warning: unknown/excluded category endpoints ignored: {sorted(unknown)}")
-    return sorted((s, available[s]) for s in requested & available.keys())
+    if raw is not None:
+        group_of = {c: g for g, cats in groups.items() for c in cats}
+        selected = set()
+        for name in (slugify(n) for n in raw.split(",") if n.strip()):
+            group = name if name in groups else group_of.get(name)
+            if group is None:
+                # Don't fail the whole server over a typo — skip and log.
+                print(f"warning: unknown/excluded endpoint ignored: {name!r}")
+            else:
+                selected.add(group)
+        groups = {g: cats for g, cats in groups.items() if g in selected}
+
+    return [(g, {available[c] for c in cats}, cats) for g, cats in sorted(groups.items())]
 
 
 def create_http_app(spec: dict | None = None):
@@ -166,26 +208,33 @@ def create_http_app(spec: dict | None = None):
     )
     root_app = _http(root_server)
 
-    mounted: list[tuple[str, object]] = []
+    # One server per group. Each is also reachable at its old category paths,
+    # which are aliases: the same app, not another server to build and hold.
+    group_apps: list[tuple[str, object]] = []
+    alias_apps: list[tuple[str, object]] = []
     # The servers themselves, kept for the docs page's endpoint list.
     category_servers: list[tuple[str, object]] = []
-    for slug, tag in _category_endpoints(spec, excluded):
+    for group, tags, categories in _group_endpoints(spec, excluded):
         server = create_server(
             spec,
             exclude_categories=excluded,
-            only_categories={tag},
+            only_categories=tags,
             read_only=read_only,
             auth=auth,
         )
-        mounted.append((slug, _http(server)))
-        category_servers.append((slug, server))
+        app = _http(server)
+        group_apps.append((group, app))
+        alias_apps += [(category, app) for category in categories]
+        category_servers.append((group, server))
 
     @asynccontextmanager
     async def lifespan(app: Starlette):
         # Run every sub-app's lifespan (each starts its MCP session manager).
         async with AsyncExitStack() as stack:
             await stack.enter_async_context(root_app.lifespan(root_app))
-            for _, sub_app in mounted:
+            # Once per server, not per path: an alias shares its group's app,
+            # and a session manager refuses to start twice.
+            for _, sub_app in group_apps:
                 await stack.enter_async_context(sub_app.lifespan(sub_app))
             yield
 
@@ -204,9 +253,12 @@ def create_http_app(spec: dict | None = None):
     # Route order matters: the first match wins, so every mount comes before
     # any shorter prefix of it.
     routes = [Route("/healthz", healthz, methods=["GET"])]
-    # Categories live under "/mcp", beside the full surface: "/mcp/instances".
-    # They must precede Mount("/mcp"), which would otherwise take them.
-    routes += [Mount(f"/mcp/{name}", app=sub_app) for name, sub_app in mounted]
+    # Groups live under "/mcp", beside the full surface: "/mcp/compute", with
+    # each old category path an alias of its group: "/mcp/instances". They must
+    # precede Mount("/mcp"), which would otherwise take them. dict() drops the
+    # repeat where a group shares its name with a category (kubernetes).
+    mcp_paths = dict(group_apps + alias_apps)
+    routes += [Mount(f"/mcp/{name}", app=sub_app) for name, sub_app in mcp_paths.items()]
     # "/mcp" is the conventional streamable-HTTP path and the first thing people
     # try, but it is not a category, so it used to 404 in the catch-all. Root
     # stays canonical: a browser hitting it gets the docs page, which "/mcp"
@@ -216,7 +268,9 @@ def create_http_app(spec: dict | None = None):
     # configuration breaks, but it is no longer the documented path: at the top
     # level, category names share one namespace with /authorize, /token,
     # /consent and /healthz, and a new category could collide with a route.
-    routes += [Mount(f"/{name}", app=sub_app) for name, sub_app in mounted]
+    # Only the old category names, for the same reason: groups are not added
+    # at the top level.
+    routes += [Mount(f"/{name}", app=sub_app) for name, sub_app in alias_apps]
     routes.append(Mount("/", app=root_app))
 
     starlette_app = Starlette(routes=routes, lifespan=lifespan)
@@ -224,7 +278,7 @@ def create_http_app(spec: dict | None = None):
     # Starlette would 307 "/instances" -> "/instances/", and MCP clients don't
     # follow that on POST. Rewriting internally means nobody has to remember
     # the trailing slash.
-    bare_paths = {f"/{name}" for name, _ in mounted} | {f"/mcp/{name}" for name, _ in mounted} | {"/mcp"}
+    bare_paths = {f"/{name}" for name, _ in alias_apps} | {f"/mcp/{name}" for name in mcp_paths} | {"/mcp"}
 
     landing_template = _load_landing_html()
     landing_cache: dict[str, str] = {}

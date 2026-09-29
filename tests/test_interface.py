@@ -1723,3 +1723,26 @@ def test_no_startup_script_tool_returns_the_body(compiled):
         tool = next(t for t in compiled.tools if t.name == name)
         allowed = set(tool.output.item_include or ()) | set(tool.output.envelope_include or ())
         assert "script" not in allowed, f"{name} returns the script body"
+
+
+def test_every_area_lives_under_its_endpoints_directory():
+    """interface/<endpoint>/ holds what /mcp/<endpoint> serves.
+
+    The layout follows ENDPOINT_GROUPS so someone looking for what an endpoint
+    serves finds it in one directory. Nothing enforces that at runtime -- the
+    compiler only resolves the manifest's paths -- so this does.
+    """
+    import yaml
+
+    from vultr_mcp.app import ENDPOINT_GROUPS
+
+    manifest = yaml.safe_load((Path(__file__).resolve().parents[1] / "interface" / "interface.yaml").read_text(encoding="utf-8"))
+    group_of = {c: g for g, cats in ENDPOINT_GROUPS.items() for c in cats}
+    misplaced = []
+    for area, files in manifest["product_areas"].items():
+        group = group_of.get(area.replace("_", "-"))
+        assert group, f"area {area!r} belongs to no endpoint group"
+        for path in [files] if isinstance(files, str) else files:
+            if not path.startswith(f"{group}/"):
+                misplaced.append(f"{path} (area {area}) belongs under {group}/")
+    assert not misplaced, "\n".join(misplaced)

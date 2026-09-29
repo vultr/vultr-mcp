@@ -5,15 +5,21 @@
 # openapi.json stays the source of truth for the REST API; this layer only
 # controls what the agent sees.
 #
-# Area files are grouped into one directory per product family, so the tree
-# matches the `family` enum in the schema -- and therefore the second segment of
-# every tool name in it. The grouping is for people reading the repo: the
+# Area files are grouped into one directory per endpoint -- ENDPOINT_GROUPS in
+# src/vultr_mcp/app.py -- so the tree matches what a client can load:
+# interface/compute/ holds everything /mcp/compute serves. That is the product
+# family (the second segment of every tool name) with two differences, both
+# from the endpoints: marketplace sits under catalog/, and the database family's
+# directory is databases/. test_interface checks every area lives under its
+# endpoint's directory. The grouping is for people reading the repo: the
 # compiler only resolves these paths, and nothing about the directory layout
 # reaches the agent, which sees a flat tool list over MCP.
 #
-# A large area lists several files instead of one, and gets a directory of its
-# own (compute/instances/, database/managed_databases/). Those files are read as
-# though concatenated. Such an area MUST stay one entry here rather than
+# A large area lists several files instead of one. Where it shares an endpoint
+# with other areas it gets a directory of its own (compute/instances/,
+# catalog/marketplace/); where it is the endpoint's only area, its files are the
+# endpoint's directory (databases/, kubernetes/, registry/). Those files are
+# read as though concatenated. Such an area MUST stay one entry here rather than
 # becoming several: drift matches an area's name against an OpenAPI tag, so
 # siblings would carry names matching no tag, and every operation under the real
 # tag would be reported as undetected drift in the others.
@@ -31,9 +37,12 @@ product_areas:
   subaccount: account/subaccount.yaml
   tickets: account/tickets.yaml
 
-  # -- catalog -----------------------------------------------------------------
+  # -- catalog: what can be deployed, and where --------------------------------
   application: catalog/application.yaml
   iso: catalog/iso.yaml
+  marketplace:
+    - catalog/marketplace/apps.yaml
+    - catalog/marketplace/vendor.yaml
   os: catalog/os.yaml
   plans: catalog/plans.yaml
   region: catalog/region.yaml
@@ -54,28 +63,23 @@ product_areas:
   snapshot: compute/snapshot.yaml
   startup: compute/startup.yaml
 
-  # -- database ----------------------------------------------------------------
+  # -- databases ---------------------------------------------------------------
   managed_databases:
-    - database/managed_databases/catalog.yaml
-    - database/managed_databases/clusters.yaml
-    - database/managed_databases/connectors.yaml
-    - database/managed_databases/databases.yaml
-    - database/managed_databases/kafka.yaml
-    - database/managed_databases/users.yaml
+    - databases/catalog.yaml
+    - databases/clusters.yaml
+    - databases/connectors.yaml
+    - databases/databases.yaml
+    - databases/kafka.yaml
+    - databases/users.yaml
 
   # -- inference ---------------------------------------------------------------
   serverless_inference: inference/serverless_inference.yaml
 
   # -- kubernetes --------------------------------------------------------------
   kubernetes:
-    - kubernetes/kubernetes/clusters.yaml
-    - kubernetes/kubernetes/node_pools.yaml
-    - kubernetes/kubernetes/versions.yaml
-
-  # -- marketplace -------------------------------------------------------------
-  marketplace:
-    - marketplace/marketplace/apps.yaml
-    - marketplace/marketplace/vendor.yaml
+    - kubernetes/clusters.yaml
+    - kubernetes/node_pools.yaml
+    - kubernetes/versions.yaml
 
   # -- network -----------------------------------------------------------------
   cdns:
@@ -93,10 +97,10 @@ product_areas:
 
   # -- registry ----------------------------------------------------------------
   container_registry:
-    - registry/container_registry/catalog.yaml
-    - registry/container_registry/policies.yaml
-    - registry/container_registry/registries.yaml
-    - registry/container_registry/repositories.yaml
+    - registry/catalog.yaml
+    - registry/policies.yaml
+    - registry/registries.yaml
+    - registry/repositories.yaml
 
   # -- storage -----------------------------------------------------------------
   block: storage/block.yaml

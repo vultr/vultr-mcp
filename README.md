@@ -48,50 +48,27 @@ To work with two organizations at once, add the server twice under different nam
 
 ## Endpoints
 
-`https://vultrmcp.com/mcp` serves all 186 tools. Some clients struggle with that many, and a model picks the right tool more often from a shorter list. Each category has its own endpoint serving only its tools. Add the category to the end of `/mcp`:
+`https://vultrmcp.com/mcp` serves all 186 tools. Some clients struggle with that many, and a model picks the right tool more often from a shorter list. Each product area also has its own endpoint serving only its tools. Add the area to the end of `/mcp`:
 
 | Endpoint | Tools | Covers |
 |---|---:|---|
-| `/mcp/account` | 6 | Account details, bandwidth, BGP and custom subscriptions |
-| `/mcp/application` | 2 | One-Click and Marketplace applications and their variables |
-| `/mcp/backup` | 2 | Automatic instance backups |
-| `/mcp/baremetal` | 7 | Bare Metal servers, their IPs, bandwidth, upgrades and VPCs |
-| `/mcp/billing` | 5 | Billing history, invoices and pending charges |
-| `/mcp/block` | 4 | Block Storage volumes and their snapshots |
-| `/mcp/cdns` | 7 | CDN pull zones, push zones and their files |
-| `/mcp/clusters` | 5 | Compute Clusters (GPU and fabric), availability and metrics |
-| `/mcp/container-registry` | 14 | Container registries, repositories, artifacts, robots and replication |
-| `/mcp/dns` | 6 | DNS domains, records, SOA and DNSSEC |
-| `/mcp/firewall` | 4 | Firewall groups and their rules |
-| `/mcp/instance-templates` | 2 | Saved instance templates |
-| `/mcp/instances` | 13 | Cloud Compute instances, their IPs, VPCs, bandwidth, backups and upgrades |
-| `/mcp/iso` | 3 | Your uploaded ISOs and Vultr's public ISO library |
+| `/mcp/compute` | 33 | Cloud Compute instances, Bare Metal, snapshots, backups, startup scripts, instance templates and Compute Clusters |
+| `/mcp/network` | 38 | DNS, firewalls, load balancers, VPCs and NAT gateways, reserved IPs, CDN, and legacy private networks |
+| `/mcp/databases` | 29 | Managed Databases: clusters, users, databases, pools, topics, connectors, maintenance and alerts |
+| `/mcp/account` | 23 | Account details, billing and invoices, activity logs, SSH keys, sub-accounts and support tickets |
+| `/mcp/catalog` | 19 | What you can deploy and where: plans, regions, operating systems, ISOs, One-Click apps and Marketplace |
+| `/mcp/storage` | 16 | Block Storage, Object Storage, Vultr File System and storage gateways |
+| `/mcp/registry` | 14 | Container registries, repositories, artifacts, robots and replication |
 | `/mcp/kubernetes` | 11 | Vultr Kubernetes Engine clusters, node pools, versions and upgrades |
-| `/mcp/load-balancer` | 7 | Load balancers, forwarding rules and firewall rules |
-| `/mcp/logs` | 4 | Account activity logs and audit log delivery |
-| `/mcp/managed-databases` | 29 | Managed Databases: clusters, users, databases, pools, topics, connectors, maintenance and alerts |
-| `/mcp/marketplace` | 9 | Marketplace apps, builds, images and vendors |
-| `/mcp/os` | 1 | Available operating systems |
-| `/mcp/plans` | 2 | Cloud Compute and Bare Metal plans |
-| `/mcp/private-networks` | 2 | Legacy private networks (use `/mcp/vpcs` instead) |
-| `/mcp/region` | 2 | Regions and what each one has available |
-| `/mcp/reserved-ip` | 3 | Reserved IPs and their reverse DNS |
-| `/mcp/s3` | 5 | Object Storage subscriptions, clusters and tiers |
-| `/mcp/serverless-inference` | 3 | Serverless Inference subscriptions and usage |
-| `/mcp/snapshot` | 2 | Instance snapshots |
-| `/mcp/ssh` | 2 | SSH keys on the account |
-| `/mcp/startup` | 2 | Startup scripts |
-| `/mcp/storage-gateways` | 2 | Storage gateways |
-| `/mcp/subaccount` | 1 | Sub-accounts |
-| `/mcp/tickets` | 5 | Support tickets, replies and attachments |
-| `/mcp/vfs` | 5 | Vultr File System volumes and attachments |
-| `/mcp/vpcs` | 9 | VPCs, attachments and NAT gateways |
+| `/mcp/inference` | 3 | Serverless Inference subscriptions and usage |
 
-You can add as many as you like, each as its own entry. `https://vultrmcp.com/` works the same as `/mcp`, and the older form without `/mcp` (such as `https://vultrmcp.com/instances`) still works.
+Each endpoint's name matches its tools: `/mcp/compute` serves the `vultr_compute_*` tools, and so on. Kubernetes is kept apart from compute on purpose, because VKE clusters and Compute Clusters are easy to confuse.
+
+You can add as many as you like, each as its own entry. `https://vultrmcp.com/` works the same as `/mcp`. Older per-category paths, such as `/mcp/instances` or `/instances`, still work and serve the endpoint their category now belongs to.
 
 ## Client setup
 
-Every example uses the full endpoint. Swap in a category endpoint to load fewer tools.
+Every example uses the full endpoint. Swap in one of the [endpoints above](#endpoints) to load fewer tools.
 
 <details>
 <summary><b>Claude.ai and Claude Desktop</b></summary>
@@ -281,7 +258,7 @@ Self-hosted servers can turn on write tools with `VULTR_MCP_WRITES_ENABLED=true`
 | `SSL_VERIFY` | verify upstream TLS (default `true`) |
 | `VULTR_MCP_WRITES_ENABLED` | expose tools that change state (default `false`) |
 | `VULTR_MCP_EXCLUDED_CATEGORIES` | categories to leave out (default: the identity set; empty keeps everything) |
-| `VULTR_MCP_CATEGORY_ENDPOINTS` | category endpoints to serve (default: all that are not excluded) |
+| `VULTR_MCP_CATEGORY_ENDPOINTS` | endpoints to serve, by name (`compute,network`) or by an old category name, which selects its endpoint (default: all nine) |
 | `VULTR_MCP_INTERFACE` | `off` serves only the tools generated from the spec (default on) |
 | `VULTR_MCP_INTERFACE_DIR` | where the reviewed tool definitions live (default `interface/`) |
 | `VULTR_MCP_INTERFACE_MAX_PAGES` | pages one filtered search may scan (default `10`) |

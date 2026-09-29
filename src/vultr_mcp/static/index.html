@@ -205,15 +205,15 @@
 
   <section id="endpoints">
     <h2>Endpoints</h2>
-    <p>The base URL is <code>https://vultrmcp.com/</code>. The <strong>root</strong> exposes the full read-only tool surface through one connection. Each category also gets its own endpoint exposing only that category's tools — useful when your client has limited connection slots or you want a smaller, cheaper tool set.</p>
+    <p>The base URL is <code>https://vultrmcp.com/</code>. The <strong>root</strong> exposes the full read-only tool surface through one connection. Each product area also gets its own endpoint exposing only that area's tools — useful when your client has limited connection slots or you want a smaller, cheaper tool set.</p>
     <p class="muted" style="margin-top:6px;">The root doubles as this page: only a top-level browser navigation gets the docs, so MCP clients — including browser-based agent UIs — reach the protocol at the same URL. Both <code>https://vultrmcp.com</code> and <code>https://vultrmcp.com/</code> work; the trailing-slash form is canonical.</p>
     <pre><code>https://vultrmcp.com/                        # all tools (one connection)
 https://vultrmcp.com/mcp                     # alias of the root, identical tools
-https://vultrmcp.com/mcp/instances           # VPS instance tools only
-https://vultrmcp.com/mcp/kubernetes          # VKE tools only
-https://vultrmcp.com/mcp/dns                 # DNS tools only
-https://vultrmcp.com/mcp/container-registry  # multi-word categories are slugified</code></pre>
-        <p class="muted" style="margin-bottom:4px;">The root serves all of these combined; each endpoint below serves only its own tools. Click one to see the tools it exposes. Add the category to the end of <code>/mcp</code> — e.g. <code>https://vultrmcp.com/mcp/load-balancer</code>. The older form without <code>/mcp</code>, such as <code>https://vultrmcp.com/instances</code>, still works.</p>
+https://vultrmcp.com/mcp/compute             # instances, bare metal, snapshots, ...
+https://vultrmcp.com/mcp/kubernetes          # VKE clusters and node pools
+https://vultrmcp.com/mcp/network             # DNS, firewalls, load balancers, VPCs, ...
+https://vultrmcp.com/mcp/databases           # Managed Databases</code></pre>
+        <p class="muted" style="margin-bottom:4px;">The root serves all of these combined; each endpoint below serves only its own tools. Click one to see the tools it exposes. Add the area to the end of <code>/mcp</code> — e.g. <code>https://vultrmcp.com/mcp/storage</code>. Older per-category paths, such as <code>/mcp/instances</code> or <code>/instances</code>, still work and serve the endpoint their category now belongs to.</p>
     <details class="ep-browse">
       <summary>Browse all endpoints<span class="ep-count"><!--EP_COUNT--></span></summary>
       <div class="ep-controls"><button type="button" id="ep-toggle">Expand all</button></div>

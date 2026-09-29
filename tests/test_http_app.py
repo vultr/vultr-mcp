@@ -85,7 +85,8 @@ async def test_root_serves_landing_page_to_browsers(monkeypatch, spec):
             # HTML, and this test asserted the typed names -- which is how the page
             # still advertised tools renamed a month earlier.) This process mounts
             # only /instances; test_landing covers the full default set.
-            assert "/mcp/instances" in body
+            # Selecting the old "instances" category mounts its group, compute.
+            assert "/mcp/compute" in body
             assert "1 endpoint · " in body
 
             # The expandable tool lists carry the real, current tool names.
@@ -340,3 +341,68 @@ def test_the_audit_record_names_the_endpoint_and_host(monkeypatch, spec, capsys)
     ]
     assert [r["endpoint"] for r in records] == ["/mcp/instances", "/instances"]
     assert all(r["host"] == "testserver" for r in records)
+
+
+def test_every_category_is_in_exactly_one_endpoint_group(spec):
+    """A tag in no group would still get an endpoint of its own, with only a
+    warning at boot -- this is where that gets caught, before it ships."""
+    from vultr_mcp.app import ENDPOINT_GROUPS, _resolve_exclusions, slugify
+    from vultr_mcp.server import all_categories
+
+    listed = [c for cats in ENDPOINT_GROUPS.values() for c in cats]
+    assert len(listed) == len(set(listed)), "a category is in two groups"
+    served = {slugify(t) for t in all_categories(spec) - _resolve_exclusions()}
+    assert served - set(listed) == set(), "categories with no endpoint group"
+    assert set(listed) - served == set(), "groups name categories the spec does not serve"
+
+
+def _tools(client, path):
+    import json
+
+    text = client.post(
+        path,
+        json={"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}},
+        headers={"Accept": "application/json, text/event-stream"},
+    ).text
+    return {t["name"] for t in json.loads(text[text.index("{"):])["result"]["tools"]}
+
+
+def test_the_groups_partition_the_full_surface(monkeypatch, spec):
+    """Nine endpoints, together exactly the root's tools, no tool in two."""
+    from starlette.testclient import TestClient
+
+    from vultr_mcp.app import ENDPOINT_GROUPS
+
+    monkeypatch.delenv("VULTR_MCP_CATEGORY_ENDPOINTS", raising=False)
+    with TestClient(create_http_app(spec)) as client:
+        root = _tools(client, "/mcp")
+        groups = {g: _tools(client, f"/mcp/{g}") for g in ENDPOINT_GROUPS}
+        page = client.get("/", headers={"Sec-Fetch-Mode": "navigate", "Accept": "text/html"}).text
+
+    assert all(groups.values()), "a group endpoint serves nothing"
+    union = set().union(*groups.values())
+    assert union == root
+    assert sum(len(t) for t in groups.values()) == len(root), "a tool is served by two groups"
+    assert f"{len(ENDPOINT_GROUPS)} endpoints · {len(root)} tools" in page
+
+
+def test_old_category_paths_serve_their_group(monkeypatch, spec):
+    """/instances and /mcp/instances were documented; they must keep working."""
+    from starlette.testclient import TestClient
+
+    monkeypatch.setenv("VULTR_MCP_CATEGORY_ENDPOINTS", "compute,network,kubernetes")
+    with TestClient(create_http_app(spec)) as client:
+        compute = _tools(client, "/mcp/compute")
+        assert _tools(client, "/mcp/instances") == compute
+        assert _tools(client, "/instances") == compute
+        assert _tools(client, "/baremetal") == compute
+        network = _tools(client, "/mcp/network")
+        assert _tools(client, "/dns") == network
+        assert _tools(client, "/mcp/load-balancer") == network
+        # A group is not added at the top level: only old category names are.
+        assert client.post("/compute", json={}).status_code == 404
+        kubernetes = _tools(client, "/mcp/kubernetes")
+
+    # The pair agents confuse stays on separate endpoints.
+    assert "vultr_compute_clusters_list" in compute and "vultr_compute_clusters_list" not in kubernetes
+    assert "vultr_kubernetes_clusters_list" in kubernetes and "vultr_kubernetes_clusters_list" not in compute

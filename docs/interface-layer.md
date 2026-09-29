@@ -75,20 +75,26 @@ The **name** does the disambiguating work, not the file layout — the agent rec
 
 ### Layout
 
-Files are grouped into one directory per family, so the tree matches the `family` enum:
+Files are grouped into one directory per endpoint, so the tree matches what a client can load: `interface/compute/` holds everything `/mcp/compute` serves. That is the product family, except that Marketplace sits under `catalog/` and the database family's directory is `databases/`, both following the endpoints. A test checks every area lives under its endpoint's directory.
 
 ```
 interface/
-├── compute/
-│   ├── instances/          # a large area splits into a directory
+├── compute/                # /mcp/compute
+│   ├── instances/          # a large area that shares its endpoint gets a directory
 │   │   ├── instances.yaml  #   list, get
 │   │   ├── networking.yaml #   ipv4, ipv6, vpcs
 │   │   ├── configuration.yaml
 │   │   └── operations.yaml
 │   ├── baremetal/
 │   └── clusters.yaml       # a small area stays one file
+├── catalog/                # /mcp/catalog
+│   ├── marketplace/        #   Marketplace joined catalog with the endpoints
+│   └── plans.yaml
+├── databases/              # /mcp/databases: the endpoint's only area, so its
+│   └── clusters.yaml       #   files are the endpoint's directory
 ├── kubernetes/
 ├── network/
+├── registry/
 └── interface.yaml          # the manifest
 ```
 
