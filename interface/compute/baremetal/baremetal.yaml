@@ -8,6 +8,27 @@ family: compute
 
 # The server itself.
 
+# Its user data and VNC console are excluded here rather than in a file of
+# their own: they were the whole of configuration.yaml, and an area file
+# cannot be empty. Each returns something that grants access rather than
+# describes the server.
+
+excluded:
+  get-bare-metal-vnc:
+    reason: >-
+      Returns a VNC console URL that carries the session opening it: out-of-band
+      control of the server's keyboard and screen. That is access, not
+      information, and the instance tools already withhold the equivalent kvm
+      link for the same reason. The console is available in the Vultr portal.
+  get-bare-metal-userdata:
+    reason: >-
+      Returns the cloud-init payload supplied at deployment, base64-encoded.
+      That payload is where people put the tokens, passwords and keys a server
+      needs at first boot, so the tool mostly hands an agent credentials it has
+      no use for and, given a shell, could use. It is one opaque blob, so no
+      field allowlist can shape it. The server's configuration is otherwise
+      answered by vultr_compute_baremetal_get.
+
 tools:
   - name: vultr_compute_baremetal_list
     access: read

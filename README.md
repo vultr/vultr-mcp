@@ -48,14 +48,14 @@ To work with two organizations at once, add the server twice under different nam
 
 ## Endpoints
 
-`https://vultrmcp.com/mcp` serves all 190 tools. Some clients struggle with that many, and a model picks the right tool more often from a shorter list. Each category has its own endpoint serving only its tools. Add the category to the end of `/mcp`:
+`https://vultrmcp.com/mcp` serves all 186 tools. Some clients struggle with that many, and a model picks the right tool more often from a shorter list. Each category has its own endpoint serving only its tools. Add the category to the end of `/mcp`:
 
 | Endpoint | Tools | Covers |
 |---|---:|---|
 | `/mcp/account` | 6 | Account details, bandwidth, BGP and custom subscriptions |
 | `/mcp/application` | 2 | One-Click and Marketplace applications and their variables |
 | `/mcp/backup` | 2 | Automatic instance backups |
-| `/mcp/baremetal` | 9 | Bare Metal servers, their IPs, bandwidth, upgrades and VPCs |
+| `/mcp/baremetal` | 7 | Bare Metal servers, their IPs, bandwidth, upgrades and VPCs |
 | `/mcp/billing` | 5 | Billing history, invoices and pending charges |
 | `/mcp/block` | 4 | Block Storage volumes and their snapshots |
 | `/mcp/cdns` | 7 | CDN pull zones, push zones and their files |
@@ -64,9 +64,9 @@ To work with two organizations at once, add the server twice under different nam
 | `/mcp/dns` | 6 | DNS domains, records, SOA and DNSSEC |
 | `/mcp/firewall` | 4 | Firewall groups and their rules |
 | `/mcp/instance-templates` | 2 | Saved instance templates |
-| `/mcp/instances` | 14 | Cloud Compute instances, their IPs, VPCs, bandwidth, backups and upgrades |
+| `/mcp/instances` | 13 | Cloud Compute instances, their IPs, VPCs, bandwidth, backups and upgrades |
 | `/mcp/iso` | 3 | Your uploaded ISOs and Vultr's public ISO library |
-| `/mcp/kubernetes` | 12 | Vultr Kubernetes Engine clusters, node pools, versions and upgrades |
+| `/mcp/kubernetes` | 11 | Vultr Kubernetes Engine clusters, node pools, versions and upgrades |
 | `/mcp/load-balancer` | 7 | Load balancers, forwarding rules and firewall rules |
 | `/mcp/logs` | 4 | Account activity logs and audit log delivery |
 | `/mcp/managed-databases` | 29 | Managed Databases: clusters, users, databases, pools, topics, connectors, maintenance and alerts |
@@ -242,6 +242,7 @@ Start with "What Vultr account am I connected as?" to confirm which account and 
 - **Read-only.** Only reads are exposed. A handful of operations that change state despite using a read method, such as purging a CDN cache, are removed as well.
 - **Your credential is the boundary.** Every call runs as you, and Vultr enforces what that credential may do. The server cannot see anything you can't.
 - **No identity management.** Tools for API keys, users, IAM, SCIM, organizations and OIDC are left out, so an agent cannot read or change who has access.
+- **No credentials.** Nothing returns something an agent could act with: no kubeconfig, no console link, no user data or startup script body, no passwords or keys. The agent gets information; access stays in the Vultr console.
 - **Arguments are checked.** A tool called with an argument it doesn't have is refused, with a list of the ones it takes. A mistyped filter can't quietly return everything.
 - **Errors are Vultr's own.** When `api.vultr.com` returns an error, you see its message. A 5xx means Vultr's API had a problem, so try again later. A 401 or 403 means the credential can't do that.
 - **Descriptions are reviewed.** Each tool's name and description are written and checked by hand, including when *not* to use it, so a model doesn't mix up similar products such as Kubernetes clusters and Compute Clusters. [docs/interface-layer.md](docs/interface-layer.md) explains how.

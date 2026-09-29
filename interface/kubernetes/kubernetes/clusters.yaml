@@ -4,8 +4,19 @@ family: kubernetes
 # The kubernetes area is split across this directory; every file here declares
 # the same product_area, and interface.yaml lists them together.
 
-# The VKE cluster itself, plus its kubeconfig, available upgrades, and the
-# load balancers and block storage it has created.
+# The VKE cluster itself, its available upgrades, and the load balancers and
+# block storage it has created.
+
+excluded:
+  get-kubernetes-clusters-config:
+    reason: >-
+      Returns the cluster's kubeconfig, which is an administrative credential
+      rather than information about the cluster. An agent with a shell, such as
+      Claude Code or OpenClaw, could hand it to kubectl and change or delete
+      workloads: the ability this read-only server exists to withhold. Every
+      question about the cluster itself (endpoint, version, node pools, status)
+      is answered by vultr_kubernetes_clusters_get. Anyone who needs the file
+      downloads it from the Vultr console.
 
 tools:
   - name: vultr_kubernetes_clusters_list
@@ -104,8 +115,8 @@ tools:
       vultr_kubernetes_clusters_list first.
 
       Do not use this tool for a Vultr Compute Cluster, which is a different
-      product read by vultr_compute_clusters_get, and not for the cluster's
-      kubeconfig, which vultr_kubernetes_clusters_config_get returns.
+      product read by vultr_compute_clusters_get. It does not return the
+      cluster's kubeconfig, which is available only in the Vultr console.
 
     operation: get-kubernetes-clusters
 
@@ -146,40 +157,6 @@ tools:
         description: Number of node pools in the cluster.
         from: length(node_pools)
 
-  - name: vultr_kubernetes_clusters_config_get
-    access: read
-    enabled: true
-
-    description: |
-      Gets the kubeconfig for one Vultr Kubernetes Engine cluster,
-      base64-encoded. This is an administrative credential for the cluster:
-      anyone holding it can act as its administrator.
-
-      Use this tool only when someone has asked for the kubeconfig itself, in
-      order to configure kubectl or another Kubernetes client.
-
-      Do not use this tool to answer questions about a cluster's configuration,
-      status, endpoint or node pools -- vultr_kubernetes_clusters_get answers
-      those without returning a credential.
-
-    operation: get-kubernetes-clusters-config
-
-    input:
-      type: object
-      required:
-        - vke_id
-      properties:
-        vke_id:
-          type: string
-          description: >-
-            ID of the VKE cluster, as returned in the id field by
-            vultr_kubernetes_clusters_list.
-          maps_to: vke-id
-
-    output:
-      from_openapi: true
-      include:
-        - kube_config
 
   - name: vultr_kubernetes_clusters_upgrades_get
     access: read

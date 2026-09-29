@@ -1695,3 +1695,31 @@ def test_the_instance_list_names_the_application_it_runs(compiled):
     assert "image_id" not in omitted and "app_id" not in omitted, (
         "the get tool still tells agents the list omits fields it now returns"
     )
+
+
+# Operations that return something an agent could act with rather than
+# information: an admin kubeconfig, a console session, and cloud-init payloads
+# that routinely carry tokens and passwords. Decided 2026-09-28: the server gives
+# information, never a credential. Excluded, so neither a hand-authored nor the
+# generated tool is served.
+CREDENTIAL_OPERATIONS = {
+    "get-kubernetes-clusters-config",
+    "get-bare-metal-vnc",
+    "get-bare-metal-userdata",
+    "get-instance-userdata",
+}
+
+
+def test_operations_that_hand_out_access_are_excluded(compiled):
+    excluded = {e.operation_id for e in compiled.excluded}
+    assert CREDENTIAL_OPERATIONS <= excluded
+    served = {t.operation_id for t in compiled.tools}
+    assert not CREDENTIAL_OPERATIONS & served
+
+
+def test_no_startup_script_tool_returns_the_body(compiled):
+    """Script bodies are where node tokens and join passwords live."""
+    for name in ("vultr_compute_startup_scripts_list", "vultr_compute_startup_scripts_get"):
+        tool = next(t for t in compiled.tools if t.name == name)
+        allowed = set(tool.output.item_include or ()) | set(tool.output.envelope_include or ())
+        assert "script" not in allowed, f"{name} returns the script body"

@@ -42,7 +42,6 @@ product_areas:
   backup: compute/backup.yaml
   baremetal:
     - compute/baremetal/baremetal.yaml
-    - compute/baremetal/configuration.yaml
     - compute/baremetal/networking.yaml
     - compute/baremetal/operations.yaml
   clusters: compute/clusters.yaml

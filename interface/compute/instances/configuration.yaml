@@ -2,8 +2,18 @@ product_area: instances
 family: compute
 
 # What an instance was configured with rather than what it is doing: the
-# cloud-init payload, the attached ISO, and the backup schedule. See
-# instances.yaml for the area's shared notes.
+# attached ISO and the backup schedule. See instances.yaml for the area's shared
+# notes. The cloud-init payload is excluded; the reason is below.
+
+excluded:
+  get-instance-userdata:
+    reason: >-
+      Returns the cloud-init payload supplied at deployment, base64-encoded.
+      That payload is where people put the tokens, passwords and keys a server
+      needs at first boot, so the tool mostly hands an agent credentials it has
+      no use for and, given a shell, could use. It is one opaque blob, so no
+      field allowlist can shape it. The instance's configuration is otherwise
+      answered by vultr_compute_instances_get.
 
 tools:
   - name: vultr_compute_instances_backup_schedule_get
@@ -83,40 +93,3 @@ tools:
       include:
         - iso_id
         - state
-
-  - name: vultr_compute_instances_userdata_get
-    access: read
-    enabled: true
-
-    description: |
-      Gets the user data configured for one Vultr cloud compute instance -- the
-      cloud-init or startup configuration supplied at deployment -- returned
-      base64-encoded.
-
-      Use this tool to inspect or reproduce how an instance was configured at
-      first boot. It is the only source: vultr_compute_instances_list and
-      vultr_compute_instances_get both omit user data entirely.
-
-      Do not use this tool for startup scripts, which are a separate Vultr
-      resource with their own tools, or for bare metal servers, which have
-      their own tool.
-
-    operation: get-instance-userdata
-
-    input:
-      type: object
-      required:
-        - instance_id
-      properties:
-        instance_id:
-          type: string
-          description: >-
-            ID of the instance, as returned in the id field by
-            vultr_compute_instances_list.
-          maps_to: instance-id
-
-    output:
-      from_openapi: true
-      include:
-        - data
-

@@ -1,17 +1,15 @@
 product_area: startup
 family: compute
 
-# The listing withholds `script` and the by-id get returns it. That split is the
-# same judgement the instances file makes about `kvm` and the bare metal file
-# makes about the VNC URL: what is volunteered on every row of a listing is a
-# different exposure from what one deliberate call returns.
+# Neither tool returns `script`. A startup script is arbitrary shell run as root
+# at first boot, and in practice it is where people put the token that registers
+# a node, the password that joins a cluster, the key that pulls a private image.
 #
-# A startup script is arbitrary shell run as root at first boot, and in practice
-# it is where people put the token that registers a node, the password that
-# joins a cluster, the key that pulls a private image. An agent asked "what
-# startup scripts do we have" wants names, not bodies, and the generated tool
-# handed it every body. Asking for one script by ID is a deliberate act, and
-# there the script is the entire point.
+# The by-id get used to return the body, on the reasoning that asking for one
+# script is a deliberate act. That changed on 2026-09-28 with the rule this
+# server now follows: it gives an agent information, never a credential it
+# could act with. The same decision excluded user data, the VNC console and the
+# kubeconfig. Names, types and dates stay; the body is read in the Vultr console.
 
 tools:
   - name: vultr_compute_startup_scripts_list
@@ -23,12 +21,11 @@ tools:
       one's name, type, and when it was created and last modified.
 
       Use this tool to find what startup scripts exist, or to resolve a script
-      ID to a name. It does not return script bodies: to read one, use
-      vultr_compute_startup_scripts_get with the ID.
+      ID to a name. No tool returns script bodies, because they routinely hold
+      tokens and passwords; the body is read in the Vultr console.
 
-      Do not use this tool for an instance's user data, which is set at
-      deployment and read by vultr_compute_instances_userdata_get, or for
-      marketplace application variables.
+      Do not use this tool for an instance's user data, which this server does
+      not return, or for marketplace application variables.
 
     operation: list-startup-scripts
 
@@ -85,15 +82,13 @@ tools:
     enabled: true
 
     description: |
-      Gets one Vultr startup script by its ID, including the script body,
-      base64-encoded, along with its name and type.
+      Gets one Vultr startup script by its ID, with its name, its type, and
+      when it was created and last modified. It does not return the script
+      body, because startup scripts routinely hold tokens and passwords; the
+      body is read in the Vultr console.
 
-      Use this tool when someone needs to read or reproduce what a specific
-      startup script does. To find a script ID, use
-      vultr_compute_startup_scripts_list.
-
-      Do not use this tool to survey the scripts an account has; the list tool
-      answers that without returning script bodies.
+      Use this tool when a script ID is already known. To find one, or to survey
+      the scripts an account has, use vultr_compute_startup_scripts_list.
 
     operation: get-startup-script
 
@@ -111,10 +106,10 @@ tools:
 
     output:
       from_openapi: true
+      # `script` is deliberately absent; see the note at the top of this file.
       include:
         - id
         - name
         - type
-        - script
         - date_created
         - date_modified
