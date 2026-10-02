@@ -22,7 +22,7 @@ The ingress controller is Traefik, installed with Helm rather than `kubectl appl
 
 ## Audit records (optional)
 
-Set `VULTR_MCP_AUDIT_DIR` and the server also writes its audit records there as files, one per event type, for a log shipper to tail. `k8s/deployment.yaml` runs one as a sidecar (from the `with-shipper` image) into the ClickHouse and Grafana in `k8s/observability/`, which `kubectl apply -f k8s/` does not include:
+The server writes one JSON audit record per tool call to stdout, which is where the pod's logs already go (a local STDIO server writes them to stderr instead, because there stdout carries the protocol). Set `VULTR_MCP_AUDIT_DIR` and the server also writes its audit records there as files, one per event type, for a log shipper to tail. `k8s/deployment.yaml` runs one as a sidecar (from the `with-shipper` image) into the ClickHouse and Grafana in `k8s/observability/`, which `kubectl apply -f k8s/` does not include:
 
 ```bash
 # ClickHouse logins (the shipper, and read-only Grafana) and Grafana's admin login.
