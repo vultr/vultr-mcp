@@ -391,6 +391,38 @@ def _build_route_maps(
     return maps
 
 
+# What the client tells the model before any tool is loaded. Clients that defer
+# tools show only their names until the model searches, so without this an
+# agent asked to "lock down SSH on my web-servers firewall group" went looking
+# for a cloud CLI instead of these tools.
+INSTRUCTIONS = (
+    "Tools for the user's Vultr cloud account: compute instances and bare metal, "
+    "firewall groups, DNS, load balancers, VPCs, block and object storage, "
+    "Kubernetes (VKE), managed databases, container registries, billing and "
+    "support tickets. Use them for any question or task about the user's Vultr "
+    "infrastructure."
+)
+
+
+def server_instructions(read_only: bool, only_categories: set[str] | None = None) -> str:
+    """The instructions sent in `initialize`, for this server's surface.
+
+    A category endpoint names the categories it actually serves, so the model
+    is not sent searching for firewall tools on an endpoint that has none.
+    """
+    if only_categories is None:
+        text = INSTRUCTIONS
+    else:
+        text = (
+            "Tools for the user's Vultr cloud account, covering: "
+            f"{', '.join(sorted(only_categories))}. Use them for any question or "
+            "task about these parts of the user's Vultr infrastructure."
+        )
+    if read_only:
+        return text + " This server is read-only: it cannot change anything."
+    return text + " Write tools change the account immediately."
+
+
 def create_server(
     spec: dict | None = None,
     *,
@@ -489,6 +521,7 @@ def create_server(
         # so a client asking what it is talking to gets "3.4.3" -- which says
         # nothing about which build is serving. Same reasoning as /healthz.
         version=package_version(),
+        instructions=server_instructions(read_only, only_categories),
         route_maps=_build_route_maps(exclude_tags, read_only, suppressed),
         mcp_component_fn=None if _output_schemas_enabled() else _strip_output_schema,
         auth=auth,
