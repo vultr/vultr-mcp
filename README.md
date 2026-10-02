@@ -269,6 +269,7 @@ Self-hosted servers can turn on write tools with `VULTR_MCP_WRITES_ENABLED=true`
 | `VULTR_OIDC_ENABLED` | turn on OAuth (default `false`) |
 | `VULTR_OIDC_PROVIDER_ID` / `VULTR_OAUTH_CLIENT_ID` / `VULTR_OAUTH_CLIENT_SECRET` | the approved OAuth app's credentials |
 | `REDIS_HOST` / `REDIS_PORT` | shared OAuth state, required when running more than one replica |
+| `VULTR_MCP_AUDIT_LOG` | one audit record per tool call (default `true`), to stdout over HTTP and to stderr over STDIO, where stdout is the protocol |
 | `VULTR_MCP_AUDIT_DIR` | also write audit records to files here, for a log shipper |
 
 ## Development
