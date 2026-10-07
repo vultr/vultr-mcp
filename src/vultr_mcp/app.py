@@ -15,14 +15,12 @@ from __future__ import annotations
 import json
 import os
 from contextlib import AsyncExitStack, asynccontextmanager
-from pathlib import Path
 
 from starlette.applications import Starlette
 from starlette.requests import Request
-from starlette.responses import HTMLResponse, JSONResponse
+from starlette.responses import JSONResponse
 from starlette.routing import Mount, Route
 
-from vultr_mcp import landing
 from vultr_mcp.server import (
     DEFAULT_EXCLUDED_CATEGORIES,
     all_categories,
@@ -37,50 +35,6 @@ from vultr_mcp.server import (
 # lives, and so /healthz can answer "did the new image land?" from outside the
 # cluster. Shared with the MCP handshake, which reports the same string.
 VERSION = package_version()
-
-_LANDING_PATH = Path(__file__).resolve().parent / "static" / "index.html"
-
-
-def _load_landing_html() -> str:
-    """The docs page served on browser GETs to ``/``. A missing file is
-    non-fatal: the server must not fail to boot over a docs asset.
-    """
-    try:
-        return _LANDING_PATH.read_text(encoding="utf-8")
-    except OSError:
-        return "<!doctype html><title>Vultr MCP</title><h1>Vultr MCP Server</h1>"
-
-
-def _wants_landing_page(scope: dict) -> bool:
-    """True only for a genuine top-level browser navigation to ``/``.
-
-    The docs page and the MCP endpoint share the root URL, so a human opening
-    the page is told apart from a client connecting by request shape: MCP uses
-    POST or a GET accepting ``text/event-stream``; a browser navigation sets
-    ``Sec-Fetch-Mode: navigate``, while a browser-based MCP client's fetch/XHR
-    sets ``cors``/``no-cors`` and falls through to the protocol. With no
-    ``Sec-Fetch-*`` at all, require an explicit ``Accept: text/html``.
-    """
-    if scope.get("type") != "http" or scope.get("method") != "GET":
-        return False
-    if scope.get("path") != "/":
-        return False
-    accept = ""
-    sec_fetch_mode = ""
-    for name, value in scope.get("headers") or []:
-        if name == b"accept":
-            accept = value.decode("latin-1").lower()
-        elif name == b"sec-fetch-mode":
-            sec_fetch_mode = value.decode("latin-1").lower()
-    if "text/event-stream" in accept:
-        return False
-    if sec_fetch_mode:
-        # Only a top-level navigation is a human opening the page; a fetch/XHR
-        # connection (cors/no-cors) is a client and must reach the MCP app.
-        return sec_fetch_mode == "navigate"
-    # No Sec-Fetch metadata: fall back to an explicit browser Accept.
-    return "text/html" in accept
-
 
 def _resolve_exclusions() -> set[str]:
     env = excluded_categories_from_env()
@@ -212,8 +166,6 @@ def create_http_app(spec: dict | None = None):
     # which are aliases: the same app, not another server to build and hold.
     group_apps: list[tuple[str, object]] = []
     alias_apps: list[tuple[str, object]] = []
-    # The servers themselves, kept for the docs page's endpoint list.
-    category_servers: list[tuple[str, object]] = []
     for group, tags, categories in _group_endpoints(spec, excluded):
         server = create_server(
             spec,
@@ -225,7 +177,6 @@ def create_http_app(spec: dict | None = None):
         app = _http(server)
         group_apps.append((group, app))
         alias_apps += [(category, app) for category in categories]
-        category_servers.append((group, server))
 
     @asynccontextmanager
     async def lifespan(app: Starlette):
@@ -259,10 +210,7 @@ def create_http_app(spec: dict | None = None):
     # repeat where a group shares its name with a category (kubernetes).
     mcp_paths = dict(group_apps + alias_apps)
     routes += [Mount(f"/mcp/{name}", app=sub_app) for name, sub_app in mcp_paths.items()]
-    # "/mcp" is the conventional streamable-HTTP path and the first thing people
-    # try, but it is not a category, so it used to 404 in the catch-all. Root
-    # stays canonical: a browser hitting it gets the docs page, which "/mcp"
-    # has no reason to do.
+    # "/mcp" is the conventional streamable-HTTP path and the documented one; the root serves the same app.
     routes.append(Mount("/mcp", app=root_app))
     # The bare "/instances" form came first. It stays so no existing client
     # configuration breaks, but it is no longer the documented path: at the top
@@ -280,28 +228,7 @@ def create_http_app(spec: dict | None = None):
     # the trailing slash.
     bare_paths = {f"/{name}" for name, _ in alias_apps} | {f"/mcp/{name}" for name in mcp_paths} | {"/mcp"}
 
-    landing_template = _load_landing_html()
-    landing_cache: dict[str, str] = {}
-
-    async def landing_page() -> str:
-        # Built on first view rather than at boot: listing tools is async, and
-        # boot is kept to what serving MCP needs. The tool set is fixed for the
-        # life of the process, so the page is built once.
-        if "html" not in landing_cache:
-            try:
-                endpoints = [(slug, await landing.tools_of(server)) for slug, server in category_servers]
-                total = len(await landing.tools_of(root_server))
-                landing_cache["html"] = landing.render(landing_template, total, endpoints)
-            except Exception:  # noqa: BLE001 - the docs page must not fail over its list
-                return landing.unavailable(landing_template)
-        return landing_cache["html"]
-
     async def app_with_bare_paths(scope, receive, send):
-        # Browser hitting the root gets human docs; MCP clients (POST, or GET
-        # for the SSE stream) fall through to the protocol app at "/".
-        if _wants_landing_page(scope):
-            await HTMLResponse(await landing_page())(scope, receive, send)
-            return
         if scope["type"] == "http" and scope.get("path") in bare_paths:
             fixed = scope["path"] + "/"
             scope = {**scope, "path": fixed, "raw_path": fixed.encode()}

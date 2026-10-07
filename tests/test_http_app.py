@@ -47,7 +47,8 @@ async def _names(port, path):
         return [t.name for t in await client.list_tools()]
 
 
-async def test_root_serves_landing_page_to_browsers(monkeypatch, spec):
+async def test_root_serves_no_html_page_to_browsers(monkeypatch, spec):
+    # The docs page is gone, so a browser navigation to the root reaches the MCP app like any client.
     monkeypatch.setenv("VULTR_MCP_CATEGORY_ENDPOINTS", "instances")
     app = create_http_app(spec)
     port = _free_port()
@@ -56,87 +57,15 @@ async def test_root_serves_landing_page_to_browsers(monkeypatch, spec):
         import httpx
 
         async with httpx.AsyncClient() as hc:
-            # Browser navigation: GET / with an HTML Accept header.
-            page = await hc.get(
-                f"http://127.0.0.1:{port}/",
-                headers={"Accept": "text/html,application/xhtml+xml,*/*;q=0.8"},
-            )
-            assert page.status_code == 200
-            assert page.headers["content-type"].startswith("text/html")
-            body = page.text
-            assert "Vultr MCP Server" in body
-            # The single consolidated client-setup section + flow diagram.
-            assert "Connect your client" in body
-            assert "<svg" in body
-            # Every documented client must appear in that one section.
-            for client in (
-                "Claude.ai",
-                "Cursor",
-                "VS Code",
-                "Codex CLI",
-                "opencode",
-                "Hermes",
-                "OpenClaw",
-            ):
-                assert client in body, f"client section missing {client!r}"
-
-            # The endpoint list is built from the servers this process mounts, so
-            # it cannot drift from the real surface. (It used to be typed into the
-            # HTML, and this test asserted the typed names -- which is how the page
-            # still advertised tools renamed a month earlier.) This process mounts
-            # only /instances; test_landing covers the full default set.
-            # Selecting the old "instances" category mounts its group, compute.
-            assert "/mcp/compute" in body
-            assert "1 endpoint · " in body
-
-            # The expandable tool lists carry the real, current tool names.
-            for tool_name in ("vultr_compute_instances_list", "vultr_compute_instances_get"):
-                assert tool_name in body, f"endpoint accordion missing tool {tool_name!r}"
-
-            # The page must not advertise tools the read-only server won't serve.
-            for write_tool in ("create_dns_domain", "delete_instance", "create_kubernetes_cluster"):
-                assert write_tool not in body, (
-                    f"landing page still lists write tool {write_tool!r}"
-                )
-
-            # MCP SSE probe: GET / asking for an event-stream must NOT get docs.
-            sse = await hc.get(
-                f"http://127.0.0.1:{port}/",
-                headers={"Accept": "text/event-stream"},
-            )
-            assert "Vultr MCP Server" not in sse.text
-
-            # An MCP client that opens the bare host with a generic Accept must
-            # NOT get the docs page — it has to fall through to the MCP app so it
-            # can connect (regression guard for the bare-host-vs-/ bug).
-            for probe_accept in ("*/*", "application/json"):
-                probe = await hc.get(
-                    f"http://127.0.0.1:{port}/",
-                    headers={"Accept": probe_accept},
-                )
-                assert "Vultr MCP Server" not in probe.text, (
-                    f"docs page leaked to an MCP-style GET (Accept: {probe_accept})"
-                )
-
-            # A browser-based MCP client (fetch/XHR) sends Sec-Fetch-Mode: cors
-            # and may still send text/html — it must reach the MCP app, not docs.
-            xhr = await hc.get(
-                f"http://127.0.0.1:{port}/",
-                headers={"Accept": "text/html", "Sec-Fetch-Mode": "cors"},
-            )
-            assert "Vultr MCP Server" not in xhr.text, (
-                "docs page leaked to a browser fetch/XHR MCP client"
-            )
-
-            # A genuine top-level navigation (Sec-Fetch-Mode: navigate) gets docs.
             nav = await hc.get(
                 f"http://127.0.0.1:{port}/",
                 headers={
-                    "Accept": "text/html,application/xhtml+xml",
+                    "Accept": "text/html,application/xhtml+xml,*/*;q=0.8",
                     "Sec-Fetch-Mode": "navigate",
                 },
             )
-            assert "Vultr MCP Server" in nav.text
+            assert not nav.headers.get("content-type", "").startswith("text/html")
+            assert "<html" not in nav.text.lower()
     finally:
         server.should_exit = True
         task.cancel()
@@ -147,7 +76,6 @@ async def test_root_serves_landing_page_to_browsers(monkeypatch, spec):
 
 
 async def test_root_still_serves_mcp_over_post(monkeypatch, spec):
-    # The docs page must not shadow the MCP protocol at "/".
     monkeypatch.setenv("VULTR_MCP_CATEGORY_ENDPOINTS", "instances")
     app = create_http_app(spec)
     port = _free_port()
@@ -377,13 +305,11 @@ def test_the_groups_partition_the_full_surface(monkeypatch, spec):
     with TestClient(create_http_app(spec)) as client:
         root = _tools(client, "/mcp")
         groups = {g: _tools(client, f"/mcp/{g}") for g in ENDPOINT_GROUPS}
-        page = client.get("/", headers={"Sec-Fetch-Mode": "navigate", "Accept": "text/html"}).text
 
     assert all(groups.values()), "a group endpoint serves nothing"
     union = set().union(*groups.values())
     assert union == root
     assert sum(len(t) for t in groups.values()) == len(root), "a tool is served by two groups"
-    assert f"{len(ENDPOINT_GROUPS)} endpoints · {len(root)} tools" in page
 
 
 def test_old_category_paths_serve_their_group(monkeypatch, spec):

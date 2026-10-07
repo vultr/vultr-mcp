@@ -31,7 +31,9 @@ Your client opens a browser window to sign in to Vultr, and the tools are ready 
 claude mcp add --transport http vultr https://mcp.vultr.com/mcp
 ```
 
-Then run `/mcp` inside Claude Code, choose **vultr** and sign in. Setup for other clients is under [Client setup](#client-setup), and a browser pointed at [mcp.vultr.com](https://mcp.vultr.com) shows the same guide with every endpoint and tool listed.
+Then run `/mcp` inside Claude Code, choose **vultr** and sign in. Setup for other clients is under [Client setup](#client-setup).
+
+**Moved from vultrmcp.com.** The server's address is now `https://mcp.vultr.com/mcp`. If you added `https://vultrmcp.com` earlier, replace it with the new URL and sign in again. The old address redirects, but some clients don't follow redirects, and sign-ins made there aren't accepted at the new address.
 
 ## Authentication
 
