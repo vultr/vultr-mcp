@@ -1,7 +1,8 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: vultr-mcp
+  # A name of its own so this can be applied ahead of the app, letting Traefik get the certificate before cutover.
+  name: mcp-vultr-com
   labels:
     app: vultr-mcp
   annotations:
@@ -12,9 +13,9 @@ spec:
   ingressClassName: traefik
   tls:
     - hosts:
-        - vultrmcp.com
+        - mcp.vultr.com
   rules:
-    - host: vultrmcp.com
+    - host: mcp.vultr.com
       http:
         paths:
           - path: /

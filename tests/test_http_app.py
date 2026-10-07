@@ -108,7 +108,7 @@ async def test_root_serves_landing_page_to_browsers(monkeypatch, spec):
 
             # An MCP client that opens the bare host with a generic Accept must
             # NOT get the docs page — it has to fall through to the MCP app so it
-            # can connect (regression guard for the vultrmcp.com-vs-/ bug).
+            # can connect (regression guard for the bare-host-vs-/ bug).
             for probe_accept in ("*/*", "application/json"):
                 probe = await hc.get(
                     f"http://127.0.0.1:{port}/",

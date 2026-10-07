@@ -61,7 +61,7 @@ def test_the_verified_upstream_token_wins(monkeypatch):
     """
     got = forwarded(
         monkeypatch,
-        headers={"host": "vultrmcp.com", "authorization": "Bearer fastmcp-issued"},
+        headers={"host": "mcp.vultr.com", "authorization": "Bearer fastmcp-issued"},
         access_token=_AccessToken("upstream-vultr-token"),
     )
     assert got == "Bearer upstream-vultr-token"
@@ -71,7 +71,7 @@ def test_the_env_key_never_overrides_an_authenticated_caller(monkeypatch):
     """An operator key present in env must not displace a real identity."""
     got = forwarded(
         monkeypatch,
-        headers={"host": "vultrmcp.com"},
+        headers={"host": "mcp.vultr.com"},
         access_token=_AccessToken("upstream-vultr-token"),
         env_key="operator-key",
     )
@@ -135,7 +135,7 @@ def test_an_http_request_with_no_credential_does_not_borrow_the_env_key(monkeypa
     """
     got = forwarded(
         monkeypatch,
-        headers={"host": "vultrmcp.com", "user-agent": "curl/8.0"},
+        headers={"host": "mcp.vultr.com", "user-agent": "curl/8.0"},
         env_key="operator-key",
     )
     assert got is None, "an HTTP caller was served with the server's own credential"
@@ -163,9 +163,9 @@ def test_the_fallback_is_refused_when_the_context_cannot_be_determined(monkeypat
 @pytest.mark.parametrize(
     "headers",
     [
-        {"host": "vultrmcp.com"},
-        {"host": "vultrmcp.com", "authorization": ""},
-        {"host": "vultrmcp.com", "x-vultr-api-key": ""},
+        {"host": "mcp.vultr.com"},
+        {"host": "mcp.vultr.com", "authorization": ""},
+        {"host": "mcp.vultr.com", "x-vultr-api-key": ""},
         {"content-type": "application/json"},
     ],
 )

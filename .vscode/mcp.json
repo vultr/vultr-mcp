@@ -1,7 +1,7 @@
 {
 	"servers": {
 		"Vultr": {
-			"url": "https://vultrmcp.com",
+			"url": "https://mcp.vultr.com",
 			"type": "http"
 		}
 	},

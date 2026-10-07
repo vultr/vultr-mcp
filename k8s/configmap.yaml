@@ -22,7 +22,7 @@ data:
   VULTR_OIDC_ENABLED: "true"
   VULTR_OIDC_PROVIDER_ID: "d66bf304-1e2b-4b7f-93f7-2a8c3a23df1f"
   VULTR_OAUTH_CLIENT_ID: "56377b7e-ffbc-4a65-a704-e215e89f3d44"
-  MCP_RESOURCE_URL: "https://vultrmcp.com"
+  MCP_RESOURCE_URL: "https://mcp.vultr.com"
   # aud defaults to VULTR_OAUTH_CLIENT_ID; override only if Vultr changes it.
   # VULTR_OIDC_AUDIENCE: ""
 
@@ -41,7 +41,7 @@ data:
   # ---- Tool surface ----
   # Read-only. Stated explicitly rather than left to the default so the write
   # posture of this deployment is visible in the manifest, not just in code.
-  # Verify on a live pod with: curl -s https://vultrmcp.com/healthz
+  # Verify on a live pod with: curl -s https://mcp.vultr.com/healthz
   VULTR_MCP_WRITES_ENABLED: "false"
   # Identity categories excluded by default; empty string disables exclusions.
   # VULTR_MCP_EXCLUDED_CATEGORIES: "api-keys,users,iam,scim,organizations,oidc"

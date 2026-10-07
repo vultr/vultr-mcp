@@ -218,7 +218,7 @@ def _proxy(monkeypatch):
         "VULTR_OIDC_PROVIDER_ID": "prov-123",
         "VULTR_OAUTH_CLIENT_ID": "client-abc",
         "VULTR_OAUTH_CLIENT_SECRET": "secret-xyz",
-        "MCP_RESOURCE_URL": "https://vultrmcp.com",
+        "MCP_RESOURCE_URL": "https://mcp.vultr.com",
     }.items():
         monkeypatch.setenv(name, value)
     monkeypatch.delenv("REDIS_HOST", raising=False)

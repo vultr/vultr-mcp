@@ -1,0 +1,41 @@
+# vultrmcp.com stays registered as the CNAME target of mcp.vultr.com, so it redirects rather than 404s.
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: vultrmcp-redirect
+  labels:
+    app: vultr-mcp
+spec:
+  redirectRegex:
+    regex: ^https://vultrmcp\.com(.*)
+    replacement: https://mcp.vultr.com${1}
+    permanent: true
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  # Same name as the Ingress that served vultrmcp.com, so applying this replaces it instead of leaving it behind.
+  name: vultr-mcp
+  labels:
+    app: vultr-mcp
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.tls: "true"
+    traefik.ingress.kubernetes.io/router.tls.certresolver: letsencrypt
+    traefik.ingress.kubernetes.io/router.middlewares: default-vultrmcp-redirect@kubernetescrd
+spec:
+  ingressClassName: traefik
+  tls:
+    - hosts:
+        - vultrmcp.com
+  rules:
+    - host: vultrmcp.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: vultr-mcp
+                port:
+                  number: 8000

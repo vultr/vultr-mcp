@@ -22,16 +22,16 @@ The official [Model Context Protocol](https://modelcontextprotocol.io) server fo
 Vultr hosts the server, so there is nothing to install. Add this URL to your MCP client:
 
 ```
-https://vultrmcp.com/mcp
+https://mcp.vultr.com/mcp
 ```
 
 Your client opens a browser window to sign in to Vultr, and the tools are ready once you approve. For example, in Claude Code:
 
 ```bash
-claude mcp add --transport http vultr https://vultrmcp.com/mcp
+claude mcp add --transport http vultr https://mcp.vultr.com/mcp
 ```
 
-Then run `/mcp` inside Claude Code, choose **vultr** and sign in. Setup for other clients is under [Client setup](#client-setup), and a browser pointed at [vultrmcp.com](https://vultrmcp.com) shows the same guide with every endpoint and tool listed.
+Then run `/mcp` inside Claude Code, choose **vultr** and sign in. Setup for other clients is under [Client setup](#client-setup), and a browser pointed at [mcp.vultr.com](https://mcp.vultr.com) shows the same guide with every endpoint and tool listed.
 
 ## Authentication
 
@@ -48,7 +48,7 @@ To work with two organizations at once, add the server twice under different nam
 
 ## Endpoints
 
-`https://vultrmcp.com/mcp` serves all 186 tools. Some clients struggle with that many, and a model picks the right tool more often from a shorter list. Each product area also has its own endpoint serving only its tools. Add the area to the end of `/mcp`:
+`https://mcp.vultr.com/mcp` serves all 186 tools. Some clients struggle with that many, and a model picks the right tool more often from a shorter list. Each product area also has its own endpoint serving only its tools. Add the area to the end of `/mcp`:
 
 | Endpoint | Tools | Covers |
 |---|---:|---|
@@ -64,7 +64,7 @@ To work with two organizations at once, add the server twice under different nam
 
 Each endpoint's name matches its tools: `/mcp/compute` serves the `vultr_compute_*` tools, and so on. Kubernetes is kept apart from compute on purpose, because VKE clusters and Compute Clusters are easy to confuse.
 
-You can add as many as you like, each as its own entry. `https://vultrmcp.com/` works the same as `/mcp`. Older per-category paths, such as `/mcp/instances` or `/instances`, still work and serve the endpoint their category now belongs to.
+You can add as many as you like, each as its own entry. `https://mcp.vultr.com/` works the same as `/mcp`. Older per-category paths, such as `/mcp/instances` or `/instances`, still work and serve the endpoint their category now belongs to.
 
 ## Client setup
 
@@ -74,7 +74,7 @@ Every example uses the full endpoint. Swap in one of the [endpoints above](#endp
 <summary><b>Claude.ai and Claude Desktop</b></summary>
 
 1. **Settings → Connectors → Add custom connector**.
-2. Name it `Vultr`, set the URL to `https://vultrmcp.com/mcp`, and click **Add**.
+2. Name it `Vultr`, set the URL to `https://mcp.vultr.com/mcp`, and click **Add**.
 3. Click **Connect**, sign in to Vultr and approve.
 
 A connector added once works in both Claude Desktop and claude.ai. On Team and Enterprise plans an Owner adds it first under **Organization settings → Connectors**, then each person connects from their own Settings. Claude Desktop and claude.ai sign in with OAuth only.
@@ -85,7 +85,7 @@ A connector added once works in both Claude Desktop and claude.ai. On Team and E
 <summary><b>Claude Code</b></summary>
 
 ```bash
-claude mcp add --transport http vultr https://vultrmcp.com/mcp
+claude mcp add --transport http vultr https://mcp.vultr.com/mcp
 ```
 
 Then run `/mcp`, choose **vultr** and sign in. Add `--scope user` to make it available in every folder, not just the current one.
@@ -102,7 +102,7 @@ In **Settings → Tools & MCP → Add custom MCP**, edit `mcp.json`:
   "mcpServers": {
     "vultr": {
       "type": "http",
-      "url": "https://vultrmcp.com/mcp"
+      "url": "https://mcp.vultr.com/mcp"
     }
   }
 }
@@ -122,7 +122,7 @@ In `.vscode/mcp.json`, or from the **MCP Servers** panel with **+** and an HTTP 
   "servers": {
     "vultr": {
       "type": "http",
-      "url": "https://vultrmcp.com/mcp"
+      "url": "https://mcp.vultr.com/mcp"
     }
   }
 }
@@ -136,7 +136,7 @@ Sign in when VS Code asks.
 <summary><b>Codex CLI</b></summary>
 
 ```bash
-codex mcp add vultr --url https://vultrmcp.com/mcp
+codex mcp add vultr --url https://mcp.vultr.com/mcp
 codex mcp login vultr
 ```
 
@@ -146,7 +146,7 @@ codex mcp login vultr
 <summary><b>OpenClaw</b></summary>
 
 ```bash
-openclaw mcp add vultr --url https://vultrmcp.com/mcp --transport streamable-http --auth oauth
+openclaw mcp add vultr --url https://mcp.vultr.com/mcp --transport streamable-http --auth oauth
 openclaw mcp login vultr
 ```
 
@@ -164,7 +164,7 @@ In `opencode.json`. It starts the sign-in on its own:
   "mcp": {
     "vultr": {
       "type": "remote",
-      "url": "https://vultrmcp.com/mcp",
+      "url": "https://mcp.vultr.com/mcp",
       "enabled": true
     }
   }
@@ -181,7 +181,7 @@ In `~/.hermes/config.yaml`:
 ```yaml
 mcp_servers:
   vultr:
-    url: "https://vultrmcp.com/mcp"
+    url: "https://mcp.vultr.com/mcp"
     auth: oauth
 ```
 
@@ -193,7 +193,7 @@ mcp_servers:
 Any client that supports remote MCP over Streamable HTTP works: give it the URL, and leave credentials empty, and it signs in with OAuth. Clients that only launch local servers can connect through [`mcp-remote`](https://github.com/geelen/mcp-remote), which signs in with OAuth:
 
 ```bash
-npx -y mcp-remote https://vultrmcp.com/mcp
+npx -y mcp-remote https://mcp.vultr.com/mcp
 ```
 
 On a network that inspects TLS traffic, point Node at your company's CA with `NODE_EXTRA_CA_CERTS=/path/to/ca.pem` rather than turning off certificate checks.
@@ -263,7 +263,7 @@ Self-hosted servers can turn on write tools with `VULTR_MCP_WRITES_ENABLED=true`
 | `VULTR_MCP_INTERFACE_DIR` | where the reviewed tool definitions live (default `interface/`) |
 | `VULTR_MCP_INTERFACE_MAX_PAGES` | pages one filtered search may scan (default `10`) |
 | `VULTR_MCP_OUTPUT_SCHEMAS` | advertise generated output schemas (default `false`) |
-| `MCP_RESOURCE_URL` | the server's public URL, for OAuth and the allowed host list (default `https://vultrmcp.com`) |
+| `MCP_RESOURCE_URL` | the server's public URL, for OAuth and the allowed host list (default `https://mcp.vultr.com`) |
 | `MCP_ALLOWED_HOSTS` | extra hosts to accept |
 | `MCP_ALLOWED_ORIGINS` | extra `Origin` values for the OAuth consent page |
 | `VULTR_OIDC_ENABLED` | turn on OAuth (default `false`) |

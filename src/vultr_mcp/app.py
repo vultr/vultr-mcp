@@ -178,7 +178,7 @@ def create_http_app(spec: dict | None = None):
     # must be allow-listed or requests 421.
     from urllib.parse import urlparse
 
-    resource_url = os.environ.get("MCP_RESOURCE_URL", "https://vultrmcp.com")
+    resource_url = os.environ.get("MCP_RESOURCE_URL", "https://mcp.vultr.com")
     resource_host = urlparse(resource_url).netloc
     allowed_hosts = [h for h in (resource_host, "localhost", "127.0.0.1") if h]
     allowed_hosts += [

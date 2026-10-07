@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Vultr MCP Server — Docs</title>
-<meta name="description" content="How to authorize and consume the Vultr MCP server at vultrmcp.com, with setup for opencode, Hermes Agent, OpenClaw, and other MCP clients.">
+<meta name="description" content="How to authorize and consume the Vultr MCP server at mcp.vultr.com, with setup for opencode, Hermes Agent, OpenClaw, and other MCP clients.">
 <style>
   :root {
     --bg: #ffffff;
@@ -205,15 +205,15 @@
 
   <section id="endpoints">
     <h2>Endpoints</h2>
-    <p>The base URL is <code>https://vultrmcp.com/</code>. The <strong>root</strong> exposes the full read-only tool surface through one connection. Each product area also gets its own endpoint exposing only that area's tools — useful when your client has limited connection slots or you want a smaller, cheaper tool set.</p>
-    <p class="muted" style="margin-top:6px;">The root doubles as this page: only a top-level browser navigation gets the docs, so MCP clients — including browser-based agent UIs — reach the protocol at the same URL. Both <code>https://vultrmcp.com</code> and <code>https://vultrmcp.com/</code> work; the trailing-slash form is canonical.</p>
-    <pre><code>https://vultrmcp.com/                        # all tools (one connection)
-https://vultrmcp.com/mcp                     # alias of the root, identical tools
-https://vultrmcp.com/mcp/compute             # instances, bare metal, snapshots, ...
-https://vultrmcp.com/mcp/kubernetes          # VKE clusters and node pools
-https://vultrmcp.com/mcp/network             # DNS, firewalls, load balancers, VPCs, ...
-https://vultrmcp.com/mcp/databases           # Managed Databases</code></pre>
-        <p class="muted" style="margin-bottom:4px;">The root serves all of these combined; each endpoint below serves only its own tools. Click one to see the tools it exposes. Add the area to the end of <code>/mcp</code> — e.g. <code>https://vultrmcp.com/mcp/storage</code>. Older per-category paths, such as <code>/mcp/instances</code> or <code>/instances</code>, still work and serve the endpoint their category now belongs to.</p>
+    <p>The base URL is <code>https://mcp.vultr.com/</code>. The <strong>root</strong> exposes the full read-only tool surface through one connection. Each product area also gets its own endpoint exposing only that area's tools — useful when your client has limited connection slots or you want a smaller, cheaper tool set.</p>
+    <p class="muted" style="margin-top:6px;">The root doubles as this page: only a top-level browser navigation gets the docs, so MCP clients — including browser-based agent UIs — reach the protocol at the same URL. Both <code>https://mcp.vultr.com</code> and <code>https://mcp.vultr.com/</code> work; the trailing-slash form is canonical.</p>
+    <pre><code>https://mcp.vultr.com/                        # all tools (one connection)
+https://mcp.vultr.com/mcp                     # alias of the root, identical tools
+https://mcp.vultr.com/mcp/compute             # instances, bare metal, snapshots, ...
+https://mcp.vultr.com/mcp/kubernetes          # VKE clusters and node pools
+https://mcp.vultr.com/mcp/network             # DNS, firewalls, load balancers, VPCs, ...
+https://mcp.vultr.com/mcp/databases           # Managed Databases</code></pre>
+        <p class="muted" style="margin-bottom:4px;">The root serves all of these combined; each endpoint below serves only its own tools. Click one to see the tools it exposes. Add the area to the end of <code>/mcp</code> — e.g. <code>https://mcp.vultr.com/mcp/storage</code>. Older per-category paths, such as <code>/mcp/instances</code> or <code>/instances</code>, still work and serve the endpoint their category now belongs to.</p>
     <details class="ep-browse">
       <summary>Browse all endpoints<span class="ep-count"><!--EP_COUNT--></span></summary>
       <div class="ep-controls"><button type="button" id="ep-toggle">Expand all</button></div>
@@ -229,7 +229,7 @@ https://vultrmcp.com/mcp/databases           # Managed Databases</code></pre>
     <p>You sign in with your Vultr account, and every call then goes to <code>api.vultr.com</code> as you.</p>
 
     <h3>OAuth</h3>
-    <p>Point your MCP client at <code>https://vultrmcp.com/</code> and start the connection. You'll be redirected to Vultr to sign in and consent — no client ID or secret to paste, no API key to manage. Your client stores the resulting token and reuses it. This is the smoothest path for GUI clients with a browser handy (e.g. Claude).</p>
+    <p>Point your MCP client at <code>https://mcp.vultr.com/</code> and start the connection. You'll be redirected to Vultr to sign in and consent — no client ID or secret to paste, no API key to manage. Your client stores the resulting token and reuses it. This is the smoothest path for GUI clients with a browser handy (e.g. Claude).</p>
     <p><strong>How long you stay signed in.</strong> Access tokens last an hour and your client renews them on its own, so an active connection keeps working without prompting you. You're asked to sign in again only after 30 days without using it, or if access is revoked.</p>
   </section>
 
@@ -239,7 +239,7 @@ https://vultrmcp.com/mcp/databases           # Managed Databases</code></pre>
 
     <figure style="margin:20px 0;">
       <div style="overflow-x:auto;">
-        <svg viewBox="0 0 760 360" role="img" aria-label="OAuth connection flow: your MCP client connects to vultrmcp.com, which redirects you to Vultr to sign in and consent; Vultr issues a token and the client is connected." style="width:100%; min-width:640px; height:auto;">
+        <svg viewBox="0 0 760 360" role="img" aria-label="OAuth connection flow: your MCP client connects to mcp.vultr.com, which redirects you to Vultr to sign in and consent; Vultr issues a token and the client is connected." style="width:100%; min-width:640px; height:auto;">
           <defs>
             <marker id="ah" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
               <path d="M0,0 L7,3 L0,6 Z" fill="var(--accept)"></path>
@@ -249,7 +249,7 @@ https://vultrmcp.com/mcp/databases           # Managed Databases</code></pre>
             <rect x="40" y="14" width="150" height="40" rx="9" fill="var(--card)" stroke="var(--border)"></rect>
             <text x="115" y="39">Your MCP client</text>
             <rect x="305" y="14" width="150" height="40" rx="9" fill="var(--card)" stroke="var(--border)"></rect>
-            <text x="380" y="39">vultrmcp.com</text>
+            <text x="380" y="39">mcp.vultr.com</text>
             <rect x="570" y="14" width="150" height="40" rx="9" fill="var(--card)" stroke="var(--border)"></rect>
             <text x="645" y="39">Vultr sign-in</text>
           </g>
@@ -287,7 +287,7 @@ https://vultrmcp.com/mcp/databases           # Managed Databases</code></pre>
         <h3>Claude.ai</h3>
         <ol>
           <li>Settings → <strong>Connectors</strong> → <em>Add custom connector</em>.</li>
-          <li>Paste <code>https://vultrmcp.com/</code> and click <strong>Connect</strong>.</li>
+          <li>Paste <code>https://mcp.vultr.com/</code> and click <strong>Connect</strong>.</li>
           <li>A Vultr sign-in tab opens — sign in and approve.</li>
           <li>The connector flips to <em>Connected</em>; tools appear in chat.</li>
         </ol>
@@ -296,7 +296,7 @@ https://vultrmcp.com/mcp/databases           # Managed Databases</code></pre>
         <h3>Cursor</h3>
         <ol>
           <li>Settings → Cursor Settings → <strong>Tools &amp; MCP</strong>.</li>
-          <li><strong>Add custom MCP</strong> → in <code>mcp.json</code> set <code>"type": "http"</code>, <code>"url": "https://vultrmcp.com/"</code>.</li>
+          <li><strong>Add custom MCP</strong> → in <code>mcp.json</code> set <code>"type": "http"</code>, <code>"url": "https://mcp.vultr.com/"</code>.</li>
           <li>Save → <strong>Needs login</strong> opens the browser OAuth flow.</li>
           <li>Tools appear under <strong>Available Tools</strong>.</li>
         </ol>
@@ -305,7 +305,7 @@ https://vultrmcp.com/mcp/databases           # Managed Databases</code></pre>
         <h3>VS Code</h3>
         <ol>
           <li>Open the <strong>MCP Servers</strong> panel (agent customizations view) — or edit <code>mcp.json</code> (repo root or <code>.vscode/mcp.json</code>).</li>
-          <li>Click <strong>+</strong> to add a server (or <strong>Browse Marketplace</strong>) → custom HTTP server, URL <code>https://vultrmcp.com/</code>.</li>
+          <li>Click <strong>+</strong> to add a server (or <strong>Browse Marketplace</strong>) → custom HTTP server, URL <code>https://mcp.vultr.com/</code>.</li>
           <li>On the auth challenge, sign in through the browser.</li>
           <li>It appears under <strong>Workspace</strong> / <strong>User</strong> with a green check; tools are live in agent chat.</li>
         </ol>
@@ -313,7 +313,7 @@ https://vultrmcp.com/mcp/databases           # Managed Databases</code></pre>
       <div class="card">
         <h3>Codex CLI</h3>
         <ol>
-          <li><code>codex mcp add vultr --url https://vultrmcp.com/</code></li>
+          <li><code>codex mcp add vultr --url https://mcp.vultr.com/</code></li>
           <li>OAuth: <code>codex mcp login vultr</code> opens the browser.</li>
         </ol>
       </div>
@@ -324,7 +324,7 @@ https://vultrmcp.com/mcp/databases           # Managed Databases</code></pre>
   "mcp": {
     "vultr": {
       "type": "remote",
-      "url": "https://vultrmcp.com/",
+      "url": "https://mcp.vultr.com/",
       "enabled": true
     }
   }
@@ -335,13 +335,13 @@ https://vultrmcp.com/mcp/databases           # Managed Databases</code></pre>
         <p class="muted" style="margin-top:0;">In <code>~/.hermes/config.yaml</code>:</p>
         <pre><code>mcp_servers:
   vultr:
-    url: "https://vultrmcp.com/"
+    url: "https://mcp.vultr.com/"
     auth: oauth</code></pre>
       </div>
       <div class="card">
         <h3>OpenClaw</h3>
         <pre><code>openclaw mcp add vultr \
-  --url https://vultrmcp.com \
+  --url https://mcp.vultr.com \
   --transport streamable-http \
   --auth oauth
 openclaw mcp login vultr</code></pre>
@@ -350,11 +350,11 @@ openclaw mcp login vultr</code></pre>
       <div class="card">
         <h3>Claude Desktop &amp; stdio-only clients</h3>
         <p class="muted" style="margin-top:0;">Clients without native remote MCP (older Claude Desktop, Zed, others) bridge via <code>mcp-remote</code> — OAuth runs on first launch:</p>
-        <pre><code>npx -y mcp-remote https://vultrmcp.com/</code></pre>
+        <pre><code>npx -y mcp-remote https://mcp.vultr.com/</code></pre>
       </div>
       <div class="card">
         <h3>Any MCP client</h3>
-        <p class="muted" style="margin-top:0;">Native remote (Streamable HTTP): give it <code>https://vultrmcp.com/</code> and leave credentials blank, and the client signs in with OAuth. stdio-only: use the <code>mcp-remote</code> bridge above.</p>
+        <p class="muted" style="margin-top:0;">Native remote (Streamable HTTP): give it <code>https://mcp.vultr.com/</code> and leave credentials blank, and the client signs in with OAuth. stdio-only: use the <code>mcp-remote</code> bridge above.</p>
       </div>
     </div>
   </section>

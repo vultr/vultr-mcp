@@ -29,7 +29,7 @@ from vultr_mcp.device_flow import (
     normalize_user_code,
 )
 
-BASE_URL = "https://vultrmcp.com"
+BASE_URL = "https://mcp.vultr.com"
 
 
 class StubToken:

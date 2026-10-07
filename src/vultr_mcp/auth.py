@@ -506,7 +506,7 @@ def build_auth(
     provider_id = _env("VULTR_OIDC_PROVIDER_ID")
     client_id = _env("VULTR_OAUTH_CLIENT_ID")
     client_secret = _env("VULTR_OAUTH_CLIENT_SECRET")
-    resource_url = (os.environ.get("MCP_RESOURCE_URL", "https://vultrmcp.com")).rstrip("/")
+    resource_url = (os.environ.get("MCP_RESOURCE_URL", "https://mcp.vultr.com")).rstrip("/")
     ssl_verify = os.environ.get("SSL_VERIFY", "true").lower() not in ("false", "0", "no")
 
     missing = [

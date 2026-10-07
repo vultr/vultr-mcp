@@ -185,7 +185,7 @@ def _endpoint() -> dict[str, Any]:
     """Which URL the call came in on: the path and the Host header.
 
     What decides when an old address can be retired -- the bare /<category>
-    paths /mcp/<category> replaced, and vultrmcp.com once mcp.vultr.com is up.
+    paths /mcp/<category> replaced.
     No query string: it is not part of an endpoint, and nothing a client puts
     there belongs in this log. Empty under STDIO, where there is no request.
     """

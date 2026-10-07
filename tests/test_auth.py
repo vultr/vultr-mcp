@@ -32,7 +32,7 @@ def _enable_env(monkeypatch):
     monkeypatch.setenv("VULTR_OIDC_PROVIDER_ID", "prov-123")
     monkeypatch.setenv("VULTR_OAUTH_CLIENT_ID", "client-abc")
     monkeypatch.setenv("VULTR_OAUTH_CLIENT_SECRET", "secret-xyz")
-    monkeypatch.setenv("MCP_RESOURCE_URL", "https://vultrmcp.com")
+    monkeypatch.setenv("MCP_RESOURCE_URL", "https://mcp.vultr.com")
 
 
 def test_disabled_returns_none(monkeypatch):
