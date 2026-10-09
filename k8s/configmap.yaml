@@ -39,10 +39,7 @@ data:
   VULTR_MCP_AUDIT_FILE_MAX_MB: "64"
 
   # ---- Tool surface ----
-  # Read-only. Stated explicitly rather than left to the default so the write
-  # posture of this deployment is visible in the manifest, not just in code.
-  # Verify on a live pod with: curl -s https://mcp.vultr.com/healthz
-  VULTR_MCP_WRITES_ENABLED: "false"
+  # Always read-only; there is no write switch.
   # Identity categories excluded by default; empty string disables exclusions.
   # VULTR_MCP_EXCLUDED_CATEGORIES: "api-keys,users,iam,scim,organizations,oidc"
   # Category endpoints to expose (default: all non-excluded). Trim to reduce

@@ -1149,8 +1149,8 @@ async def test_interface_can_be_switched_off():
     assert "list_clusters" in names
 
 
-async def test_interface_read_tool_survives_read_only_mode():
-    assert CLUSTER_TOOL in await _tool_names(create_server(read_only=True))
+async def test_interface_read_tool_survives_the_read_only_surface():
+    assert CLUSTER_TOOL in await _tool_names(create_server())
 
 
 async def test_category_exclusions_still_apply_to_interface_tools():
@@ -1525,29 +1525,28 @@ def test_an_excluded_operation_counts_as_reviewed_not_drift(tmp_path, definition
     assert "delete-cluster" not in unreviewed
 
 
-def test_a_write_served_over_get_is_on_the_write_surface_only(spec):
+def test_the_shipped_exclusion_removes_the_tool_from_the_surface(spec):
     """purge-pullzone: a state change Vultr serves over GET.
 
-    The method reads as safe, so only WRITE_METHOD_OVERRIDES keeps it off the
-    read-only surface. It is declined, not excluded, so it is still served
-    once writes are enabled.
+    The read-only gate classifies by HTTP method, so it reads as safe and would
+    be served. Declining would not remove it -- a decline leaves the generated
+    tool exposed -- which is why the exclusion mechanism exists at all.
     """
     import asyncio
 
     compiled = compile_interface(INTERFACE_DIR, spec)
-    assert "purge-pullzone" in {d.operation_id for d in compiled.declined}
-    assert "purge-pullzone" not in {e.operation_id for e in compiled.excluded}
+    excluded = {e.operation_id for e in compiled.excluded}
+    assert "purge-pullzone" in excluded
 
-    async def served(read_only: bool) -> set[str]:
-        server = create_server(spec, read_only=read_only)
+    async def served() -> set[str]:
+        server = create_server(spec)
         async with Client(server) as client:
             return {tool.name for tool in await client.list_tools()}
 
-    assert not [n for n in asyncio.run(served(True)) if "purge" in n.lower()], (
-        "purge-pullzone is reachable on the read-only surface"
-    )
-    assert [n for n in asyncio.run(served(False)) if "purge" in n.lower()], (
-        "purge-pullzone should be served when writes are enabled"
+    names = asyncio.run(served())
+    assert not [n for n in names if "purge" in n.lower()], (
+        "purge-pullzone is still reachable; the exclusion is not wired to the "
+        "route maps"
     )
 
 

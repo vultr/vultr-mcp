@@ -36,11 +36,9 @@ async def _wire_listing(server) -> tuple[list, int]:
     return tools, len(wire)
 
 
-@pytest.mark.parametrize("read_only", [True, False])
-async def test_root_listing_fits_client_budgets(spec, read_only):
-    """Both surfaces must fit — the read-only default and the write surface
-    that org-level opt-in will hand out."""
-    tools, size = await _wire_listing(create_server(spec, read_only=read_only))
+async def test_root_listing_fits_client_budgets(spec):
+    """The root surface's tools/list must fit what MCP clients accept."""
+    tools, size = await _wire_listing(create_server(spec))
     assert size < MAX_ROOT_LISTING_BYTES, (
         f"root tools/list is {size:,} bytes across {len(tools)} tools — "
         "large enough that MCP clients reject the listing"

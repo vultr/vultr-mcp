@@ -1,8 +1,8 @@
 """Vultr MCP server: the tool surface, built from ``openapi.json``.
 
 Each caller's own credential is forwarded to api.vultr.com per request, resolved
-in the order ``PerRequestVultrAuth`` documents. The surface is read-only unless
-``VULTR_MCP_WRITES_ENABLED`` is set.
+in the order ``PerRequestVultrAuth`` documents. The surface is read-only: every
+state-changing operation is dropped, and there is no switch to restore them.
 """
 
 from __future__ import annotations
@@ -59,13 +59,6 @@ WRITE_METHODS: tuple[str, ...] = (
 # request body, but it creates nothing. (method, anchored OpenAPI path regex)
 READ_ONLY_METHOD_OVERRIDES: tuple[tuple[str, str], ...] = (
     ("POST", r"^/databases/\{database-id\}/alerts$"),
-)
-
-# GET operations that change state, so they belong on the write surface even
-# though the method reads as safe. A cache purge empties the pull zone's cache.
-# (method, anchored OpenAPI path regex)
-WRITE_METHOD_OVERRIDES: tuple[tuple[str, str], ...] = (
-    ("GET", r"^/cdns/pull-zones/\{pullzone-id\}/purge$"),
 )
 
 
@@ -296,19 +289,6 @@ def _output_schemas_enabled() -> bool:
     return os.environ.get("VULTR_MCP_OUTPUT_SCHEMAS", "false").lower() in ("1", "true", "yes")
 
 
-def read_only_from_env() -> bool:
-    """Whether the tool surface is read-only. Default: yes.
-
-    Writes are opt-in (VULTR_MCP_WRITES_ENABLED), not opt-out, so a deployment
-    that forgets to set anything ships the safe surface.
-    """
-    return os.environ.get("VULTR_MCP_WRITES_ENABLED", "false").lower() not in (
-        "1",
-        "true",
-        "yes",
-    )
-
-
 def interface_dir_from_env() -> Path | None:
     """Where the interface layer lives, or None when it is switched off.
 
@@ -366,7 +346,6 @@ def load_interface(spec: dict, interface_dir: Path | None) -> CompiledInterface:
 
 def _build_route_maps(
     exclude_tags: set[str],
-    read_only: bool,
     interface_routes: list[tuple[str, str]] | None = None,
 ) -> list[RouteMap]:
     """RouteMaps applied in order -- first match wins, default is TOOL.
@@ -376,9 +355,8 @@ def _build_route_maps(
        on a route, and an operation carries exactly one, so a multi-tag map
        would never match. Before the method maps, so an identity exclusion
        cannot be undone by a later one.
-    3. Writes served over GET excluded, before anything can admit them...
-    4. ...read-only overrides re-admitted as TOOLs...
-    5. ...then every remaining write method excluded. GETs match nothing and
+    3. Read-only overrides re-admitted as TOOLs...
+    4. ...then every remaining write method excluded. GETs match nothing and
        fall through to the default.
     """
     maps = [
@@ -390,16 +368,11 @@ def _build_route_maps(
         for method, path in sorted(interface_routes or [])
     ]
     maps += [RouteMap(tags={tag}, mcp_type=MCPType.EXCLUDE) for tag in sorted(exclude_tags)]
-    if read_only:
-        maps += [
-            RouteMap(methods=[method], pattern=pattern, mcp_type=MCPType.EXCLUDE)
-            for method, pattern in WRITE_METHOD_OVERRIDES
-        ]
-        maps += [
-            RouteMap(methods=[method], pattern=pattern, mcp_type=MCPType.TOOL)
-            for method, pattern in READ_ONLY_METHOD_OVERRIDES
-        ]
-        maps.append(RouteMap(methods=list(WRITE_METHODS), mcp_type=MCPType.EXCLUDE))
+    maps += [
+        RouteMap(methods=[method], pattern=pattern, mcp_type=MCPType.TOOL)
+        for method, pattern in READ_ONLY_METHOD_OVERRIDES
+    ]
+    maps.append(RouteMap(methods=list(WRITE_METHODS), mcp_type=MCPType.EXCLUDE))
     return maps
 
 
@@ -408,7 +381,6 @@ def create_server(
     *,
     exclude_categories: set[str] | None = None,
     only_categories: set[str] | None = None,
-    read_only: bool | None = None,
     auth=None,
     interface_dir: Path | None = None,
     use_interface: bool | None = None,
@@ -424,9 +396,6 @@ def create_server(
         model from the PHP server, e.g. an /instances-only connection). The
         default identity exclusions still apply on top, so a category
         endpoint can never resurface an excluded identity tool.
-    read_only:
-        Drop every state-changing operation. Defaults to the env value
-        (read-only unless VULTR_MCP_WRITES_ENABLED opts in).
     interface_dir:
         Directory of reviewed tool definitions. Defaults to the env value,
         else ``interface/`` beside openapi.json. Each tool it defines replaces
@@ -437,9 +406,6 @@ def create_server(
     """
     if spec is None:
         spec = load_spec()
-
-    if read_only is None:
-        read_only = read_only_from_env()
 
     if exclude_categories is None:
         exclude_categories = excluded_categories_from_env()
@@ -481,7 +447,7 @@ def create_server(
     interface_tools = [
         tool
         for tool in interface.tools
-        if not (read_only and tool.is_write) and not (tool.tags & exclude_tags)
+        if not tool.is_write and not (tool.tags & exclude_tags)
     ]
 
     # Two reasons to drop a generated route: a hand-authored tool replaces its
@@ -501,7 +467,7 @@ def create_server(
         # so a client asking what it is talking to gets "3.4.3" -- which says
         # nothing about which build is serving. Same reasoning as /healthz.
         version=package_version(),
-        route_maps=_build_route_maps(exclude_tags, read_only, suppressed),
+        route_maps=_build_route_maps(exclude_tags, suppressed),
         mcp_component_fn=None if _output_schemas_enabled() else _strip_output_schema,
         auth=auth,
     )

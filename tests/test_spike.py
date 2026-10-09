@@ -27,15 +27,11 @@ def server():
 
 
 async def test_tools_generated_from_openapi():
-    """The whole 494-operation spec becomes tools, all with MCP-legal names.
-
-    Generation completeness, so writes are enabled here — the default surface
-    is read-only (see test_read_only.py) and would only exercise the GETs.
-    """
-    async with Client(create_server(read_only=False)) as client:
+    """The spec's read operations become tools, all with MCP-legal names."""
+    async with Client(create_server()) as client:
         tools = await client.list_tools()
 
-    assert len(tools) > 400, f"expected 400+ tools, got {len(tools)}"
+    assert len(tools) > 150, f"expected 150+ tools, got {len(tools)}"
 
     names = [t.name for t in tools]
     too_long = [n for n in names if len(n) >= 64]

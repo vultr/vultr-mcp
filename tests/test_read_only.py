@@ -1,9 +1,8 @@
-"""The public release ships a read-only tool surface.
+"""The server ships a read-only tool surface, with no switch to change it.
 
-Writes are opt-in (VULTR_MCP_WRITES_ENABLED), so a deployment that configures
-nothing cannot hand an agent a tool that provisions, mutates, or destroys
-infrastructure. These tests pin that default and the one behavioural
-exception (a POST that only lists).
+No deployment, hosted or self-hosted, can hand an agent a tool that provisions,
+mutates, or destroys infrastructure. These tests pin that and the one
+behavioural exception (a POST that only lists).
 """
 
 from __future__ import annotations
@@ -13,11 +12,9 @@ from fastmcp import Client
 
 from vultr_mcp.server import (
     READ_ONLY_METHOD_OVERRIDES,
-    WRITE_METHOD_OVERRIDES,
     WRITE_METHODS,
     create_server,
     load_spec,
-    read_only_from_env,
 )
 
 # Prefixes FastMCP derives from Vultr's non-GET operationIds. Any of these
@@ -78,49 +75,25 @@ async def test_default_surface_is_read_only(spec):
     assert "list_instances" in joined or "vultr_compute_instances_list" in joined
 
 
-async def test_read_only_is_the_default_without_env(monkeypatch):
-    monkeypatch.delenv("VULTR_MCP_WRITES_ENABLED", raising=False)
-    assert read_only_from_env() is True
-
-
-@pytest.mark.parametrize("value", ["true", "TRUE", "1", "yes"])
-def test_writes_enabled_opts_in(monkeypatch, value):
+@pytest.mark.parametrize("value", ["true", "1", "yes"])
+async def test_the_removed_write_switch_does_nothing(spec, monkeypatch, value):
+    """A self-hosted deployment still setting VULTR_MCP_WRITES_ENABLED gets no write tools."""
     monkeypatch.setenv("VULTR_MCP_WRITES_ENABLED", value)
-    assert read_only_from_env() is False
-
-
-@pytest.mark.parametrize("value", ["false", "0", "no", "", "maybe"])
-def test_anything_else_stays_read_only(monkeypatch, value):
-    """Typos and junk fail closed, not open."""
-    monkeypatch.setenv("VULTR_MCP_WRITES_ENABLED", value)
-    assert read_only_from_env() is True
-
-
-async def test_env_toggle_reaches_the_tool_surface(spec, monkeypatch):
-    monkeypatch.setenv("VULTR_MCP_WRITES_ENABLED", "true")
     names = await _tool_names(create_server(spec))
-    assert any(n.startswith("create_") for n in names), (
-        "VULTR_MCP_WRITES_ENABLED=true should restore write tools"
-    )
+    leaked = [n for n in names if n.startswith(WRITE_TOOL_PREFIXES)]
+    assert not leaked, f"the old write switch restored write tools: {leaked}"
 
 
-async def test_writes_are_the_only_difference(spec):
-    """Read-only drops writes and nothing else — every GET must survive."""
-    read_only = set(await _tool_names(create_server(spec)))
-    full = set(await _tool_names(create_server(spec, read_only=False)))
-
-    assert read_only < full
-    dropped = full - read_only
-    assert len(dropped) > 200, f"expected 200+ write tools dropped, got {len(dropped)}"
-
-    # Cross-check against the spec: every non-excluded GET is still a tool.
+async def test_surface_is_bounded_by_the_get_operations(spec):
+    """Only GETs (plus the read-only overrides) can become tools."""
+    names = await _tool_names(create_server(spec))
     get_ops = sum(
         1
         for path_item in spec["paths"].values()
         for method, op in path_item.items()
         if method == "get" and isinstance(op, dict)
     )
-    assert len(read_only) < get_ops, "read-only can't exceed the GET count + overrides"
+    assert len(names) < get_ops + len(READ_ONLY_METHOD_OVERRIDES), "the surface can't exceed the GET count + overrides"
 
 
 async def test_credential_minting_options_routes_are_dropped(spec):
@@ -143,18 +116,17 @@ def test_overrides_point_at_real_spec_operations(spec):
     """An override whose path stops matching the spec would silently no-op."""
     import re
 
-    for kind, overrides in (("read-only", READ_ONLY_METHOD_OVERRIDES), ("write", WRITE_METHOD_OVERRIDES)):
-        for method, pattern in overrides:
-            matches = [
-                path
-                for path, item in spec["paths"].items()
-                if re.search(pattern, path) and method.lower() in item
-            ]
-            assert matches, f"{kind} override {method} {pattern} matches no spec operation"
+    for method, pattern in READ_ONLY_METHOD_OVERRIDES:
+        matches = [
+            path
+            for path, item in spec["paths"].items()
+            if re.search(pattern, path) and method.lower() in item
+        ]
+        assert matches, f"read-only override {method} {pattern} matches no spec operation"
 
 
-async def test_writes_served_over_get_stay_off_the_read_only_surface(spec):
-    """A GET that changes state is excluded by its override, not by its method."""
+async def test_writes_served_over_get_stay_off_the_surface(spec):
+    """A GET that changes state is removed by its interface exclusion, since its method reads as safe."""
     names = await _tool_names(create_server(spec))
     assert not [n for n in names if "purge" in n.lower()], "a cache purge leaked onto the read-only surface"
 
@@ -171,7 +143,7 @@ async def test_category_endpoints_are_read_only_too(spec):
     assert names, "instances endpoint should still expose read tools"
 
 
-async def test_identity_exclusions_still_win_with_writes_enabled(spec):
+async def test_identity_exclusions_still_apply(spec):
     """Read-only is a second gate, not a replacement for the identity one."""
-    names = " ".join(await _tool_names(create_server(spec, read_only=False))).lower()
+    names = " ".join(await _tool_names(create_server(spec))).lower()
     assert "scim" not in names and "list_users" not in names

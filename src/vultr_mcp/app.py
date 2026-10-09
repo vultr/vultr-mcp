@@ -28,7 +28,6 @@ from vultr_mcp.server import (
     excluded_categories_from_env,
     load_spec,
     package_version,
-    read_only_from_env,
 )
 
 # Read rather than hard-coded so a bump in pyproject.toml is the only place it
@@ -119,10 +118,6 @@ def create_http_app(spec: dict | None = None):
 
     excluded = _resolve_exclusions()
 
-    # Resolved once so every mount shares one posture, and /healthz reports what
-    # the servers were actually built with.
-    read_only = read_only_from_env()
-
     # Built once and shared, so every endpoint validates the same Vultr token.
     from vultr_mcp.auth import build_auth
 
@@ -157,9 +152,7 @@ def create_http_app(spec: dict | None = None):
             stateless_http=True,
         )
 
-    root_server = create_server(
-        spec, exclude_categories=excluded, read_only=read_only, auth=auth
-    )
+    root_server = create_server(spec, exclude_categories=excluded, auth=auth)
     root_app = _http(root_server)
 
     # One server per group. Each is also reachable at its old category paths,
@@ -171,7 +164,6 @@ def create_http_app(spec: dict | None = None):
             spec,
             exclude_categories=excluded,
             only_categories=tags,
-            read_only=read_only,
             auth=auth,
         )
         app = _http(server)
@@ -195,9 +187,8 @@ def create_http_app(spec: dict | None = None):
                 "status": "ok",
                 "service": "vultr-mcp-server",
                 "version": VERSION,
-                # So a deploy's write posture is verifiable without listing
-                # tools -- the thing worth catching a misconfiguration on.
-                "read_only": read_only,
+                # Always true now that there is no write switch; kept so monitors reading it still work.
+                "read_only": True,
             }
         )
 

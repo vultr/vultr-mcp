@@ -247,7 +247,7 @@ Over HTTP, `VULTR_API_KEY` is ignored on purpose. Otherwise anyone who reached t
 
 **Docker and Kubernetes.** See [docs/self-hosting.md](docs/self-hosting.md) for the container image, the Kubernetes manifests the hosted server runs from, and the optional audit log pipeline.
 
-Self-hosted servers can turn on write tools with `VULTR_MCP_WRITES_ENABLED=true`. This is a safety default, not a security boundary: anyone holding the credential can already make the same changes through the API.
+Self-hosted servers are read-only too; there is no setting that turns on tools that change state. That is a safety default, not a security boundary: anyone holding the credential can already make the same changes through the API.
 
 ## Configuration
 
@@ -258,7 +258,6 @@ Self-hosted servers can turn on write tools with `VULTR_MCP_WRITES_ENABLED=true`
 | `VULTR_API_BASE_URL` | default `https://api.vultr.com/v2` |
 | `SERVER_HOST` / `SERVER_PORT` | HTTP bind address (default `0.0.0.0:8080`) |
 | `SSL_VERIFY` | verify upstream TLS (default `true`) |
-| `VULTR_MCP_WRITES_ENABLED` | expose tools that change state (default `false`) |
 | `VULTR_MCP_EXCLUDED_CATEGORIES` | categories to leave out (default: the identity set; empty keeps everything) |
 | `VULTR_MCP_CATEGORY_ENDPOINTS` | endpoints to serve, by name (`compute,network`) or by an old category name, which selects its endpoint (default: all nine) |
 | `VULTR_MCP_INTERFACE` | `off` serves only the tools generated from the spec (default on) |

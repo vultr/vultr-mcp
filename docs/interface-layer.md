@@ -22,21 +22,13 @@ The read-only surface is **186 tools** — 175 hand-authored, plus 11 generated 
 
 Every problem with an exclusion fails the build, unlike a decline. A stale decline is untidy; a stale exclusion reads as protection that is not there.
 
-### Read-only by default
+### Read-only, with no switch
 
 The rule is "GET, plus an explicit allowlist". Everything else is dropped — including Vultr's two `OPTIONS` routes, which mint container-registry Docker credentials despite the verb. The allowlist (`READ_ONLY_METHOD_OVERRIDES` in `server.py`) holds one entry: `POST /databases/{database-id}/alerts`, which only lists existing alerts but takes its filter in a request body.
 
-Writes are opt-in:
+There is no setting that turns writes on, for the hosted server or a self-hosted one. `GET /healthz` still reports `"read_only": true`, so existing checks keep working.
 
-```bash
-VULTR_MCP_WRITES_ENABLED=true uv run python -m vultr_mcp
-```
-
-`GET /healthz` reports the live posture as `"read_only": true|false`, so a deployment's behaviour is verifiable without listing tools.
-
-Note what this flag is and is not. It is a **safety default** that stops a connected agent from destroying infrastructure. It is **not a security boundary**: anyone holding a credential can call `api.vultr.com` directly and do everything that credential permits. The boundary is the credential's own ACLs.
-
-> Per-user, per-org write access — a toggle in the Vultr console promoting a specific user to the write surface — is the planned next step. This flag is the mechanism it will drive.
+Note what this is and is not. It is a **safety default** that stops a connected agent from destroying infrastructure. It is **not a security boundary**: anyone holding a credential can call `api.vultr.com` directly and do everything that credential permits. The boundary is the credential's own ACLs.
 
 ### Excluded categories
 
