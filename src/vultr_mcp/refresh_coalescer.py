@@ -253,15 +253,20 @@ def build_refresh_coalescer(upstream_client_secret: str | None) -> RefreshCoales
     material = upstream_client_secret or uuid.uuid4().hex
     fernet = Fernet(derive_jwt_key(high_entropy_material=material, salt="vultr-mcp-refresh-coalescer"))
 
+    client = redis_from_env()
+    return RefreshCoalescer(MemoryBackend() if client is None else RedisBackend(client), fernet)
+
+
+def redis_from_env() -> Any | None:
+    """The shared Redis client when REDIS_HOST is set, else None; short timeouts so an outage degrades rather than stalls."""
     host = os.environ.get("REDIS_HOST")
     if not host:
-        return RefreshCoalescer(MemoryBackend(), fernet)
+        return None
     import redis.asyncio as redis
 
-    client = redis.Redis(
+    return redis.Redis(
         host=host,
         port=int(os.environ.get("REDIS_PORT", "6379")),
         socket_timeout=2,
         socket_connect_timeout=2,
     )
-    return RefreshCoalescer(RedisBackend(client), fernet)

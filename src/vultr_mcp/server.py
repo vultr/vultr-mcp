@@ -22,6 +22,7 @@ from vultr_mcp.audit import AuditMiddleware, audit_enabled
 from vultr_mcp.diagnostics import InstrumentedTransport, PathTemplates
 from vultr_mcp.interface.compiler import CompiledInterface, compile_interface
 from vultr_mcp.interface.tools import InterfaceTool
+from vultr_mcp.tool_list_refresh import ToolListRefreshMiddleware
 
 VULTR_API_BASE = os.environ.get("VULTR_API_BASE_URL", "https://api.vultr.com/v2")
 
@@ -474,6 +475,9 @@ def create_server(
 
     for tool in interface_tools:
         server.add_tool(InterfaceTool.build(tool, client))
+
+    # After a release, tells each connected client once to refetch its tool list.
+    server.add_middleware(ToolListRefreshMiddleware())
 
     # Attached last so it wraps every tool, generated and hand-authored alike.
     if audit_enabled():
