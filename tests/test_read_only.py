@@ -13,6 +13,7 @@ from fastmcp import Client
 
 from vultr_mcp.server import (
     READ_ONLY_METHOD_OVERRIDES,
+    WRITE_METHOD_OVERRIDES,
     WRITE_METHODS,
     create_server,
     load_spec,
@@ -63,9 +64,9 @@ async def test_default_surface_is_read_only(spec):
     assert "vultr_account_get" in names
 
     # from_openapi still populates the surface, pinned to an operation that
-    # cannot stop being generated: get-cluster-availability is declined, and
-    # declining deliberately keeps the generated tool.
-    assert "get_cluster_availability" in names
+    # cannot stop being generated: list-marketplace-app-variables is declined,
+    # and declining deliberately keeps the generated tool.
+    assert "list_marketplace_app_variables" in names
 
     joined = " ".join(names)
 
@@ -142,13 +143,20 @@ def test_overrides_point_at_real_spec_operations(spec):
     """An override whose path stops matching the spec would silently no-op."""
     import re
 
-    for method, pattern in READ_ONLY_METHOD_OVERRIDES:
-        matches = [
-            path
-            for path, item in spec["paths"].items()
-            if re.search(pattern, path) and method.lower() in item
-        ]
-        assert matches, f"read-only override {method} {pattern} matches no spec operation"
+    for kind, overrides in (("read-only", READ_ONLY_METHOD_OVERRIDES), ("write", WRITE_METHOD_OVERRIDES)):
+        for method, pattern in overrides:
+            matches = [
+                path
+                for path, item in spec["paths"].items()
+                if re.search(pattern, path) and method.lower() in item
+            ]
+            assert matches, f"{kind} override {method} {pattern} matches no spec operation"
+
+
+async def test_writes_served_over_get_stay_off_the_read_only_surface(spec):
+    """A GET that changes state is excluded by its override, not by its method."""
+    names = await _tool_names(create_server(spec))
+    assert not [n for n in names if "purge" in n.lower()], "a cache purge leaked onto the read-only surface"
 
 
 def test_get_is_not_treated_as_a_write():

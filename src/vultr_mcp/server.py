@@ -61,6 +61,13 @@ READ_ONLY_METHOD_OVERRIDES: tuple[tuple[str, str], ...] = (
     ("POST", r"^/databases/\{database-id\}/alerts$"),
 )
 
+# GET operations that change state, so they belong on the write surface even
+# though the method reads as safe. A cache purge empties the pull zone's cache.
+# (method, anchored OpenAPI path regex)
+WRITE_METHOD_OVERRIDES: tuple[tuple[str, str], ...] = (
+    ("GET", r"^/cdns/pull-zones/\{pullzone-id\}/purge$"),
+)
+
 
 class PerRequestVultrAuth(httpx.Auth):
     """Resolve the caller's Vultr credential at call time.
@@ -369,8 +376,9 @@ def _build_route_maps(
        on a route, and an operation carries exactly one, so a multi-tag map
        would never match. Before the method maps, so an identity exclusion
        cannot be undone by a later one.
-    3. Read-only overrides re-admitted as TOOLs...
-    4. ...then every remaining write method excluded. GETs match nothing and
+    3. Writes served over GET excluded, before anything can admit them...
+    4. ...read-only overrides re-admitted as TOOLs...
+    5. ...then every remaining write method excluded. GETs match nothing and
        fall through to the default.
     """
     maps = [
@@ -383,6 +391,10 @@ def _build_route_maps(
     ]
     maps += [RouteMap(tags={tag}, mcp_type=MCPType.EXCLUDE) for tag in sorted(exclude_tags)]
     if read_only:
+        maps += [
+            RouteMap(methods=[method], pattern=pattern, mcp_type=MCPType.EXCLUDE)
+            for method, pattern in WRITE_METHOD_OVERRIDES
+        ]
         maps += [
             RouteMap(methods=[method], pattern=pattern, mcp_type=MCPType.TOOL)
             for method, pattern in READ_ONLY_METHOD_OVERRIDES

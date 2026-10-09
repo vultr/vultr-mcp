@@ -1227,7 +1227,7 @@ wheels = [
 
 [[package]]
 name = "vultr-mcp"
-version = "2.1.16"
+version = "2.1.17"
 source = { editable = "." }
 dependencies = [
     { name = "fastmcp" },

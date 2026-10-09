@@ -44,11 +44,12 @@ def area_document(area: str) -> dict:
     manifest = yaml.safe_load(
         (INTERFACE_DIR / "interface.yaml").read_text(encoding="utf-8")
     )
-    merged: dict = {"tools": [], "declined": {}}
+    merged: dict = {"tools": [], "declined": {}, "excluded": {}}
     for path in area_files(INTERFACE_DIR, manifest["product_areas"][area]):
         document = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
         merged["tools"].extend(document.get("tools") or [])
         merged["declined"].update(document.get("declined") or {})
+        merged["excluded"].update(document.get("excluded") or {})
     return merged
 
 
@@ -361,21 +362,21 @@ async def test_declining_an_operation_does_not_hide_its_generated_tool():
     """Declining is bookkeeping for drift reports, not suppression.
 
     Two operations that really are declined, for two different reasons:
-    list-instance-ipv6-reverse belongs to another product area, and
-    get-cluster-availability is a GET the runtime cannot build a body for.
+    list-marketplace-app-variables is deprecated in favour of a curated tool,
+    and get-custom-subscription has a path parameter the spec never declares.
     Neither decision may quietly remove capability from the served surface.
     """
     names = await _tool_names(create_server())
-    assert "list_instance_ipv6_reverse" in names
-    assert "get_cluster_availability" in names
+    assert "list_marketplace_app_variables" in names
+    assert "get_custom_subscription" in names
 
 
 def test_declined_operations_are_compiled_with_their_reasons(compiled):
     declined = {entry.operation_id: entry for entry in compiled.declined}
-    assert "list-instance-ipv6-reverse" in declined
-    assert declined["list-instance-ipv6-reverse"].product_area == "instances"
+    assert "list-marketplace-app-variables" in declined
+    assert declined["list-marketplace-app-variables"].product_area == "marketplace"
     # The reason is for whoever revisits the decision, so it has to say why.
-    assert "dns" in declined["list-instance-ipv6-reverse"].reason.lower()
+    assert "deprecated" in declined["list-marketplace-app-variables"].reason.lower()
 
 
 def test_a_stale_decline_warns_without_failing(tmp_path, definition, spec):
@@ -1037,6 +1038,7 @@ def test_deprecated_unreviewed_is_derived_not_hardcoded(spec):
         document = area_document(area.product_area)
         accounted = {tool["operation"] for tool in document["tools"]}
         accounted |= set(document.get("declined") or {})
+        accounted |= set(document.get("excluded") or {})
 
         expected = {
             operation.operation_id
@@ -1523,28 +1525,29 @@ def test_an_excluded_operation_counts_as_reviewed_not_drift(tmp_path, definition
     assert "delete-cluster" not in unreviewed
 
 
-def test_the_shipped_exclusion_removes_the_tool_from_the_surface(spec):
+def test_a_write_served_over_get_is_on_the_write_surface_only(spec):
     """purge-pullzone: a state change Vultr serves over GET.
 
-    The read-only gate classifies by HTTP method, so it read as safe and was
-    served. Declining did not remove it -- a decline leaves the generated tool
-    exposed -- which is why the exclusion mechanism exists at all.
+    The method reads as safe, so only WRITE_METHOD_OVERRIDES keeps it off the
+    read-only surface. It is declined, not excluded, so it is still served
+    once writes are enabled.
     """
     import asyncio
 
     compiled = compile_interface(INTERFACE_DIR, spec)
-    excluded = {e.operation_id for e in compiled.excluded}
-    assert "purge-pullzone" in excluded
+    assert "purge-pullzone" in {d.operation_id for d in compiled.declined}
+    assert "purge-pullzone" not in {e.operation_id for e in compiled.excluded}
 
-    async def served() -> set[str]:
-        server = create_server(spec)
+    async def served(read_only: bool) -> set[str]:
+        server = create_server(spec, read_only=read_only)
         async with Client(server) as client:
             return {tool.name for tool in await client.list_tools()}
 
-    names = asyncio.run(served())
-    assert not [n for n in names if "purge" in n.lower()], (
-        "purge-pullzone is still reachable; the exclusion is not wired to the "
-        "route maps"
+    assert not [n for n in asyncio.run(served(True)) if "purge" in n.lower()], (
+        "purge-pullzone is reachable on the read-only surface"
+    )
+    assert [n for n in asyncio.run(served(False)) if "purge" in n.lower()], (
+        "purge-pullzone should be served when writes are enabled"
     )
 
 

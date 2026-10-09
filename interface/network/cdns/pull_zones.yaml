@@ -6,20 +6,14 @@ family: network
 
 # Pull zones cache an origin you already run.
 
-excluded:
+declined:
   purge-pullzone:
     reason: >-
-      Empties the pull zone's cache. That is a state change, but Vultr serves it
-      over GET, and the read-only gate classifies by HTTP method -- so it was
-      being served as a read, on a surface whose whole promise is that nothing
-      on it can change anything. Declining did not help: a decline leaves the
-      generated tool exposed, so the operation stayed reachable and the record
-      of the decision read as protection that was not there. Excluded rather
-      than shaped because there is no version of a cache-purge tool that belongs
-      on the read-only surface. Someone who wants to purge a cache can do it in
-      the Vultr console or by calling the API directly; when the write gate can
-      classify by effect rather than by verb, this becomes an ordinary write
-      tool and the exclusion comes off.
+      Empties the pull zone's cache: a write that Vultr serves over GET. The
+      generated tool stands, and server.py's WRITE_METHOD_OVERRIDES classifies
+      it as a write by effect rather than by verb, so the read-only surface
+      drops it and it is served only when writes are enabled. No hand-authored
+      tool, because writes have no shaped tools yet.
 
 tools:
   - name: vultr_network_cdn_pull_zones_list

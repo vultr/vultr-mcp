@@ -24,7 +24,7 @@
 # siblings would carry names matching no tag, and every operation under the real
 # tag would be reported as undetected drift in the others.
 
-version: 2026.09.6
+version: 2026.10.1
 
 schema: schema/interface.schema.json
 

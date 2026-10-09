@@ -23,11 +23,6 @@ family: compute
 # was kept for the same reason: that answers the question in the other
 # direction, and nothing but this operation says which VPCs one instance is in.
 declined:
-  list-instance-private-networks:
-    reason: >-
-      Marked deprecated in the spec, which points at List Instance VPCs as the
-      replacement. Vultr already retired the whole VPC2 family this way, so
-      these will follow.
   attach-instance-network:
     reason: >-
       Deprecated in the spec alongside the private-networks read, superseded by
@@ -38,10 +33,15 @@ declined:
       Deprecated in the spec alongside the private-networks read, superseded by
       the VPC detach operations. Recorded now so it does not surface as
       unreviewed the day writes are enabled.
-  list-instance-ipv6-reverse:
+
+# Removed from the surface entirely, generated tool included.
+excluded:
+  list-instance-private-networks:
     reason: >-
-      Reverse DNS entries are a DNS concern rather than an instance one, and
-      belong with the dns product area if they are ever worth a tool.
+      Marked deprecated in the spec, which points at List Instance VPCs as the
+      replacement, and vultr_compute_instances_vpcs_list already serves that.
+      Declining left the raw generated tool exposed under its OpenAPI name,
+      steering agents to a deprecated read beside the curated one.
 
 
 tools:
@@ -51,12 +51,14 @@ tools:
 
     description: |
       Lists every IPv4 address assigned to one Vultr cloud compute instance,
-      with each address's netmask, gateway, MAC address, reverse DNS entry, and
-      whether it is the main address, an additional one, or a private address.
+      with each address's netmask, gateway, reverse DNS entry, and whether it
+      is the main address, an additional one, or a private address.
 
       Use this tool when an instance has more than one address, or when the
-      netmask, gateway, MAC or reverse DNS is needed.
-      vultr_compute_instances_get returns only main_ip.
+      reverse DNS or the per-address type is needed.
+      vultr_compute_instances_get returns only main_ip, with netmask_v4 and
+      gateway_v4. No tool returns an instance's MAC address on its public
+      network; vultr_compute_instances_vpcs_list has it for each VPC.
 
       Do not use this tool for bare metal servers, which have their own tool,
       or for reserved IPs that are not attached to an instance.
@@ -74,12 +76,6 @@ tools:
             ID of the instance, as returned in the id field by
             vultr_compute_instances_list.
           maps_to: instance-id
-
-        public_network:
-          type: boolean
-          description: >-
-            Include the public network adapter's address as well as private
-            ones. Defaults to false.
 
         page_size:
           type: integer
@@ -146,6 +142,43 @@ tools:
         - network_size
         - type
         - meta
+
+  - name: vultr_compute_instances_ipv6_reverse_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the reverse DNS entries set for the IPv6 addresses of one Vultr
+      cloud compute instance, as pairs of IPv6 address and hostname.
+
+      Use this tool to find which hostname an instance's IPv6 address resolves
+      back to. It is the only source for IPv6 reverse DNS: the reverse entry
+      for IPv4 comes with each address in vultr_compute_instances_ipv4_list,
+      and vultr_compute_instances_ipv6_list carries none.
+
+      Do not use this tool for the instance's IPv6 addresses themselves, which
+      vultr_compute_instances_ipv6_list returns, or for forward DNS records,
+      which belong to the DNS tools.
+
+    operation: list-instance-ipv6-reverse
+
+    input:
+      type: object
+      required:
+        - instance_id
+      properties:
+        instance_id:
+          type: string
+          description: >-
+            ID of the instance, as returned in the id field by
+            vultr_compute_instances_list.
+          maps_to: instance-id
+
+    output:
+      from_openapi: true
+      include:
+        - ip
+        - reverse
 
   - name: vultr_compute_instances_vpcs_list
     access: read

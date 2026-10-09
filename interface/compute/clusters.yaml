@@ -185,8 +185,9 @@ tools:
         plan_id:
           type: string
           description: >-
-            ID of the Compute Cluster plan, as returned by
-            vultr_compute_cluster_availability_list.
+            ID of the plan to check, such as vbm-4c-32gb, as returned in the
+            id field by vultr_catalog_plans_list or
+            vultr_catalog_metal_plans_list.
           maps_to: plan-id
 
     # No `output` block: the response is two sibling arrays, locations and
@@ -235,11 +236,14 @@ tools:
       # fields to allowlist against.
       from_openapi: true
 
-declined:
+excluded:
   get-cluster-availability:
     reason: >-
-      GET /clusters/availability requires a JSON request body with a required
-      `region` field -- the spec says so in prose and declares the requestBody
-      -- and the interface runtime does not build request bodies yet, so the
-      validator rejects any tool for it. Revisit when the request-body engine
-      lands; until then the generated tool remains the only way to reach it.
+      GET /clusters/availability takes a JSON request body with a required
+      `region` field, and the interface runtime does not build request bodies
+      yet, so it cannot be curated. The generated tool it left behind returned
+      83 KB for one region (every VPS and bare metal plan, 17 fields each),
+      more than clients display, under a raw OpenAPI name. Where one plan can
+      run is vultr_compute_clusters_availability_get; what a region offers is
+      vultr_catalog_region_availability_list. Curate this when the
+      request-body engine lands.
