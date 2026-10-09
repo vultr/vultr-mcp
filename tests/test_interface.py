@@ -1674,7 +1674,8 @@ async def test_a_refused_argument_is_the_callers_fault_in_the_audit_record(capsy
             "vultr_kubernetes_clusters_resources_get", {"cluster_id": "8534d058"}, raise_on_error=False
         )
     assert result.is_error
-    records = [_json.loads(l) for l in capsys.readouterr().out.splitlines() if '"mcp.tool_call"' in l]
+    # STDIO by default, so the record is on stderr: stdout is the protocol.
+    records = [_json.loads(l) for l in capsys.readouterr().err.splitlines() if '"mcp.tool_call"' in l]
     assert records[-1]["fault"] == "caller"
     assert "ArgumentError" in records[-1]["error_chain"]
 

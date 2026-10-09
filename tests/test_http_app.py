@@ -249,6 +249,7 @@ def test_the_audit_record_names_the_endpoint_and_host(monkeypatch, spec, capsys)
 
     from starlette.testclient import TestClient
 
+    monkeypatch.setenv("VULTR_MCP_TRANSPORT", "http")
     monkeypatch.setenv("VULTR_MCP_CATEGORY_ENDPOINTS", "instances")
     app = create_http_app(spec)
     call = {

@@ -71,18 +71,19 @@ def audit_enabled() -> bool:
 
 
 def audit_dir() -> str:
-    """Directory for the shipped copy of the records, or "" for stdout only.
+    """Directory for the shipped copy of the records, or "" for the console only.
 
-    stdout is how a person reads what a pod is doing; it is not a place a
-    collector can read from without the cluster in between, and it dies with
-    the pod. A file is what a log shipper tails, and the shipper is a sidecar
-    that knows nothing about this process beyond the path.
+    The console (stdout, in a pod) is how a person reads what a pod is doing;
+    it is not a place a collector can read from without the cluster in
+    between, and it dies with the pod. A file is what a log shipper tails, and
+    the shipper is a sidecar that knows nothing about this process beyond the
+    path.
     """
     return os.environ.get("VULTR_MCP_AUDIT_DIR", "").strip()
 
 
 def audit_file_max_bytes() -> int:
-    """Size past which the file is abandoned for stdout only.
+    """Size past which the file is abandoned for the console only.
 
     Clicktail collapses shipped bytes off the front of the file, so while it
     runs the file stays near empty. A file this large means nothing is draining
@@ -237,12 +238,30 @@ def error_types(exc: BaseException, limit: int = 4) -> list[str]:
     return names
 
 
-def emit(record: dict[str, Any]) -> None:
-    """Write one record as a JSON line: always stdout, and a file when asked.
+def _console():
+    """Where the console copy goes: stdout over HTTP, stderr over STDIO.
 
-    stdout because the cluster already ships it; JSON because the consumer is a
-    log pipeline rather than a person. Flushed so a record survives a pod that
-    is about to be killed -- the case where it matters most.
+    Over HTTP, stdout carries nothing else and is what the cluster already
+    ships. Over STDIO it is the MCP protocol channel itself, and a record
+    written there is a line of non-JSON-RPC in the middle of the client's
+    message stream; the MCP spec gives a stdio server stderr for its logs.
+    Decided by the variable ``main()`` reads rather than set by ``main()``, so
+    every way of starting the stdio server gets the safe stream, and stdout
+    only when HTTP is asked for explicitly.
+    """
+    if os.environ.get("VULTR_MCP_TRANSPORT", "stdio").lower() == "http":
+        return sys.stdout
+    return sys.stderr
+
+
+def emit(record: dict[str, Any]) -> None:
+    """Write one record as a JSON line: always the console, and a file when asked.
+
+    The console is stdout over HTTP, because the cluster already ships it, and
+    stderr over STDIO, where stdout belongs to the protocol (see ``_console``).
+    JSON because the consumer is a log pipeline rather than a person. Flushed
+    so a record survives a pod that is about to be killed -- the case where it
+    matters most.
 
     The file is the same line again, for a shipper to tail. Both, not one: the
     file is what outlives the pod, and stdout is what someone reads at 2am
@@ -258,8 +277,9 @@ def emit(record: dict[str, Any]) -> None:
         return
 
     try:
-        sys.stdout.write(line + "\n")
-        sys.stdout.flush()
+        console = _console()
+        console.write(line + "\n")
+        console.flush()
     except Exception:  # noqa: BLE001
         pass
 
