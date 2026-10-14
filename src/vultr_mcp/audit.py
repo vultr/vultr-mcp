@@ -420,8 +420,10 @@ def emit_auth(
     Tool-call records exist only once a client holds a working token, so they
     cannot show the moment a user is made to sign in again -- which is what the
     eval harness reported, and what pod logs keep for barely a day. ``action``
-    is ``authorize``, ``code_exchange`` or ``refresh``; ``outcome`` is ``ok``,
-    ``error`` or ``refused``. Never a token: the client, how a refresh was
+    is ``authorize``, ``code_exchange``, ``refresh``, ``transparent_refresh``
+    (FastMCP's own, inside a request) or ``access`` (a bearer rejected with a
+    401, ``error`` saying why); ``outcome`` is ``ok``, ``error``, ``refused``,
+    ``held`` or ``rejected``. Never a token: the client, how a refresh was
     resolved, the error the client was given, and the account once known.
     """
     if not audit_enabled():

@@ -30,6 +30,7 @@ import uuid
 from typing import Any, Awaitable, Callable, Protocol
 
 import anyio
+import httpx
 from cryptography.fernet import Fernet, InvalidToken
 from fastmcp.utilities.logging import get_logger
 from mcp.server.auth.provider import TokenError
@@ -52,6 +53,43 @@ WAIT_S = 20.0
 POLL_S = 0.1
 
 _PREFIX = "vultr-mcp:refresh"
+
+# Waits between attempts when Vultr's token endpoint fails transiently; its top-of-hour 502s fail in ~90 ms and clear within seconds.
+UPSTREAM_RETRY_DELAYS_S = (1.0, 3.0)
+# Gateway failures, which answer before the refresh token is spent, unlike a timeout after the request was sent.
+TRANSIENT_STATUSES = frozenset({502, 503, 504})
+# The owner bound to an upstream result: only this proxy ever holds an upstream refresh token.
+_UPSTREAM_OWNER = "upstream"
+
+
+class UpstreamUnavailable(Exception):
+    """Vultr's token endpoint failed transiently on every attempt; the grant and its refresh token are untouched."""
+
+    # The OAuth error a client is given for it, so it keeps its tokens and retries instead of signing in again.
+    error = "temporarily_unavailable"
+
+
+def is_transient(exc: BaseException) -> bool:
+    """A failure that never reached Vultr's refresh logic, so presenting the same refresh token again is safe."""
+    if isinstance(exc, httpx.HTTPStatusError):
+        return exc.response.status_code in TRANSIENT_STATUSES
+    return isinstance(exc, (httpx.ConnectError, httpx.ConnectTimeout, httpx.PoolTimeout))
+
+
+async def refresh_with_retries(call: Callable[[], Awaitable[dict[str, Any]]]) -> dict[str, Any]:
+    """One upstream refresh, retried briefly on a transient failure and then reported as ``UpstreamUnavailable``."""
+    for delay in (*UPSTREAM_RETRY_DELAYS_S, None):
+        try:
+            return await call()
+        except Exception as exc:
+            if not is_transient(exc):
+                raise
+            if delay is None:
+                logger.warning("upstream refresh still failing after retries: %s", exc)
+                raise UpstreamUnavailable(str(exc)) from exc
+            logger.warning("upstream refresh failed transiently (%s); retrying in %.0fs", exc, delay)
+            await anyio.sleep(delay)
+    raise AssertionError("the final attempt always returns or raises")
 
 
 class Backend(Protocol):
@@ -242,6 +280,69 @@ class RefreshCoalescer:
         logger.warning("refresh coalescer: no result from the concurrent refresh; refreshing directly")
         report("direct")
         return await exchange()
+
+    async def run_upstream(self, key: str, call: Callable[[], Awaitable[dict[str, Any]]]) -> dict[str, Any]:
+        """One Vultr refresh per upstream refresh token, shared by every path and pod that presents it.
+
+        The client's refresh and FastMCP's transparent refresh inside a request
+        hold different proxy tokens but the same upstream one, so ``run`` alone
+        cannot stop them presenting it twice. Only a success is shared: after a
+        failure the lock is simply released, and a waiter makes its own attempt.
+        """
+        upstream_key = f"upstream:{key}"
+        entry = await self._result(upstream_key, _UPSTREAM_OWNER)
+        if entry is not None:
+            logger.info("refresh coalescer: served an upstream refresh another path just made")
+            return entry["response"]
+
+        owner = json.dumps({"owner": uuid.uuid4().hex, "client_id": _UPSTREAM_OWNER}).encode()
+        lock_key = f"{_PREFIX}:{upstream_key}:lock"
+        try:
+            acquired = await self._backend.acquire(lock_key, owner, LOCK_TTL_MS)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("refresh coalescer unavailable (%s); refreshing upstream directly", type(exc).__name__)
+            return await call()
+
+        if acquired:
+            try:
+                response = await call()
+                await self._store(upstream_key, {"client_id": _UPSTREAM_OWNER, "response": response}, RESULT_TTL_S)
+                return response
+            finally:
+                try:
+                    await self._backend.release(lock_key, owner)
+                except Exception:  # noqa: BLE001 - it expires on its own
+                    pass
+
+        deadline = time.monotonic() + WAIT_S
+        while time.monotonic() < deadline:
+            await anyio.sleep(POLL_S)
+            entry = await self._result(upstream_key, _UPSTREAM_OWNER)
+            if entry is not None:
+                logger.info("refresh coalescer: served a concurrent upstream refresh")
+                return entry["response"]
+            if await self._lock(upstream_key) is None:
+                break
+        return await call()
+
+
+class CoalescedUpstreamClient:
+    """The upstream OAuth client, refreshing each upstream token once across pods and riding out brief Vultr outages."""
+
+    def __init__(self, inner: Any, coalescer: RefreshCoalescer) -> None:
+        self._inner = inner
+        self._coalescer = coalescer
+
+    async def refresh_token(self, url: str, refresh_token: str | None = None, **kwargs: Any) -> dict[str, Any]:
+        async def attempt() -> dict[str, Any]:
+            return await self._inner.refresh_token(url, refresh_token=refresh_token, **kwargs)
+
+        if not refresh_token:
+            return await attempt()
+        return await self._coalescer.run_upstream(token_key(refresh_token), lambda: refresh_with_retries(attempt))
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._inner, name)
 
 
 def build_refresh_coalescer(upstream_client_secret: str | None) -> RefreshCoalescer:

@@ -20,6 +20,7 @@ from mcp.server.auth.provider import AuthorizationCode, TokenError
 from mcp.shared.auth import OAuthClientInformationFull
 
 from vultr_mcp import suspension
+from vultr_mcp.auth import ACCESS_TOKEN_LIFETIME_S
 from vultr_mcp.suspension import (
     SUSPENDED_MESSAGE_CLAIM,
     SUSPENDED_REASON_CLAIM,
@@ -230,7 +231,7 @@ async def test_a_client_refresh_during_suspension_gets_new_tokens_over_the_same_
     assert after.upstream_token_id == before.upstream_token_id
     assert after.refresh_token == before.refresh_token == "vultr-refresh-0", "Vultr's refresh token is kept, never rotated"
     assert abs(after.expires_at - before.expires_at) < 2, "the grace keeps counting from the last working access"
-    assert token.expires_in == 3600
+    assert token.expires_in == ACCESS_TOKEN_LIFETIME_S
     held = await proxy.load_access_token(token.access_token)
     assert held.claims[SUSPENDED_REASON_CLAIM] == "org_disabled"
     # FastMCP's own store, not the proxy's: the coalescer deliberately honours a just-rotated token for 60s so a racing duplicate gets the same result.
@@ -339,5 +340,5 @@ def test_the_suspension_messages_are_vultrs_exact_words():
     }
 
 
-def test_the_proxy_issues_hour_long_access_tokens(proxy):
-    assert proxy._fastmcp_access_token_expiry_seconds == 3600
+def test_the_proxy_issues_day_long_access_tokens(proxy):
+    assert proxy._fastmcp_access_token_expiry_seconds == 24 * 3600

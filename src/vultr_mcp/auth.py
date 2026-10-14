@@ -42,7 +42,12 @@ from vultr_mcp.device_flow import (
     device_routes,
 )
 from vultr_mcp.loopback_handoff import completion_page, is_loopback_target
-from vultr_mcp.refresh_coalescer import build_refresh_coalescer, token_key
+from vultr_mcp.refresh_coalescer import (
+    CoalescedUpstreamClient,
+    UpstreamUnavailable,
+    build_refresh_coalescer,
+    token_key,
+)
 from vultr_mcp.server import USER_AGENT
 from vultr_mcp.suspension import (
     HELD_REFRESH_RESPONSE,
@@ -55,8 +60,8 @@ from vultr_mcp.suspension import (
     unverified_claims,
 )
 
-# The proxy's own access-token lifetime, the hour Vultr's upstream token lasts; set explicitly so a held session's re-issued token lasts it too.
-ACCESS_TOKEN_LIFETIME_S = 3600
+# The proxy's own access token, a pointer re-checked against Vultr's hourly token on every request, so clients that never refresh stay signed in for a day.
+ACCESS_TOKEN_LIFETIME_S = 24 * 3600
 
 
 def _error_code(exc: BaseException) -> str:
@@ -69,6 +74,8 @@ def _error_fields(exc: BaseException) -> dict[str, Any]:
     fields: dict[str, Any] = {"error": _error_code(exc)}
     if isinstance(exc, TokenError) and exc.error_description:
         fields["error_description"] = exc.error_description[:300]
+    elif str(exc):
+        fields["error_description"] = str(exc)[:300]
     return fields
 
 
@@ -157,9 +164,41 @@ class VultrOAuthProxy(OAuthProxy):
             access = await super().load_access_token(token)
         finally:
             SUSPENSION_SEEN.reset(reset)
-        if access is not None or not seen:
+        if access is not None:
             return access
-        return await self._held_access(token, seen[-1])
+        if seen:
+            return await self._held_access(token, seen[-1])
+        await self._audit_rejection(token)
+        return None
+
+    async def _audit_rejection(self, token: str) -> None:
+        """Why a proxy token got a 401, which is the moment a client may decide to sign in again."""
+        started = time.perf_counter()
+        client_id = None
+        try:
+            payload = self.jwt_issuer.verify_token(token)
+            client_id = payload.get("client_id")
+            mapping = await self._jti_mapping_store.get(key=payload["jti"])
+            if not mapping:
+                reason = "session_not_found"
+            elif not await self._upstream_token_store.get(key=mapping.upstream_token_id):
+                reason = "upstream_tokens_not_found"
+            else:
+                reason = "upstream_token_rejected"
+        except Exception as exc:  # noqa: BLE001 - classifying the rejection must never fail the request
+            reason = "token_expired" if "expired" in str(exc).lower() else "token_invalid"
+        emit_auth("access", "rejected", client_id, started, error=reason)
+
+    async def _try_transparent_refresh(self, upstream_token_set: Any) -> Any:
+        """FastMCP's refresh inside a request whose upstream token lapsed, which clients never see unless it fails."""
+        started = time.perf_counter()
+        try:
+            refreshed = await super()._try_transparent_refresh(upstream_token_set)
+        except Exception as exc:
+            emit_auth("transparent_refresh", "error", upstream_token_set.client_id, started, **_error_fields(exc))
+            raise
+        emit_auth("transparent_refresh", "ok", upstream_token_set.client_id, started)
+        return refreshed
 
     def _create_upstream_oauth_client(self) -> Any:
         # Vultr evaluates Use MCP's conditions at refresh too, so the refresh must carry the User-Agent the API calls do.
@@ -170,7 +209,7 @@ class VultrOAuthProxy(OAuthProxy):
     @asynccontextmanager
     async def _upstream_oauth_client(self) -> AsyncIterator[Any]:
         async with super()._upstream_oauth_client() as client:
-            yield SuspensionAwareClient(client)
+            yield SuspensionAwareClient(CoalescedUpstreamClient(client, self._refresh_coalescer))
 
     async def _held_access(self, token: str, suspended: UpstreamSuspended) -> AccessToken | None:
         """The session behind a proxy token whose upstream refresh Vultr refused as suspended, while the grace lasts.
@@ -220,6 +259,9 @@ class VultrOAuthProxy(OAuthProxy):
         try:
             return await exchange(client, refresh_token, scopes)
         except TokenError as exc:
+            # FastMCP reports every failed upstream refresh as invalid_grant; a Vultr outage must not tell the client its session is dead.
+            if isinstance(exc.__cause__, UpstreamUnavailable):
+                raise UpstreamUnavailable(str(exc.__cause__)) from exc.__cause__
             suspended = exc.__cause__
             if not isinstance(suspended, UpstreamSuspended):
                 raise
@@ -351,7 +393,12 @@ class VultrOAuthProxy(OAuthProxy):
         deployment gets it, and so the patches sit beside the routes they
         modify.
         """
-        routes = super().get_routes(mcp_path)
+        routes = [
+            _replace_endpoint(route, _TemporarilyUnavailableToken(route.endpoint))
+            if isinstance(route, Route) and route.path == "/token"
+            else route
+            for route in super().get_routes(mcp_path)
+        ]
         if not device_flow_enabled():
             return routes
 
@@ -388,6 +435,41 @@ class VultrOAuthProxy(OAuthProxy):
                 patched.append(route)
 
         return patched + device_routes(handlers)
+
+
+def _replace_endpoint(route: Route, endpoint) -> Route:
+    return Route(
+        path=route.path,
+        endpoint=endpoint,
+        methods=route.methods,
+        name=route.name,
+        include_in_schema=route.include_in_schema,
+    )
+
+
+# RFC 6749 defines temporarily_unavailable only for /authorize; at /token a 503 with Retry-After is what clients retry instead of signing in again.
+_TEMPORARILY_UNAVAILABLE = {
+    "error": UpstreamUnavailable.error,
+    "error_description": "Vultr sign-in is briefly unavailable. Your session is intact; retry the refresh shortly.",
+}
+
+
+class _TemporarilyUnavailableToken:
+    """``/token``, answering 503 when Vultr's token endpoint is down instead of letting FastMCP call the session dead."""
+
+    def __init__(self, original) -> None:
+        self._original = original
+
+    async def __call__(self, scope, receive, send) -> None:
+        try:
+            await _invoke(self._original, scope, receive, send)
+        except UpstreamUnavailable:
+            response = JSONResponse(
+                _TEMPORARILY_UNAVAILABLE,
+                status_code=503,
+                headers={"Retry-After": "30", "Cache-Control": "no-store"},
+            )
+            await response(scope, receive, send)
 
 
 def _is_asgi_endpoint(endpoint) -> bool:
