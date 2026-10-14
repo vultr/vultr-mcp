@@ -22,9 +22,13 @@ from vultr_mcp.audit import AuditMiddleware, audit_enabled
 from vultr_mcp.diagnostics import InstrumentedTransport, PathTemplates
 from vultr_mcp.interface.compiler import CompiledInterface, compile_interface
 from vultr_mcp.interface.tools import InterfaceTool
+from vultr_mcp.suspension import SuspendedTransport
 from vultr_mcp.tool_list_refresh import ToolListRefreshMiddleware
 
 VULTR_API_BASE = os.environ.get("VULTR_API_BASE_URL", "https://api.vultr.com/v2")
+
+# Sent on API calls and token refreshes alike, so a Use MCP grant conditioned on User-Agent decides both the same way.
+USER_AGENT = "vultr-mcp-server/2.0 (python; fastmcp)"
 
 
 def package_version() -> str:
@@ -427,13 +431,15 @@ def create_server(
     transport: httpx.AsyncBaseTransport = httpx.AsyncHTTPTransport(verify=ssl_verify)
     if audit_enabled():
         transport = InstrumentedTransport(transport, PathTemplates(spec.get("paths", {})))
+    # Outermost, so a held session's calls never reach Vultr or the upstream audit record.
+    transport = SuspendedTransport(transport)
 
     client = httpx.AsyncClient(
         base_url=VULTR_API_BASE,
         auth=PerRequestVultrAuth(),
         transport=transport,
         timeout=30.0,
-        headers={"User-Agent": "vultr-mcp-server/2.0 (python; fastmcp)"},
+        headers={"User-Agent": USER_AGENT},
     )
 
     if use_interface is False:

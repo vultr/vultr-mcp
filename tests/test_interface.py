@@ -1230,6 +1230,26 @@ def test_an_unwrapped_response_is_shaped_at_the_top_level(compiled):
     assert "s3_secret_key" not in shaped
 
 
+def test_marketplace_vendor_keeps_the_vendor_the_api_nests(compiled):
+    """The spec documents the vendor fields unwrapped; the API nests them under ``vendor``.
+
+    An allowlist built from the spec ran at the top level and returned ``{}``,
+    which an agent faithfully reported as "no vendor configured".
+    """
+    tool = next(t for t in compiled.tools if t.name == "vultr_marketplace_vendor_get")
+    payload = {
+        "vendor": {
+            "vendor_name": "testVendor",
+            "x_handle": "vultr",
+            "website_url": "https://vultr.com",
+            "git_url": "https://github.com/vultr",
+            "slack_url": "https://vultr.slack.com",
+        }
+    }
+
+    assert runtime.shape_response(copy.deepcopy(payload), tool, {}) == payload
+
+
 async def test_no_generated_logs_tool_survives():
     """Exclusion is per-category; replacement is per-operation.
 

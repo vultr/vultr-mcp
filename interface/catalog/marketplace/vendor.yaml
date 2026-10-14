@@ -149,11 +149,4 @@ tools:
       type: object
       properties: {}
 
-    output:
-      from_openapi: true
-      include:
-        - vendor_name
-        - website_url
-        - git_url
-        - slack_url
-        - x_handle
+    # No output block: the spec documents these fields unwrapped but the API nests them under vendor, so an allowlist empties every response.

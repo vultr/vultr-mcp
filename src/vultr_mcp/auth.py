@@ -20,8 +20,9 @@ import inspect
 import json
 import os
 import time
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, AsyncIterator
 
 import httpx
 from fastmcp.server.auth.auth import AccessToken, TokenVerifier
@@ -42,6 +43,20 @@ from vultr_mcp.device_flow import (
 )
 from vultr_mcp.loopback_handoff import completion_page, is_loopback_target
 from vultr_mcp.refresh_coalescer import build_refresh_coalescer, token_key
+from vultr_mcp.server import USER_AGENT
+from vultr_mcp.suspension import (
+    HELD_REFRESH_RESPONSE,
+    SUSPENDED_MESSAGE_CLAIM,
+    SUSPENDED_REASON_CLAIM,
+    SUSPENSION_GRACE_S,
+    SUSPENSION_SEEN,
+    SuspensionAwareClient,
+    UpstreamSuspended,
+    unverified_claims,
+)
+
+# The proxy's own access-token lifetime, the hour Vultr's upstream token lasts; set explicitly so a held session's re-issued token lasts it too.
+ACCESS_TOKEN_LIFETIME_S = 3600
 
 
 def _error_code(exc: BaseException) -> str:
@@ -136,7 +151,100 @@ class VultrOAuthProxy(OAuthProxy):
     async def load_access_token(self, token: str) -> AccessToken | None:
         if not _looks_like_jwt(token):
             return _api_key_access_token(token)
-        return await super().load_access_token(token)
+        seen: list[UpstreamSuspended] = []
+        reset = SUSPENSION_SEEN.set(seen)
+        try:
+            access = await super().load_access_token(token)
+        finally:
+            SUSPENSION_SEEN.reset(reset)
+        if access is not None or not seen:
+            return access
+        return await self._held_access(token, seen[-1])
+
+    def _create_upstream_oauth_client(self) -> Any:
+        # Vultr evaluates Use MCP's conditions at refresh too, so the refresh must carry the User-Agent the API calls do.
+        client = super()._create_upstream_oauth_client()
+        client.headers["User-Agent"] = USER_AGENT
+        return client
+
+    @asynccontextmanager
+    async def _upstream_oauth_client(self) -> AsyncIterator[Any]:
+        async with super()._upstream_oauth_client() as client:
+            yield SuspensionAwareClient(client)
+
+    async def _held_access(self, token: str, suspended: UpstreamSuspended) -> AccessToken | None:
+        """The session behind a proxy token whose upstream refresh Vultr refused as suspended, while the grace lasts.
+
+        Its tool calls are answered with Vultr's reason by SuspendedTransport, so
+        the expired upstream token it carries is never sent anywhere.
+        """
+        try:
+            payload = self.jwt_issuer.verify_token(token)
+            upstream = await self._upstream_for_jti(payload["jti"])
+        except Exception:  # noqa: BLE001 - an unreadable session is simply not held
+            return None
+        if upstream is None:
+            return None
+        held_until = upstream.expires_at + SUSPENSION_GRACE_S
+        if time.time() >= held_until:
+            return None
+        claims: dict[str, Any] = {
+            **unverified_claims(upstream.access_token),
+            SUSPENDED_MESSAGE_CLAIM: suspended.message,
+            SUSPENDED_REASON_CLAIM: suspended.reason,
+        }
+        if payload.get("upstream_claims"):
+            claims["upstream_claims"] = payload["upstream_claims"]
+        return AccessToken(
+            token=upstream.access_token,
+            client_id=str(payload.get("client_id") or upstream.client_id or ""),
+            scopes=upstream.scope.split() if upstream.scope else [],
+            expires_at=int(min(payload.get("exp", held_until), held_until)),
+            claims=claims,
+        )
+
+    async def _upstream_for_jti(self, jti: str) -> Any:
+        mapping = await self._jti_mapping_store.get(key=jti)
+        if not mapping:
+            return None
+        return await self._upstream_token_store.get(key=mapping.upstream_token_id)
+
+    async def _exchange_holding_suspension(
+        self, exchange, client: OAuthClientInformationFull, refresh_token: RefreshToken, scopes: list[str], held: list[str]
+    ) -> OAuthToken:
+        """A client refresh; if Vultr refuses it as suspended, new proxy tokens over the same stored grant instead.
+
+        The upstream grant is passed back unchanged, its original expiry included,
+        so the grace keeps counting from the session's last working access.
+        """
+        try:
+            return await exchange(client, refresh_token, scopes)
+        except TokenError as exc:
+            suspended = exc.__cause__
+            if not isinstance(suspended, UpstreamSuspended):
+                raise
+            upstream = await self._upstream_for_refresh(refresh_token.token)
+            if upstream is None or not upstream.refresh_token or time.time() >= upstream.expires_at + SUSPENSION_GRACE_S:
+                raise
+            reset = HELD_REFRESH_RESPONSE.set({
+                "access_token": upstream.access_token,
+                "token_type": upstream.token_type or "Bearer",
+                "expires_in": int(upstream.expires_at - time.time()),
+                "refresh_token": upstream.refresh_token,
+            })
+            try:
+                token = await exchange(client, refresh_token, scopes)
+            finally:
+                HELD_REFRESH_RESPONSE.reset(reset)
+            held.append(suspended.reason)
+            return token
+
+    async def _upstream_for_refresh(self, refresh_token: str) -> Any:
+        try:
+            payload = self.jwt_issuer.verify_token(refresh_token, expected_token_use="refresh")
+            return await self._upstream_for_jti(payload["jti"])
+        except Exception:  # noqa: BLE001 - an unreadable refresh token is simply not held
+            return None
 
     async def authorize(self, client: OAuthClientInformationFull, params: AuthorizationParams) -> str:
         started = time.perf_counter()
@@ -187,6 +295,7 @@ class VultrOAuthProxy(OAuthProxy):
     ) -> OAuthToken:
         started = time.perf_counter()
         resolved: list[str] = []
+        held: list[str] = []
         # Bound here: zero-argument super() does not work inside the lambda.
         exchange = super().exchange_refresh_token
         try:
@@ -194,13 +303,17 @@ class VultrOAuthProxy(OAuthProxy):
                 token_key(refresh_token.token),
                 client.client_id or "",
                 scopes,
-                lambda: exchange(client, refresh_token, scopes),
+                lambda: self._exchange_holding_suspension(exchange, client, refresh_token, scopes, held),
                 report=resolved.append,
             )
         except Exception as exc:
             emit_auth("refresh", "error", client.client_id, started,
                       resolved_by=resolved[0] if resolved else None, **_error_fields(exc))
             raise
+        if held:
+            emit_auth("refresh", "held", client.client_id, started,
+                      resolved_by=resolved[0] if resolved else None, suspended=held[0])
+            return token
         emit_auth("refresh", "ok", client.client_id, started,
                   resolved_by=resolved[0] if resolved else None, **await self._account_of(token))
         return token
@@ -551,4 +664,5 @@ def build_auth(
         base_url=resource_url,
         forward_pkce=True,
         client_storage=client_storage,
+        fastmcp_access_token_expiry_seconds=ACCESS_TOKEN_LIFETIME_S,
     )

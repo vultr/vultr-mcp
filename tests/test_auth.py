@@ -59,6 +59,35 @@ def test_build_auth_constructs_proxy(monkeypatch):
     assert isinstance(auth, VultrOAuthProxy)
 
 
+async def test_upstream_token_requests_carry_the_api_user_agent(monkeypatch):
+    """Vultr checks Use MCP's conditions at refresh with the refresh's own User-Agent.
+
+    httpx's default one would fail a grant conditioned on the User-Agent the API
+    calls send, so the user's calls pass while every marked refresh is refused.
+    """
+    from authlib.integrations.httpx_client import AsyncOAuth2Client
+
+    from vultr_mcp.server import USER_AGENT
+
+    seen: list[str] = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        seen.append(request.headers.get("User-Agent", ""))
+        return httpx.Response(200, json={"access_token": "a", "token_type": "Bearer", "expires_in": 3600})
+
+    # FastMCP's own factory, minus the network; the subclass's header is what is under test.
+    monkeypatch.setattr(OAuthProxy, "_create_upstream_oauth_client", lambda self: AsyncOAuth2Client(
+        client_id="client-abc", client_secret="secret-xyz", transport=httpx.MockTransport(handle)
+    ))
+    _enable_env(monkeypatch)
+    auth = build_auth(endpoints=FAKE)
+
+    async with auth._upstream_oauth_client() as client:
+        await client.refresh_token(FAKE.token_endpoint, refresh_token="r")
+
+    assert seen == [USER_AGENT]
+
+
 def test_raw_api_key_bearer_accepted_without_oauth_swap(monkeypatch):
     """A non-JWT-shaped bearer must be accepted immediately, without going
     through OAuthProxy's JWT/token-swap machinery at all — that machinery

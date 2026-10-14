@@ -43,6 +43,7 @@ from typing import Any
 from fastmcp.server.middleware import Middleware
 
 from vultr_mcp import diagnostics
+from vultr_mcp.suspension import SUSPENDED_REASON_CLAIM
 
 # The id of the tool call currently in flight, so the upstream request made on
 # its behalf can carry the same one. A contextvar rather than an argument
@@ -176,6 +177,9 @@ def _identity() -> dict[str, Any]:
         for claim in IDENTITY_CLAIMS:
             if claims.get(claim) is not None:
                 out[claim] = claims[claim]
+        # A held session: Vultr has suspended the grant, and the call was answered with its reason.
+        if claims.get(SUSPENDED_REASON_CLAIM):
+            out["suspended"] = claims[SUSPENDED_REASON_CLAIM]
         return out
     except Exception:  # noqa: BLE001 - auditing must not break a call
         return {"auth_method": "unknown"}
