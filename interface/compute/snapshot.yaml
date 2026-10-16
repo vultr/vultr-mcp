@@ -19,7 +19,8 @@ tools:
     description: |
       Lists Vultr snapshots, on-demand disk images of an instance, in the
       active Vultr organization, each with its description, size, status,
-      source operating system or application, and expiry date.
+      source operating system or application, and expiry date. A date_expires
+      of 0000-00-00 means the snapshot has no expiry date set.
 
       Use this tool to find restore points somebody created deliberately, or to
       report what snapshot storage is costing.
@@ -81,7 +82,8 @@ tools:
 
     description: |
       Gets one Vultr snapshot by its ID, with its description, size, status,
-      source operating system or application, and expiry date.
+      source operating system or application, and expiry date. A date_expires
+      of 0000-00-00 means the snapshot has no expiry date set.
 
       Use this tool when a snapshot ID is already known. To find one, use
       vultr_compute_snapshots_list first.

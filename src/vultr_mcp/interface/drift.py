@@ -133,7 +133,7 @@ def _area_drift(
     # backwards.
     accounted = served | drafted | set(declined) | set(excluded)
 
-    stale = tuple(sorted(op for op in accounted if index.get(op) is None))
+    stale = tuple(sorted(op for op in accounted if index.resolve(op) is None))
 
     tag = _tag_for_area(area, index)
     if tag is None:

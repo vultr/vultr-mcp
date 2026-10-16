@@ -316,13 +316,13 @@ def validate_product_area(
     # thing someone believed was gone.
     for operation_id in excluded:
         location = f"{where}.excluded.{operation_id}"
-        operation = index.get(operation_id)
+        operation = index.resolve(operation_id)
         if operation is None:
             problems.append(
                 Problem(
                     location,
                     f"'{operation_id}' is not in openapi.json, so this excludes "
-                    "nothing. Remove it, or fix the operationId -- leaving it "
+                    "nothing. Remove it, or fix the operationId or route -- leaving it "
                     "here reads as protection that is not there",
                 )
             )

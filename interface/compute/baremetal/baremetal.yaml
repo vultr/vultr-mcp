@@ -144,7 +144,7 @@ tools:
 
     description: |
       Gets one Vultr Bare Metal server by its ID, including its plan, operating
-      system, IPv4 and IPv6 addressing, MAC address, region, and power state.
+      system, IPv4 and IPv6 addressing, region, and power state.
 
       Use this tool when a server ID is already known. To find one by label,
       IP, or region, use vultr_compute_baremetal_list first.
@@ -152,9 +152,10 @@ tools:
       That list already carries cpu_count, ram, disk, os, plan, region,
       main_ip, power_status, status, label and tags, so a question about any of
       those needs no call here. Call this one for what the list omits:
-      netmask_v4, gateway_v4, internal_ip, mac_address, vpcs, os_id, app_id,
-      image_id, snapshot_id, user_scheme, and the main IPv6 address as
-      v6_main_ip, v6_network and v6_network_size.
+      netmask_v4, gateway_v4, internal_ip, vpcs, os_id, app_id, image_id,
+      snapshot_id, user_scheme, and the main IPv6 address as v6_main_ip,
+      v6_network and v6_network_size. The MAC address comes from
+      vultr_compute_baremetal_ipv4_list.
 
       Do not use this tool for Vultr cloud compute instances, which are virtual
       machines with their own tools.
@@ -191,7 +192,7 @@ tools:
         - netmask_v4
         - gateway_v4
         - internal_ip
-        - mac_address
+        # mac_address is absent: the API sends it here as an integer, and the IPv4 list sends the same MAC as a string.
         - v6_main_ip
         - v6_network
         - v6_network_size

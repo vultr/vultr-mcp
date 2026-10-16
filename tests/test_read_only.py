@@ -61,9 +61,9 @@ async def test_default_surface_is_read_only(spec):
     assert "vultr_account_get" in names
 
     # from_openapi still populates the surface, pinned to an operation that
-    # cannot stop being generated: list-marketplace-app-variables is declined,
-    # and declining deliberately keeps the generated tool.
-    assert "list_marketplace_app_variables" in names
+    # cannot stop being generated: list-service-alerts is declined, and
+    # declining deliberately keeps the generated tool.
+    assert "list_service_alerts" in names
 
     joined = " ".join(names)
 

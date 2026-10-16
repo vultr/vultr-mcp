@@ -175,12 +175,13 @@ tools:
         - date_created
         - meta
 
-declined:
+# Removed from the surface entirely, generated tool included.
+excluded:
   get-custom-subscription:
     reason: >-
       GET /account/custom-subscriptions/{custom-id} declares no parameters at
       all -- not on the operation and not on the path item -- so {custom-id}
-      cannot be filled and the layer has no way to build a working URL. The
-      list tool above returns every field this one does for all subscriptions,
-      so nothing is lost meanwhile. Reported upstream; revisit if the spec
-      grows the parameter.
+      cannot be filled and the generated tool can never succeed; declining it
+      left that tool exposed for agents to call and fail. The list tool above
+      returns every field this one does for all subscriptions, so nothing is
+      lost. Reported upstream; revisit if the spec grows the parameter.

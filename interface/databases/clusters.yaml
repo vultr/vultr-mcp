@@ -180,8 +180,7 @@ tools:
         - enable_kafka_connect
         - enable_kafka_rest
         - enable_schema_registry
-        - kafka_rest_uri
-        - schema_registry_uri
+        # kafka_rest_uri and schema_registry_uri are absent: the API embeds the admin password in both URLs.
         - kafka_private_access
         - mysql_require_primary_key
         - mysql_slow_query_log

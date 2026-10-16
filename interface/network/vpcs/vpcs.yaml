@@ -6,6 +6,19 @@ family: network
 
 # The VPC itself, and what is attached to one.
 
+# Removed from the surface entirely, generated tools included.
+excluded:
+  list-networks:
+    reason: >-
+      Private networks are deprecated in the spec and superseded by VPCs, which
+      vultr_network_vpcs_list serves. Left to the generated surface, the raw
+      tool steered agents to a deprecated read beside the curated one, and it
+      is denied for OAuth tokens anyway.
+  get-network:
+    reason: >-
+      The single-network read from the same deprecated private-networks family;
+      vultr_network_vpcs_get answers it for VPCs.
+
 tools:
   - name: vultr_network_vpcs_list
     access: read

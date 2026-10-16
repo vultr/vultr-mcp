@@ -361,22 +361,58 @@ def test_the_same_problem_is_fatal_once_the_tool_is_enabled(tmp_path, definition
 async def test_declining_an_operation_does_not_hide_its_generated_tool():
     """Declining is bookkeeping for drift reports, not suppression.
 
-    Two operations that really are declined, for two different reasons:
-    list-marketplace-app-variables is deprecated in favour of a curated tool,
-    and get-custom-subscription has a path parameter the spec never declares.
-    Neither decision may quietly remove capability from the served surface.
+    list-service-alerts is a read sent as a POST with a required body, which the
+    layer cannot model; declining it must not quietly remove it from the
+    served surface.
     """
     names = await _tool_names(create_server())
-    assert "list_marketplace_app_variables" in names
-    assert "get_custom_subscription" in names
+    assert "list_service_alerts" in names
 
 
 def test_declined_operations_are_compiled_with_their_reasons(compiled):
     declined = {entry.operation_id: entry for entry in compiled.declined}
-    assert "list-marketplace-app-variables" in declined
-    assert declined["list-marketplace-app-variables"].product_area == "marketplace"
+    assert "list-service-alerts" in declined
+    assert declined["list-service-alerts"].product_area == "managed_databases"
     # The reason is for whoever revisits the decision, so it has to say why.
-    assert "deprecated" in declined["list-marketplace-app-variables"].reason.lower()
+    assert "request body" in declined["list-service-alerts"].reason.lower()
+
+
+async def test_generated_tools_that_leak_or_cannot_work_are_not_served():
+    """Found by the eval: generated tools left exposed beside the curated surface.
+
+    Read_Robot returns a robot account's password; get_custom_subscription and
+    read_replication can never build a valid URL; the rest are deprecated reads
+    with curated replacements that OAuth tokens are denied anyway.
+    """
+    names = await _tool_names(create_server())
+    for gone in (
+        "Read_Robot",
+        "get_custom_subscription",
+        "read_replication",
+        "list_networks",
+        "get_network",
+        "list_marketplace_app_variables",
+    ):
+        assert gone not in names, gone
+    # A generated read with nothing wrong with it stays.
+    assert "Read_Artifact" in names
+
+
+def test_an_operation_without_an_operation_id_can_be_excluded_by_route(compiled):
+    excluded = {entry.operation_id: entry for entry in compiled.excluded}
+    robot = excluded["GET /registry/{registry-id}/robot/{robot-name}"]
+    assert (robot.method, robot.path_template) == ("GET", "/registry/{registry-id}/robot/{robot-name}")
+
+
+def test_an_exclusion_naming_no_real_route_fails(tmp_path, definition, spec):
+    directory = _scratch_interface(tmp_path, definition)
+    area = directory / "clusters.yaml"
+    document = yaml.safe_load(area.read_text(encoding="utf-8"))
+    document["excluded"] = {"GET /registry/{registry-id}/robots/{robot-name}": {"reason": "A typo in the route, so this would exclude nothing while reading as though it protected something."}}
+    area.write_text(yaml.safe_dump(document), encoding="utf-8")
+
+    with pytest.raises(InterfaceError, match="not in openapi.json"):
+        compile_interface(directory, spec)
 
 
 def test_a_stale_decline_warns_without_failing(tmp_path, definition, spec):
@@ -1279,6 +1315,32 @@ def test_options_operations_count_as_writes(spec):
         operation = index.get(operation_id)
         assert operation.method == "options"
         assert operation.is_write, f"{operation_id} mints credentials; it is not a read"
+
+
+def test_kafka_urls_carrying_the_admin_password_are_withheld(compiled):
+    """Vultr embeds the Kafka admin password in the REST and schema registry URLs.
+
+    Found by the eval: vultr_database_clusters_get returned both, so any agent
+    reading a Kafka cluster was handed its admin credentials.
+    """
+    tool = next(t for t in compiled.tools if t.name == "vultr_database_clusters_get")
+    payload = {
+        "database": {
+            "id": "db1",
+            "label": "events",
+            "database_engine": "kafka",
+            "enable_kafka_rest": True,
+            "enable_schema_registry": True,
+            "kafka_rest_uri": "https://vultradmin:KAFKA-ADMIN-PASSWORD@kafka-rest.example.vultrdb.com:443",
+            "schema_registry_uri": "https://vultradmin:KAFKA-ADMIN-PASSWORD@schema.example.vultrdb.com:443",
+        }
+    }
+
+    shaped = runtime.shape_response(copy.deepcopy(payload), tool, {})
+
+    assert "KAFKA-ADMIN-PASSWORD" not in json.dumps(shaped)
+    assert shaped["database"]["enable_kafka_rest"] is True
+    assert shaped["database"]["enable_schema_registry"] is True
 
 
 def test_nested_credentials_are_dropped_with_their_parent(compiled):

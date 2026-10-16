@@ -54,13 +54,13 @@
     },
     "excluded": {
       "type": "object",
-      "description": "Operations in this product area that must NOT be served at all, keyed by operationId. This is the one block that removes something: the generated tool is dropped from the surface by an EXCLUDE route, so nothing reaches the agent. Distinct from `declined`, which is bookkeeping and leaves the generated tool exposed -- reach for this only when serving the operation is itself the problem (it hands out a credential, or it changes state on a surface that believes it is read-only), not merely when a tool would be redundant. Category exclusion is the blunter alternative and takes a whole product area with it.",
+      "description": "Operations in this product area that must NOT be served at all, keyed by operationId, or by \"METHOD /path\" for an operation the spec gives no operationId. This is the one block that removes something: the generated tool is dropped from the surface by an EXCLUDE route, so nothing reaches the agent. Distinct from `declined`, which is bookkeeping and leaves the generated tool exposed -- reach for this only when serving the operation is itself the problem (it hands out a credential, it changes state on a surface that believes it is read-only, or it can never succeed and so only misleads an agent), not merely when a tool would be redundant. Category exclusion is the blunter alternative and takes a whole product area with it.",
       "minProperties": 1,
       "additionalProperties": {
         "$ref": "#/$defs/excluded_operation"
       },
       "propertyNames": {
-        "pattern": "^[a-zA-Z0-9._-]+$"
+        "pattern": "^([a-zA-Z0-9._-]+|(GET|HEAD|OPTIONS) /\\S+)$"
       }
     }
   },

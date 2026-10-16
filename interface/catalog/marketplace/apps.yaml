@@ -7,13 +7,15 @@ family: marketplace
 # Browsing the marketplace: the apps anyone can deploy, and how they are
 # classified.
 
-declined:
+# Removed from the surface entirely, generated tool included.
+excluded:
   list-marketplace-app-variables:
     reason: >-
       Marked deprecated in the spec. GET /applications/{image-id}/variables is
       the current operation for the same question and is served here as
       vultr_catalog_application_variables_list, returning the same name,
-      description and required fields.
+      description and required fields. Declining left the generated tool
+      exposed, and it is denied for OAuth tokens anyway.
 
 tools:
   - name: vultr_marketplace_apps_list

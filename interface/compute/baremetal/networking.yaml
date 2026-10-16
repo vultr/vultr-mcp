@@ -20,9 +20,9 @@ tools:
 
       Use this tool when a server has more than one address, or when reverse
       DNS or the per-address type is needed -- neither appears anywhere else.
+      This is also where a server's MAC address comes from, as a string.
       For the main address alone, vultr_compute_baremetal_get already returns
-      main_ip with netmask_v4, gateway_v4 and mac_address, so those questions
-      need no call here.
+      main_ip with netmask_v4 and gateway_v4, so that needs no call here.
 
       Do not use this tool for cloud compute instances, which have their own
       tool, or for reserved IPs that are not yet attached to a server.

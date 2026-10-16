@@ -27,6 +27,7 @@ from typing import Any
 # and a read-only server keeps read tools. An interface tool could have walked
 # a credential-minting operation straight back onto the safe surface.
 WRITE_METHODS = frozenset({"post", "put", "patch", "delete", "options", "head", "trace"})
+HTTP_METHODS = WRITE_METHODS | {"get"}
 
 # Depth cap on $ref chains, so a cyclic spec cannot hang the build.
 _MAX_REF_DEPTH = 20
@@ -216,6 +217,8 @@ class SpecIndex:
     """Every operation in the spec, keyed by operationId."""
 
     operations: dict[str, Operation] = field(default_factory=dict)
+    # Every operation again, keyed "GET /path", so one the spec gave no operationId can still be named.
+    routes: dict[str, Operation] = field(default_factory=dict)
 
     @classmethod
     def load(cls, spec: dict[str, Any]) -> "SpecIndex":
@@ -224,10 +227,11 @@ class SpecIndex:
             if not isinstance(path_item, dict):
                 continue
             for method, op in path_item.items():
-                if not isinstance(op, dict) or "operationId" not in op:
+                if method.lower() not in HTTP_METHODS or not isinstance(op, dict):
                     continue
-                index.operations[op["operationId"]] = Operation(
-                    operation_id=op["operationId"],
+                route = f"{method.upper()} {path}"
+                operation = Operation(
+                    operation_id=op.get("operationId") or route,
                     path=path,
                     method=method.lower(),
                     tags=tuple(op.get("tags") or ()),
@@ -235,7 +239,14 @@ class SpecIndex:
                     spec=spec,
                     path_item=path_item,
                 )
+                index.routes[route] = operation
+                if "operationId" in op:
+                    index.operations[op["operationId"]] = operation
         return index
 
     def get(self, operation_id: str) -> Operation | None:
         return self.operations.get(operation_id)
+
+    def resolve(self, key: str) -> Operation | None:
+        """An operation by operationId, or by "METHOD /path" for one the spec left unnamed."""
+        return self.operations.get(key) or self.routes.get(key)

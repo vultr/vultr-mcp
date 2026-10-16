@@ -17,15 +17,24 @@ declined:
     reason: >-
       The same credential-minting operation in Kubernetes secret form, and the
       same answer.
+
+# Removed from the surface entirely, generated tool included.
+excluded:
   read-replication:
     reason: >-
       GET /registry/{registry-id}/replication/{region} cannot be called as the
       spec describes it. The only parameter it declares beside registry-id is
       named "VCR Region", with no `in` and no `schema`, so nothing fills the
-      {region} placeholder in the path and the layer would build a URL with the
-      braces still in it. vultr_registry_replications_list returns every field
-      this one does -- region, namespace and urn -- for all policies on a
-      registry, so nothing is lost. Reported upstream.
+      {region} placeholder and the generated tool can never succeed.
+      vultr_registry_replications_list returns every field this one does --
+      region, namespace and urn -- for all policies on a registry, so nothing
+      is lost. Reported upstream.
+  GET /registry/{registry-id}/robot/{robot-name}:
+    reason: >-
+      Read Robot has no operationId, so it is named by route. Its response
+      carries `secret`, the robot account's password, which
+      vultr_registry_robots_list deliberately withholds; the generated tool
+      handed it to any agent that asked.
 
 tools:
   - name: vultr_registry_registries_list

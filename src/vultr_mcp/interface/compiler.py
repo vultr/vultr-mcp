@@ -331,7 +331,7 @@ def compile_interface(
                     )
                 )
             for operation_id, excluded_entry in (document.get("excluded") or {}).items():
-                operation = index.get(operation_id)
+                operation = index.resolve(operation_id)
                 # The validator already errored on an unknown operationId; if
                 # compilation is running anyway, drop it rather than emit a
                 # route that matches nothing and quietly excludes nothing.
