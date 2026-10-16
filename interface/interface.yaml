@@ -1,28 +1,6 @@
-# Top-level manifest for the Vultr MCP interface layer.
-#
-# The version is what the eval framework pins and reports against, so bump it
-# whenever a definition changes in a way that could move tool-selection scores.
-# openapi.json stays the source of truth for the REST API; this layer only
-# controls what the agent sees.
-#
-# Area files are grouped into one directory per endpoint -- ENDPOINT_GROUPS in
-# src/vultr_mcp/app.py -- so the tree matches what a client can load:
-# interface/compute/ holds everything /mcp/compute serves. That is the product
-# family (the second segment of every tool name) with two differences, both
-# from the endpoints: marketplace sits under catalog/, and the database family's
-# directory is databases/. test_interface checks every area lives under its
-# endpoint's directory. The grouping is for people reading the repo: the
-# compiler only resolves these paths, and nothing about the directory layout
-# reaches the agent, which sees a flat tool list over MCP.
-#
-# A large area lists several files instead of one. Where it shares an endpoint
-# with other areas it gets a directory of its own (compute/instances/,
-# catalog/marketplace/); where it is the endpoint's only area, its files are the
-# endpoint's directory (databases/, kubernetes/, registry/). Those files are
-# read as though concatenated. Such an area MUST stay one entry here rather than
-# becoming several: drift matches an area's name against an OpenAPI tag, so
-# siblings would carry names matching no tag, and every operation under the real
-# tag would be reported as undetected drift in the others.
+# The interface layer manifest; bump the version when a definition change could move tool-selection scores.
+# One directory per endpoint group (app.py ENDPOINT_GROUPS); a large area lists several files but stays one entry,
+# since drift matches each area's name to an OpenAPI tag.
 
 version: 2026.10.1
 

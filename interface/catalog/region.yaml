@@ -1,11 +1,7 @@
 product_area: region
 family: catalog
 
-# The region list is the one every other product's `region` field points at, so
-# it is worth being precise that this is the general Vultr region list and not
-# one of the several product-specific ones: Object Storage has clusters, the
-# file system has its own region list, and the container registry has another.
-# Each of those is a different set.
+# The general region list, not the product-specific ones (object storage, file system, registry).
 
 tools:
   - name: vultr_catalog_regions_list
@@ -113,6 +109,4 @@ tools:
             - vcg
             - vbm
 
-    # No `output` block: the response carries available_plans and
-    # available_vpc_only_plans side by side, and shaping applies to a single
-    # container. Both are bare arrays of plan IDs.
+    # No `output` block: shaping applies to one container, and this response has two arrays of plan IDs.

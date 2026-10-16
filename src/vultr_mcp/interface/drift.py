@@ -1,19 +1,7 @@
-"""Report where the spec has moved out from under the interface layer.
+"""Report operations in covered product areas that nobody has reviewed.
 
-The validator fails the build when something we reference disappears; this is
-the other direction -- operations that exist and nobody has looked at. Scoped
-to product areas the layer already claims, since a whole-spec report would say
-"519 uncovered" and be ignored. Within one, every operation is in exactly one
-state, and only the last wants attention:
-
-    served       a tool the agent can call
-    drafted      a tool in the file, still disabled
-    declined     reviewed, deliberately left to the generated surface
-    excluded     removed from the surface entirely, generated tool included
-    unreviewed   nobody has looked
-
-``declined`` is what keeps this readable: instances alone has thirteen
-intentional omissions that would otherwise sit beside anything genuinely new.
+Each operation is served, drafted (disabled), declined (left to the generated tool), excluded
+(removed entirely), or unreviewed; only the last wants attention.
 """
 
 from __future__ import annotations
@@ -69,10 +57,7 @@ class AreaDrift:
 
     @property
     def deprecated_unreviewed(self) -> tuple[OperationRef, ...]:
-        """Unreviewed operations the spec already calls deprecated.
-
-        The easiest declines there are: the claim is the spec's, not ours.
-        """
+        """Unreviewed operations the spec already calls deprecated."""
         return tuple(
             ref
             for ref in self.unreviewed_reads + self.unreviewed_writes
@@ -107,12 +92,7 @@ class DriftReport:
 
 
 def _tag_for_area(area: str, index: SpecIndex) -> str | None:
-    """The OpenAPI tag a product area covers.
-
-    Areas are named after tags, but tags are not always identifiers --
-    'Container Registry' slugs to container_registry -- so the match is made on
-    the slug rather than assumed.
-    """
+    """The OpenAPI tag a product area covers, matched on its slug."""
     for tag in {tag for operation in index.operations.values() for tag in operation.tags}:
         if slug(tag) == area:
             return tag
@@ -128,9 +108,7 @@ def _area_drift(
 
     served = {tool["operation"] for tool in tools if tool.get("enabled", True)}
     drafted = {tool["operation"] for tool in tools if not tool.get("enabled", True)}
-    # Excluded counts as accounted, and emphatically so: it is the strongest
-    # decision in the layer, so reporting it as "nobody has looked" would be
-    # backwards.
+    # Excluded counts as reviewed.
     accounted = served | drafted | set(declined) | set(excluded)
 
     stale = tuple(sorted(op for op in accounted if index.resolve(op) is None))
@@ -147,9 +125,7 @@ def _area_drift(
             stale=stale,
         )
 
-    # A tool we serve or drafted pointing at a deprecated operation is worth
-    # knowing about: it still works, but we have hand-authored a name for
-    # something Vultr is retiring.
+    # Tools of ours pointing at an operation Vultr is retiring.
     in_use = [
         operation
         for operation_id in sorted(served | drafted)
@@ -188,9 +164,7 @@ def detect_drift(interface_dir: Path, spec: dict[str, Any]) -> DriftReport:
 
     areas = []
     for area, entry in (manifest.get("product_areas") or {}).items():
-        # An area split over several files is still one area measured against
-        # one tag, so the files are merged before it is measured -- otherwise
-        # each half would report the other half's operations as drift.
+        # An area split over several files is merged before it is measured against its tag.
         merged: dict[str, Any] = {"tools": [], "declined": {}, "excluded": {}}
         present = False
         for path in area_files(interface_dir, entry):

@@ -1,14 +1,7 @@
 product_area: subaccount
 family: account
 
-# Sub-accounts are the reseller feature: separately billed accounts under one
-# parent. This is a listing of accounts, not of users, and the distinction
-# matters because the users, IAM and organizations categories are excluded from
-# this server entirely -- an agent that reaches here looking for "the account's
-# users" has the wrong tool and the description says so.
-#
-# `email` and `balance` are kept: they are what identifies a sub-account and
-# what the question about one usually is. No credential is present.
+# Sub-accounts are separately billed reseller accounts, not users (the users category is excluded).
 
 tools:
   - name: vultr_account_subaccounts_list

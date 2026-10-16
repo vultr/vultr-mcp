@@ -40,16 +40,12 @@ def package_version() -> str:
     except Exception:  # noqa: BLE001 - never fail a boot or a health check over this
         return "unknown"
 
-# Identity and credential-management tags, kept off the hosted surface: these
-# tools would always 403 under the OAuth client's IAM policy, and excluding them
-# keeps identity mutations out of prompt-injection reach on every auth path.
-# Override with VULTR_MCP_EXCLUDED_CATEGORIES (empty string disables).
+# Identity and credential tags, kept off the surface on every auth path; VULTR_MCP_EXCLUDED_CATEGORIES overrides.
 DEFAULT_EXCLUDED_CATEGORIES = frozenset(
     {"api-keys", "users", "iam", "scim", "organizations", "oidc", "oauth"}
 )
 
-# Everything that is not a GET mutates something, including the two OPTIONS
-# routes -- they mint container-registry Docker credentials despite the verb.
+# Everything but GET mutates something; the OPTIONS routes mint registry Docker credentials.
 WRITE_METHODS: tuple[str, ...] = (
     "POST",
     "PUT",
@@ -60,8 +56,7 @@ WRITE_METHODS: tuple[str, ...] = (
     "TRACE",
 )
 
-# Non-GET operations that only read. A POST because its filter arrives in a
-# request body, but it creates nothing. (method, anchored OpenAPI path regex)
+# Non-GET operations that only read, as (method, anchored OpenAPI path regex).
 READ_ONLY_METHOD_OVERRIDES: tuple[tuple[str, str], ...] = (
     ("POST", r"^/databases/\{database-id\}/alerts$"),
 )
@@ -78,9 +73,7 @@ class PerRequestVultrAuth(httpx.Auth):
     def auth_flow(self, request: httpx.Request) -> Generator[httpx.Request, httpx.Response, None]:
         token: str | None = None
 
-        # AccessToken.token is the UPSTREAM Vultr token FastMCP swapped in, not
-        # the proxy-issued one the client holds -- forwarding that gives
-        # "Invalid API token".
+        # AccessToken.token is the upstream Vultr token, not the proxy-issued one the client holds.
         try:
             from fastmcp.server.dependencies import get_access_token
 
@@ -90,10 +83,7 @@ class PerRequestVultrAuth(httpx.Auth):
         except Exception:
             pass
 
-        # include_all=True is required: get_http_headers() strips `authorization`
-        # by default. An empty dict means no HTTP request is in scope at all. If
-        # that cannot be determined, assume there is one -- being wrong that way
-        # only withholds a local convenience.
+        # include_all=True, since authorization is stripped by default; no headers means no HTTP request in scope.
         incoming: dict[str, str] = {}
         in_http_request = True
         if not token:
@@ -111,9 +101,7 @@ class PerRequestVultrAuth(httpx.Auth):
                 if api_key:
                     token = f"Bearer {api_key}"
 
-        # Unreachable from an HTTP request, deliberately: substituting the
-        # server's own key for a caller who presented none would serve anonymous
-        # requests as the operator. Over HTTP, no credential must mean a 401.
+        # Never over HTTP: a caller with no credential must get a 401, not the operator's key.
         if not token and not in_http_request:
             env_key = os.environ.get("VULTR_API_KEY", "")
             if env_key:
@@ -133,9 +121,7 @@ def load_spec(path: str | Path | None = None) -> dict:
         return sanitize_spec(json.load(fh))
 
 
-# Programming-language type names appearing where JSON Schema types belong.
-# Keyed by alias rather than validity: `securitySchemes.type: http` is a legal
-# non-schema type and must survive untouched.
+# Language type names the spec uses where JSON Schema types belong.
 TYPE_ALIASES = {
     "int": "integer",
     "bool": "boolean",
@@ -144,18 +130,12 @@ TYPE_ALIASES = {
     "enum": "string",
 }
 
-# Sample payloads, not schemas: a startup script whose `type` is "pxe" is data,
-# and rewriting it would corrupt the examples.
+# Sample payloads, not schemas, so their `type` values are data and left alone.
 EXAMPLE_KEYS = frozenset({"example", "examples", "x-examples", "x-codeSamples"})
 
 
 def sanitize_spec(spec: dict) -> dict:
-    """Fix spec-validity defects in Vultr's published openapi.json.
-
-    FastMCP's parser enforces the OpenAPI schema strictly where the old PHP
-    generator was lenient, which is how these shipped unnoticed. All three
-    classes below are reported upstream.
-    """
+    """Fix the spec-validity defects in Vultr's openapi.json that FastMCP's strict parser rejects."""
     # (1) response objects missing the required `description`
     for path_item in spec.get("paths", {}).values():
         for op in path_item.values():
@@ -181,8 +161,7 @@ def sanitize_spec(spec: dict) -> dict:
 
     fix_type_aliases(spec)
 
-    # (3) parameters missing `in`; vcr_region is the {region} path param of
-    # /registry/{registry-id}/replication/{region}
+    # (3) parameters missing `in`; vcr_region is the {region} of /registry/{registry-id}/replication/{region}
     for pname, param in spec.get("components", {}).get("parameters", {}).items():
         if isinstance(param, dict) and "$ref" not in param and "in" not in param:
             if pname == "vcr_region":
@@ -190,18 +169,14 @@ def sanitize_spec(spec: dict) -> dict:
                 param["in"] = "path"
                 param.setdefault("schema", {"type": "string"})
             else:
-                # Unknown future defect: default to a query param so the
-                # parser accepts it rather than dropping the whole spec.
+                # Unknown: a query param, so the parser accepts the spec rather than dropping it.
                 param["in"] = "query"
             param.setdefault("required", param.get("in") == "path")
 
     return spec
 
 
-# A record of tags somebody reviewed, not a filter: its only job is to make a
-# NEW tag fail the build until a human sorts it into this set or
-# DEFAULT_EXCLUDED_CATEGORIES. Without it, one spec update silently added 24
-# OAuth client-management operations and an endpoint returning `s3_secret_key`.
+# Tags someone reviewed, not a filter: a new tag fails the build until it is sorted here or into the exclusions.
 REVIEWED_CATEGORIES = frozenset(
     {
         "CDNs",
@@ -233,6 +208,7 @@ REVIEWED_CATEGORIES = frozenset(
         "s3",
         "serverless-inference",
         "snapshot",
+        "software-licenses",
         "ssh",
         "startup",
         "storage-gateways",
@@ -243,13 +219,7 @@ REVIEWED_CATEGORIES = frozenset(
 
 
 def unreviewed_categories(spec: dict) -> set[str]:
-    """Tags nobody has decided about: neither excluded nor reviewed.
-
-    The category-level twin of the interface layer's drift report. A spec update
-    that introduces a product area is news that has to reach a person, because
-    the default is exposure and the cost of missing one is a tool surface nobody
-    chose.
-    """
+    """Tags nobody has decided about: neither excluded nor reviewed."""
     return all_categories(spec) - set(DEFAULT_EXCLUDED_CATEGORIES) - REVIEWED_CATEGORIES
 
 
@@ -276,17 +246,7 @@ def excluded_categories_from_env() -> set[str] | None:
 
 
 def _strip_output_schema(route, component) -> None:
-    """Drop the generated ``outputSchema`` from every tool.
-
-    Derived from each operation's response schema, these were 64% of the root
-    listing's bytes (480KB of 750KB) and took it to ~187k tokens, which clients
-    reject. Dropping them lands at ~66k with no tool removed and no change to
-    results -- only the schema describing their shape goes.
-
-    ``from_openapi(validate_output=False)`` looks like the lever and is not: it
-    disables validation while still advertising the schema. Set
-    VULTR_MCP_OUTPUT_SCHEMAS=true to keep them.
-    """
+    """Drop the generated ``outputSchema``s, which nearly triple the tool listing; VULTR_MCP_OUTPUT_SCHEMAS=true keeps them."""
     component.output_schema = None
 
 
@@ -295,13 +255,7 @@ def _output_schemas_enabled() -> bool:
 
 
 def interface_dir_from_env() -> Path | None:
-    """Where the interface layer lives, or None when it is switched off.
-
-    Defaults to the ``interface/`` directory beside openapi.json. Set
-    VULTR_MCP_INTERFACE=off to run the generated surface alone (useful for
-    measuring what the layer changes), or VULTR_MCP_INTERFACE_DIR to point at
-    another copy.
-    """
+    """``interface/`` beside openapi.json, VULTR_MCP_INTERFACE_DIR, or None when VULTR_MCP_INTERFACE=off."""
     if os.environ.get("VULTR_MCP_INTERFACE", "on").lower() in ("0", "off", "false", "no"):
         return None
     override = os.environ.get("VULTR_MCP_INTERFACE_DIR")
@@ -310,32 +264,17 @@ def interface_dir_from_env() -> Path | None:
     return Path(__file__).resolve().parent.parent.parent / "interface"
 
 
-# One compiled interface per (directory, spec), reused across the ~35 servers
-# create_http_app builds -- recompiling per server took boot from ~4.7s to ~26s.
-# The spec is compared by identity and held by reference: a dict is unhashable,
-# and holding it keeps the comparison sound. A different spec object recompiles,
-# which tests that build a scratch spec rely on.
+# One compiled interface per directory, reused across every server while the spec object is the same one.
 _INTERFACE_CACHE: dict[str, tuple[dict, CompiledInterface]] = {}
 
 
 def clear_interface_cache() -> None:
-    """Drop the compiled-interface cache.
-
-    For tests that rewrite definitions on disk under a path they have already
-    loaded. Nothing in the server's own lifecycle needs it: the directory does
-    not change under a running process.
-    """
+    """Drop the compiled-interface cache, for tests that rewrite definitions on disk."""
     _INTERFACE_CACHE.clear()
 
 
 def load_interface(spec: dict, interface_dir: Path | None) -> CompiledInterface:
-    """Compile the interface layer, or return an empty one when absent.
-
-    A missing directory is fine; a broken one raises, because a half-loaded
-    layer means the served surface is not the reviewed one. The result is
-    cached and shared, which is safe because every compiled type is a frozen
-    dataclass that ``InterfaceTool.build`` only reads.
-    """
+    """Compile the interface layer (cached), or an empty one when absent; a broken one raises."""
     if interface_dir is None or not (interface_dir / "interface.yaml").exists():
         return CompiledInterface(version="none")
 
@@ -353,16 +292,10 @@ def _build_route_maps(
     exclude_tags: set[str],
     interface_routes: list[tuple[str, str]] | None = None,
 ) -> list[RouteMap]:
-    """RouteMaps applied in order -- first match wins, default is TOOL.
+    """RouteMaps in order, first match wins, default TOOL.
 
-    1. EXCLUDE per operation the interface layer owns; most specific, so first.
-    2. EXCLUDE per excluded tag, one map each: RouteMap requires *all* its tags
-       on a route, and an operation carries exactly one, so a multi-tag map
-       would never match. Before the method maps, so an identity exclusion
-       cannot be undone by a later one.
-    3. Read-only overrides re-admitted as TOOLs...
-    4. ...then every remaining write method excluded. GETs match nothing and
-       fall through to the default.
+    Interface-owned operations, then excluded tags (one map each, since a map needs all its tags),
+    then read-only overrides, then every write method. GETs fall through to the default.
     """
     maps = [
         RouteMap(
@@ -381,6 +314,70 @@ def _build_route_maps(
     return maps
 
 
+# Sent in `initialize`; clients that defer tools show the model nothing else about this server until it searches.
+PRODUCT_NAMES: dict[str, str] = {
+    "instances": "compute instances",
+    "baremetal": "bare metal servers",
+    "snapshot": "snapshots",
+    "backup": "backups",
+    "startup": "startup scripts",
+    "instance-templates": "instance templates",
+    "clusters": "compute clusters",
+    "kubernetes": "Kubernetes (VKE) clusters",
+    "firewall": "firewall groups",
+    "dns": "DNS domains and records",
+    "load-balancer": "load balancers",
+    "reserved-ip": "reserved IPs",
+    "VPCs": "VPCs",
+    "private Networks": "private networks",
+    "CDNs": "CDN pull and push zones",
+    "block": "block storage",
+    "s3": "object storage",
+    "VFS": "file systems (VFS)",
+    "storage-gateways": "storage gateways",
+    "managed-databases": "managed databases",
+    "Container Registry": "container registries",
+    "serverless-inference": "serverless inference",
+    "account": "account details",
+    "billing": "billing and invoices",
+    "logs": "account activity logs",
+    "ssh": "SSH keys",
+    "subaccount": "subaccounts",
+    "tickets": "support tickets",
+    "software-licenses": "software licenses",
+    "plans": "plans",
+    "region": "regions",
+    "os": "operating systems",
+    "iso": "ISOs",
+    "application": "applications",
+    "marketplace": "Marketplace apps",
+}
+
+# The whole account, for the root endpoint, where listing every product would bury the point.
+ACCOUNT_SUMMARY = (
+    "compute instances and bare metal, firewall groups, DNS, load balancers, VPCs, block and object storage, "
+    "Kubernetes (VKE), managed databases, container registries, billing and support tickets"
+)
+
+
+def _product_list(tags: set[str]) -> str:
+    names = [name for tag, name in PRODUCT_NAMES.items() if tag in tags]
+    names += sorted(tag for tag in tags if tag not in PRODUCT_NAMES)
+    return ", ".join(names)
+
+
+def server_instructions(only_categories: set[str] | None = None) -> str:
+    """The instructions sent in `initialize`, naming only the products this endpoint serves."""
+    products = ACCOUNT_SUMMARY if only_categories is None else _product_list(only_categories)
+    return (
+        f"Tools for the user's Vultr cloud account: {products}. "
+        "Use them for any question about the user's Vultr infrastructure. "
+        "When the user names a server, instance, cluster, domain or other resource, it is most likely "
+        "in their Vultr account: look it up with these tools rather than asking what it is. "
+        "This server is read-only: it cannot change anything."
+    )
+
+
 def create_server(
     spec: dict | None = None,
     *,
@@ -393,21 +390,13 @@ def create_server(
     """Build a FastMCP server over the Vultr tool surface.
 
     exclude_categories:
-        Tags to drop. Defaults to the env value, else
-        DEFAULT_EXCLUDED_CATEGORIES. Pass an explicit empty set to keep
-        everything (e.g. local STDIO power use).
+        Tags to drop; defaults to the env value, else DEFAULT_EXCLUDED_CATEGORIES. An empty set keeps all.
     only_categories:
-        When set, exposes ONLY these tags (the path-based category-endpoint
-        model from the PHP server, e.g. an /instances-only connection). The
-        default identity exclusions still apply on top, so a category
-        endpoint can never resurface an excluded identity tool.
+        Serve only these tags; the exclusions still apply on top.
     interface_dir:
-        Directory of reviewed tool definitions. Defaults to the env value,
-        else ``interface/`` beside openapi.json. Each tool it defines replaces
-        the generated tool for the same operation.
+        Reviewed tool definitions, each replacing the generated tool for its operation.
     use_interface:
-        Pass False to serve the generated surface alone, which is how the
-        eval framework measures what the layer is worth.
+        False serves the generated surface alone.
     """
     if spec is None:
         spec = load_spec()
@@ -419,15 +408,11 @@ def create_server(
 
     exclude_tags = set(exclude_categories)
     if only_categories is not None:
-        # Exclude every category not requested (identity exclusions merge in).
         exclude_tags |= all_categories(spec) - set(only_categories)
 
     ssl_verify = os.environ.get("SSL_VERIFY", "true").lower() not in ("false", "0", "no")
 
-    # Wrapped at the transport because the generated surface and the interface
-    # layer share this client: one place sees both, and a call site added later
-    # cannot slip past it. `verify` moves onto the inner transport -- httpx
-    # ignores it on the client once a transport is supplied.
+    # Instrumented at the transport, which the generated and hand-authored tools share; httpx ignores client `verify` here.
     transport: httpx.AsyncBaseTransport = httpx.AsyncHTTPTransport(verify=ssl_verify)
     if audit_enabled():
         transport = InstrumentedTransport(transport, PathTemplates(spec.get("paths", {})))
@@ -449,17 +434,14 @@ def create_server(
             interface_dir = interface_dir_from_env()
         interface = load_interface(spec, interface_dir)
 
-    # Hand-authored tools pass the same gates as the generated surface, so the
-    # layer can never reintroduce a write or identity tool that policy excluded.
+    # Hand-authored tools pass the same gates as generated ones.
     interface_tools = [
         tool
         for tool in interface.tools
         if not tool.is_write and not (tool.tags & exclude_tags)
     ]
 
-    # Two reasons to drop a generated route: a hand-authored tool replaces its
-    # twin (serving both gives the agent two tools for one operation), or the
-    # operation is excluded outright, with no replacement.
+    # Generated routes a hand-authored tool replaces, or that are excluded outright.
     suppressed = [
         (tool.method.upper(), tool.path_template) for tool in interface_tools
     ] + [
@@ -470,10 +452,9 @@ def create_server(
         openapi_spec=spec,
         client=client,
         name="Vultr MCP Server",
-        # Without this FastMCP reports its own library version in `initialize`,
-        # so a client asking what it is talking to gets "3.4.3" -- which says
-        # nothing about which build is serving. Same reasoning as /healthz.
+        # Otherwise `initialize` reports FastMCP's own version.
         version=package_version(),
+        instructions=server_instructions(only_categories),
         route_maps=_build_route_maps(exclude_tags, suppressed),
         mcp_component_fn=None if _output_schemas_enabled() else _strip_output_schema,
         auth=auth,
@@ -495,8 +476,6 @@ def create_server(
 def main() -> None:
     transport = os.environ.get("VULTR_MCP_TRANSPORT", "stdio").lower()
     if transport == "http":
-        # HTTP mode serves the composed app (root + path-based category
-        # endpoints + /healthz) via uvicorn.
         import uvicorn
 
         from vultr_mcp.app import create_http_app

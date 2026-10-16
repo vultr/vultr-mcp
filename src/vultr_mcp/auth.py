@@ -1,21 +1,14 @@
 """OAuth, via FastMCP's OAuthProxy.
 
-Vultr's OIDC provider is confidential and non-DCR: every token exchange needs a
-pre-registered client_id and secret. MCP clients expect Dynamic Client
-Registration and refuse to store a secret. ``OAuthProxy`` bridges the two,
-presenting a DCR interface downstream while using our one approved client
-upstream.
-
-The proxy issues clients a reference JWT of its own and swaps it for the stored
-upstream Vultr token on each request; that upstream token is what
-``PerRequestVultrAuth`` forwards to api.vultr.com.
-
-Enable with VULTR_OIDC_ENABLED=true plus the VULTR_OAUTH_* / VULTR_OIDC_* vars.
-Disabled, ``build_auth`` returns None and only the raw-key path runs.
+Vultr's OIDC provider needs a pre-registered confidential client, while MCP clients expect Dynamic
+Client Registration. The proxy offers DCR downstream, issues clients its own JWT, and swaps it for
+the stored upstream Vultr token on each request. Enabled by VULTR_OIDC_ENABLED=true.
 """
 
 from __future__ import annotations
 
+import base64
+import hashlib
 import inspect
 import json
 import os
@@ -23,6 +16,7 @@ import time
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from typing import Any, AsyncIterator
+from urllib.parse import urlencode
 
 import httpx
 from fastmcp.server.auth.auth import AccessToken, TokenVerifier
@@ -31,7 +25,7 @@ from fastmcp.server.auth.providers.jwt import JWTVerifier
 from mcp.server.auth.provider import AuthorizationCode, AuthorizationParams, RefreshToken, TokenError
 from mcp.shared.auth import OAuthClientInformationFull, OAuthToken
 from starlette.requests import Request
-from starlette.responses import JSONResponse
+from starlette.responses import JSONResponse, RedirectResponse
 from starlette.routing import Route
 
 from vultr_mcp.audit import emit_auth
@@ -60,8 +54,11 @@ from vultr_mcp.suspension import (
     unverified_claims,
 )
 
-# The proxy's own access token, a pointer re-checked against Vultr's hourly token on every request, so clients that never refresh stay signed in for a day.
+# The proxy's own access token lifetime; each use is still checked against Vultr's hourly token.
 ACCESS_TOKEN_LIFETIME_S = 24 * 3600
+
+# What a client is told when sign-in fails in the browser after it began, instead of waiting until it times out.
+SIGN_IN_FAILED_MESSAGE = "Signing in to Vultr did not complete. Please try connecting again."
 
 
 def _error_code(exc: BaseException) -> str:
@@ -69,8 +66,7 @@ def _error_code(exc: BaseException) -> str:
 
 
 def _error_fields(exc: BaseException) -> dict[str, Any]:
-    """What the client was told: the OAuth error code and its description --
-    for a failed refresh, Vultr's own reason, e.g. "Invalid refresh token"."""
+    """The OAuth error code and description the client was told."""
     fields: dict[str, Any] = {"error": _error_code(exc)}
     if isinstance(exc, TokenError) and exc.error_description:
         fields["error_description"] = exc.error_description[:300]
@@ -94,11 +90,7 @@ def _looks_like_jwt(token: str) -> bool:
 
 
 def _api_key_access_token(token: str) -> AccessToken:
-    """Wrap an opaque bearer as an AccessToken; api.vultr.com is the real
-    authority on whether it's valid — this only lets it through the MCP
-    layer. Shared by DualTokenVerifier and VultrOAuthProxy so both opaque-
-    token branches build the same object.
-    """
+    """Wrap an opaque bearer as an AccessToken; api.vultr.com decides whether it is valid."""
     return AccessToken(
         token=token,
         client_id="vultr-api-key",
@@ -108,20 +100,9 @@ def _api_key_access_token(token: str) -> AccessToken:
 
 
 class DualTokenVerifier(TokenVerifier):
-    """Accept both Vultr OIDC JWTs and raw Vultr API keys.
-
-    JWT-shaped tokens verify against Vultr's JWKS; opaque ones are passed
-    through as API keys for api.vultr.com to validate, since it is the real
-    authority on them. A bad key still fails there with a 401.
-
-    Behind an OAuthProxy this opaque branch is not what accepts a client's raw
-    key -- ``load_access_token`` gates first, and ``VultrOAuthProxy`` handles
-    that. This stays for standalone use, and as the shared building block.
-    """
+    """Accept Vultr OIDC JWTs (verified against the JWKS) and raw API keys (left to api.vultr.com)."""
 
     def __init__(self, jwt_verifier: TokenVerifier) -> None:
-        # Inherit base_url / required_scopes so the auth layer sees a
-        # fully-formed verifier.
         super().__init__(
             base_url=getattr(jwt_verifier, "base_url", None),
             required_scopes=getattr(jwt_verifier, "required_scopes", None),
@@ -131,27 +112,16 @@ class DualTokenVerifier(TokenVerifier):
     async def verify_token(self, token: str) -> AccessToken | None:
         if _looks_like_jwt(token):
             return await self._jwt.verify_token(token)
-        # Opaque bearer -> treat as a raw Vultr API key; Vultr validates it.
         return _api_key_access_token(token)
 
 
 class VultrOAuthProxy(OAuthProxy):
-    """OAuthProxy that also accepts raw Vultr API keys, and the device grant.
-
-    ``load_access_token`` is what the auth middleware calls to validate a
-    bearer, and unmodified it requires a proxy-issued JWT before consulting the
-    verifier at all -- so a valid raw API key 401s regardless. Non-JWT bearers
-    are therefore accepted here directly; JWT-shaped ones take the full swap.
-    """
+    """OAuthProxy that also accepts raw Vultr API keys, which the base class 401s, and the device grant."""
 
     def __init__(self, *args, **kwargs) -> None:
-        # Shared with the device grant; across replicas the pod that completes
-        # an approval is rarely the pod being polled.
+        # Shared with the device grant, since the pod that approves is rarely the pod being polled.
         self._shared_storage = kwargs.get("client_storage")
-        # Vultr revokes a whole token family when one refresh token is used
-        # twice, so concurrent refreshes must become one upstream call -- across
-        # pods, which FastMCP's own per-process lock cannot see. See
-        # refresh_coalescer.
+        # Vultr revokes a token family when a refresh token is reused, so concurrent refreshes become one call across pods.
         self._refresh_coalescer = build_refresh_coalescer(kwargs.get("upstream_client_secret"))
         super().__init__(*args, **kwargs)
 
@@ -200,6 +170,73 @@ class VultrOAuthProxy(OAuthProxy):
         emit_auth("transparent_refresh", "ok", upstream_token_set.client_id, started)
         return refreshed
 
+    # One cookie per pending sign-in: FastMCP's single shared cookie loses entries when sign-ins overlap.
+    def _entry_cookie_name(self, base_name: str, key: str) -> str:
+        return self._cookie_name(f"{base_name}_{hashlib.sha256(key.encode()).hexdigest()[:16]}")
+
+    def _signed_entries(self, request: Request, base_name: str) -> list[Any]:
+        prefix = self._cookie_name(f"{base_name}_")
+        entries: list[Any] = []
+        for name, raw in request.cookies.items():
+            if not name.startswith(prefix):
+                continue
+            payload = self._verify_cookie(raw)
+            if not payload:
+                continue
+            try:
+                entries.append(json.loads(base64.b64decode(payload.encode()).decode()))
+            except Exception:  # noqa: BLE001 - a malformed cookie is simply not an entry
+                continue
+        return entries
+
+    def _set_entry_cookie(self, response: Any, base_name: str, key: str, value: Any, max_age: int) -> None:
+        payload = base64.b64encode(json.dumps(value, separators=(",", ":")).encode()).decode()
+        response.set_cookie(
+            self._entry_cookie_name(base_name, key),
+            self._sign_cookie(payload),
+            max_age=max_age,
+            secure=self._is_https,
+            httponly=True,
+            samesite="lax",
+            path="/",
+        )
+
+    def _read_consent_bindings(self, request: Request) -> dict[str, str]:
+        bindings = super()._read_consent_bindings(request)
+        for entry in self._signed_entries(request, "MCP_CONSENT_BINDING"):
+            if isinstance(entry, dict) and entry.get("txn") and entry.get("token"):
+                bindings[str(entry["txn"])] = str(entry["token"])
+        return bindings
+
+    def _set_consent_binding_cookie(self, request: Request, response: Any, txn_id: str, consent_token: str) -> None:
+        self._set_entry_cookie(response, "MCP_CONSENT_BINDING", txn_id, {"txn": txn_id, "token": consent_token}, 15 * 60)
+
+    def _clear_consent_binding_cookie(self, request: Request, response: Any, txn_id: str) -> None:
+        response.set_cookie(
+            self._entry_cookie_name("MCP_CONSENT_BINDING", txn_id),
+            "",
+            max_age=0,
+            secure=self._is_https,
+            httponly=True,
+            samesite="lax",
+            path="/",
+        )
+
+    def _decode_list_cookie(self, request: Request, base_name: str) -> list[str]:
+        values = super()._decode_list_cookie(request, base_name)
+        if base_name == "MCP_CONSENT_STATE":
+            values += [str(entry) for entry in self._signed_entries(request, base_name) if isinstance(entry, str)]
+        return values
+
+    def _set_list_cookie(self, response: Any, base_name: str, value_b64: str, max_age: int) -> None:
+        if base_name != "MCP_CONSENT_STATE":
+            super()._set_list_cookie(response, base_name, value_b64, max_age)
+            return
+        payload = self._verify_cookie(value_b64)
+        tokens = json.loads(base64.b64decode(payload.encode()).decode()) if payload else []
+        for token in tokens:
+            self._set_entry_cookie(response, base_name, str(token), str(token), max_age)
+
     def _create_upstream_oauth_client(self) -> Any:
         # Vultr evaluates Use MCP's conditions at refresh too, so the refresh must carry the User-Agent the API calls do.
         client = super()._create_upstream_oauth_client()
@@ -212,11 +249,7 @@ class VultrOAuthProxy(OAuthProxy):
             yield SuspensionAwareClient(CoalescedUpstreamClient(client, self._refresh_coalescer))
 
     async def _held_access(self, token: str, suspended: UpstreamSuspended) -> AccessToken | None:
-        """The session behind a proxy token whose upstream refresh Vultr refused as suspended, while the grace lasts.
-
-        Its tool calls are answered with Vultr's reason by SuspendedTransport, so
-        the expired upstream token it carries is never sent anywhere.
-        """
+        """The session behind a proxy token Vultr refused as suspended, while the grace lasts; SuspendedTransport answers its calls."""
         try:
             payload = self.jwt_issuer.verify_token(token)
             upstream = await self._upstream_for_jti(payload["jti"])
@@ -251,11 +284,7 @@ class VultrOAuthProxy(OAuthProxy):
     async def _exchange_holding_suspension(
         self, exchange, client: OAuthClientInformationFull, refresh_token: RefreshToken, scopes: list[str], held: list[str]
     ) -> OAuthToken:
-        """A client refresh; if Vultr refuses it as suspended, new proxy tokens over the same stored grant instead.
-
-        The upstream grant is passed back unchanged, its original expiry included,
-        so the grace keeps counting from the session's last working access.
-        """
+        """A client refresh; if Vultr refuses it as suspended, new proxy tokens over the unchanged stored grant."""
         try:
             return await exchange(client, refresh_token, scopes)
         except TokenError as exc:
@@ -313,11 +342,7 @@ class VultrOAuthProxy(OAuthProxy):
     async def load_refresh_token(
         self, client: OAuthClientInformationFull, refresh_token: str
     ) -> RefreshToken | None:
-        # A duplicate of a refresh that is in flight or just finished: the
-        # winner has rotated the token out of FastMCP's store, so the base
-        # class would refuse it here, before exchange_refresh_token could hand
-        # it the winner's result. Checked first, so a rescued duplicate does not
-        # log the base class's "forces the client to re-authenticate" warning.
+        # A duplicate of an in-flight or just-finished refresh, whose token the winner already rotated out of the store.
         started = time.perf_counter()
         scopes = await self._refresh_coalescer.claimed_scopes(
             token_key(refresh_token), client.client_id or ""
@@ -326,8 +351,6 @@ class VultrOAuthProxy(OAuthProxy):
             return RefreshToken(token=refresh_token, client_id=client.client_id or "", scopes=scopes)
         found = await super().load_refresh_token(client, refresh_token)
         if found is None:
-            # Unknown, already rotated, expired or revoked: the client is told
-            # invalid_grant and has to sign in again from scratch.
             emit_auth("refresh", "refused", client.client_id, started, error="invalid_grant",
                       error_description="refresh token not found (rotated, expired or revoked)")
         return found
@@ -361,8 +384,7 @@ class VultrOAuthProxy(OAuthProxy):
         return token
 
     async def _account_of(self, token: OAuthToken) -> dict[str, Any]:
-        """acctid and sub behind a token just issued, resolved the way a request's
-        bearer is -- so an auth record names the same account its tool calls do."""
+        """acctid and sub behind a token just issued, resolved the way a request's bearer is."""
         try:
             access = await OAuthProxy.load_access_token(self, token.access_token)
         except Exception:  # noqa: BLE001 - auditing never fails a sign-in
@@ -371,28 +393,51 @@ class VultrOAuthProxy(OAuthProxy):
         return {k: claims[k] for k in ("acctid", "sub") if claims.get(k) is not None}
 
     async def _handle_idp_callback(self, request: Request):
-        """Hand the code back without assuming the loopback port exists.
-
-        The base class 302s to the client's ``redirect_uri``, which strands the
-        code when that is a loopback address on another machine. See
-        ``loopback_handoff``.
-        """
+        """Hand the code back without assuming the loopback port exists (see ``loopback_handoff``)."""
         response = await super()._handle_idp_callback(request)
+        if _is_browser_failure(response):
+            response = await self._failure_to_client(request.query_params.get("state"), response)
         if not loopback_handoff_enabled():
             return response
         target = response.headers.get("location", "") if response is not None else ""
-        # Only a successful authorization carries a code; errors keep the
-        # base class's own redirect so the client sees the OAuth error.
+        # Errors keep the base class's redirect so the client sees the OAuth error.
         if target and "code=" in target and is_loopback_target(target):
             return completion_page(target)
         return response
 
-    def get_routes(self, mcp_path: str | None = None) -> list[Route]:
-        """Proxy routes, plus the device grant's own routes, /token wrapper
-        and metadata patch. Here rather than in ``build_auth`` so every OAuth
-        deployment gets it, and so the patches sit beside the routes they
-        modify.
+    async def _submit_consent(self, request: Request) -> Any:
+        form = await request.form()
+        response = await super()._submit_consent(request)
+        if _is_browser_failure(response):
+            response = await self._failure_to_client(str(form.get("txn_id", "")), response)
+        return response
+
+    async def _failure_to_client(self, txn_id: str | None, response: Any) -> Any:
+        """A sign-in that failed after the client was known, sent to its registered redirect URI as an OAuth error.
+
+        FastMCP shows these as a browser page, so the client never hears and waits until it times out.
         """
+        if not txn_id:
+            return response
+        try:
+            transaction = await self._transaction_store.get(key=txn_id)
+        except Exception:  # noqa: BLE001 - without the transaction the browser page is all there is
+            return response
+        if transaction is None or not self._validate_client_redirect_uri(transaction.client_redirect_uri):
+            return response
+        params = {
+            "error": "server_error" if response.status_code >= 500 else "access_denied",
+            "error_description": SIGN_IN_FAILED_MESSAGE,
+        }
+        if transaction.client_state:
+            params["state"] = transaction.client_state
+        emit_auth("authorize", "error", transaction.client_id, time.perf_counter(), error=params["error"],
+                  error_description=f"HTTP {response.status_code} returned to the client instead of a browser page")
+        separator = "&" if "?" in transaction.client_redirect_uri else "?"
+        return RedirectResponse(f"{transaction.client_redirect_uri}{separator}{urlencode(params)}", status_code=302)
+
+    def get_routes(self, mcp_path: str | None = None) -> list[Route]:
+        """Proxy routes, with /token wrapped and, when enabled, the device grant's routes and metadata."""
         routes = [
             _replace_endpoint(route, _TemporarilyUnavailableToken(route.endpoint))
             if isinstance(route, Route) and route.path == "/token"
@@ -405,7 +450,6 @@ class VultrOAuthProxy(OAuthProxy):
         handlers = DeviceFlowHandlers(
             self, self._shared_storage, base_url=str(self.base_url).rstrip("/")
         )
-        self._device_handlers = handlers
 
         patched: list[Route] = []
         for route in routes:
@@ -472,14 +516,13 @@ class _TemporarilyUnavailableToken:
             await response(scope, receive, send)
 
 
-def _is_asgi_endpoint(endpoint) -> bool:
-    """True when the route endpoint is an ASGI app rather than a handler.
+def _is_browser_failure(response: Any) -> bool:
+    """An error page shown in the browser, which the client waiting on its callback never sees."""
+    return response is not None and response.status_code >= 400 and not isinstance(response, RedirectResponse)
 
-    FastMCP wraps several of its OAuth routes in ``cors_middleware``, which
-    returns an ASGI app taking ``(scope, receive, send)``. Others are plain
-    ``(Request) -> Response`` handlers. Both shapes have to be wrappable, so
-    the wrappers below are ASGI apps that adapt whichever they were given.
-    """
+
+def _is_asgi_endpoint(endpoint) -> bool:
+    """True for an ASGI app (FastMCP's cors_middleware routes), False for a ``(Request) -> Response`` handler."""
     try:
         return len(inspect.signature(endpoint).parameters) == 3
     except (TypeError, ValueError):
@@ -509,12 +552,7 @@ async def _drain(receive) -> bytes:
 
 
 def _replay(body: bytes):
-    """A receive channel that hands back an already-consumed body.
-
-    Inspecting the token request means reading its body, which would leave
-    nothing for the proxy's own handler. Replaying it keeps the delegation
-    transparent.
-    """
+    """A receive channel that hands back an already-consumed body, for the handler delegated to."""
     sent = False
 
     async def receive():
@@ -528,13 +566,7 @@ def _replay(body: bytes):
 
 
 class _DeviceGrantToken:
-    """``/token``, answering device-code polls before delegating.
-
-    A callable object rather than a closure on purpose: Starlette's ``Route``
-    treats a plain function as a ``(Request) -> Response`` handler and only
-    treats non-function callables as ASGI apps. ``cors_middleware`` gets ASGI
-    treatment for the same reason -- it returns an instance.
-    """
+    """``/token``, answering device-code polls before delegating; an object so Starlette routes it as ASGI."""
 
     def __init__(self, original, handlers: DeviceFlowHandlers) -> None:
         self._original = original
@@ -558,12 +590,7 @@ def _with_device_grant(original, handlers: DeviceFlowHandlers) -> _DeviceGrantTo
 
 
 class _DeviceGrantMetadata:
-    """Authorization-server metadata, with the device grant advertised.
-
-    Patches the rendered document rather than rebuilding it, so anything the
-    proxy (or a future FastMCP) puts in there survives untouched. A callable
-    object for the same routing reason as ``_DeviceGrantToken``.
-    """
+    """Authorization-server metadata, patched to advertise the device grant."""
 
     def __init__(self, original, base_url) -> None:
         self._original = original
@@ -591,7 +618,7 @@ class _DeviceGrantMetadata:
         try:
             doc = json.loads(raw)
         except (ValueError, TypeError):
-            # Not JSON (an error page, a CORS preflight) -- pass it straight on.
+            # Not JSON (an error page, a CORS preflight): pass it on.
             if start:
                 await send(start)
             await send({"type": "http.response.body", "body": raw})
@@ -640,12 +667,7 @@ class UpstreamEndpoints:
 
 
 def discover_endpoints(provider_id: str, *, ssl_verify: bool = True) -> UpstreamEndpoints:
-    """Fetch the provider's OIDC discovery document for authoritative URLs.
-
-    Using discovery (rather than hardcoding) transparently handles the
-    provider-vs-issuer split — the JWKS lives under a different UUID than the
-    provider — and picks up the /oauth/authorize endpoint fix automatically.
-    """
+    """The provider's OIDC discovery document; the JWKS lives under a different UUID than the provider."""
     api_base = os.environ.get("VULTR_API_BASE_URL", "https://api.vultr.com/v2").rstrip("/")
     url = f"{api_base}/oidc/provider/{provider_id}/.well-known/openid-configuration"
     resp = httpx.get(url, timeout=10.0, verify=ssl_verify)
@@ -660,12 +682,7 @@ def discover_endpoints(provider_id: str, *, ssl_verify: bool = True) -> Upstream
 
 
 def build_client_storage():
-    """OAuth state store for DCR registrations, auth codes, and tokens.
-
-    Multi-replica deployments MUST share this — an auth code issued by one pod
-    is redeemed on another. Uses Redis when REDIS_HOST is set (the VKE case),
-    else in-memory (single-replica / local). Mirrors the PHP session store.
-    """
+    """OAuth state store: Redis when REDIS_HOST is set (required with several replicas), else in memory."""
     redis_host = os.environ.get("REDIS_HOST")
     if not redis_host:
         from key_value.aio.stores.memory import MemoryStore
@@ -688,12 +705,9 @@ def build_auth(
     """Construct the OAuthProxy from env, or None when OIDC is disabled.
 
     endpoints:
-        Pre-resolved upstream endpoints (tests pass these to skip the network
-        discovery fetch). Production leaves this None -> discovery is fetched.
+        Pre-resolved upstream endpoints; None fetches discovery.
     client_storage:
-        Persistent store for DCR client registrations + auth codes. Pass a
-        Redis-backed store for multi-replica deployments; None = in-memory
-        (single replica only).
+        OAuth state store; None builds one from the environment.
     """
     if not _enabled():
         return None
@@ -724,8 +738,7 @@ def build_auth(
     if client_storage is None:
         client_storage = build_client_storage()
 
-    # Vultr stamps the OAuth client_id into `aud` (verified from a real token),
-    # not the resource URL. Override with VULTR_OIDC_AUDIENCE if that changes.
+    # Vultr puts the OAuth client_id in `aud`, not the resource URL.
     audience = _env("VULTR_OIDC_AUDIENCE") or client_id
 
     jwt_verifier = JWTVerifier(
@@ -734,7 +747,6 @@ def build_auth(
         audience=audience,
         algorithm="RS256",
     )
-    # Wrap so raw Vultr API keys keep working alongside OAuth at all times.
     token_verifier = DualTokenVerifier(jwt_verifier)
 
     return VultrOAuthProxy(

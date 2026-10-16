@@ -1,11 +1,9 @@
 product_area: marketplace
 family: marketplace
 
-# The marketplace area is split across this directory; every file here declares
-# the same product_area, and interface.yaml lists them together.
+# One file of the marketplace area, which interface.yaml lists across this directory.
 
-# The publishing side: what a vendor has built, imaged and parameterised. These
-# read a vendor's own apps rather than the public catalogue.
+# The publishing side: a vendor's own builds, images and variables, not the public catalogue.
 
 tools:
   - name: vultr_marketplace_app_builds_list

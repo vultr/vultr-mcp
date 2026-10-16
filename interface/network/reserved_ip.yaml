@@ -1,11 +1,7 @@
 product_area: reserved_ip
 family: network
 
-# Reserved IPs are addresses the account holds independently of any one server,
-# so they can be moved between instances. The distinction worth stating is
-# against the per-server address tools: vultr_compute_instances_ipv4_list
-# returns the addresses currently on an instance, which is a different question
-# from which addresses the account has reserved and where they point.
+# Addresses the account holds independently of any server, unlike the per-instance address tools.
 
 tools:
   - name: vultr_network_reserved_ips_list
@@ -148,6 +144,4 @@ tools:
             vultr_network_reserved_ips_list.
           maps_to: reserved-ip
 
-    # No `output` block: the spec declares no readable 200 schema for this
-    # operation at all -- no envelope, no item fields -- so there is nothing to
-    # allowlist against and the payload passes through as the API sends it.
+    # No `output` block: the spec declares no readable 200 schema.

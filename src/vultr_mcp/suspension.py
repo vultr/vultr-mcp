@@ -1,20 +1,8 @@
 """Keep a suspended Vultr grant's session alive, so restoring access needs no reconnect.
 
-Vultr suspends an MCP grant -- rather than revoking it -- when the account loses
-MCP, the organization turns MCP off, or the user loses MCP access. While suspended
-it refuses API calls and refreshes alike, but revokes nothing, so the same grant
-works again the moment access is restored.
-
-Left to FastMCP, a refused refresh becomes a 401 and then ``invalid_grant``, and
-MCP clients treat that as a dead session and make the user sign in again. So
-while a grant is suspended the proxy keeps the session: requests are admitted,
-tool calls answer with Vultr's own reason without calling the API, and a client
-refresh gets new proxy tokens over the same stored upstream grant. Each request
-still asks Vultr first, so restored access takes effect on the next call.
-
-This holds for ``SUSPENSION_GRACE_S`` after the session last had working access.
-After that a suspension is treated like any other refused refresh, and the user
-signs in again; anything other than a recognized suspension never was softened.
+Vultr suspends rather than revokes a grant when MCP access is lost. For ``SUSPENSION_GRACE_S`` the
+proxy keeps such a session: tool calls answer with Vultr's reason, refreshes reissue proxy tokens
+over the same grant, and each request still asks Vultr first, so restored access applies at once.
 """
 
 from __future__ import annotations
@@ -117,11 +105,7 @@ def current_suspension() -> str | None:
 
 
 class SuspendedTransport(httpx.AsyncBaseTransport):
-    """Answers a held session's API calls with Vultr's suspension refusal instead of sending them.
-
-    The held token has expired, so sending it would only earn a 401; this gives
-    the tool the reason Vultr would, in the shape Vultr gives it.
-    """
+    """Answers a held session's API calls with Vultr's suspension refusal instead of sending its expired token."""
 
     def __init__(self, inner: httpx.AsyncBaseTransport) -> None:
         self._inner = inner

@@ -1,21 +1,8 @@
 product_area: instances
 family: compute
 
-# Vultr calls these "instances"; users call them VPS, servers, VMs, or cloud
-# compute. The generated descriptions ("List all VPS instances in your account.")
-# do not distinguish them from bare metal, VKE worker nodes, or the instances
-# inside a Compute Cluster, which is the confusion this file exists to remove.
-#
-# Two fields are deliberately withheld from every response here:
-#   default_password  a real credential, live for ten minutes after deployment
-#   kvm               an HTTPS link to the instance's noVNC console
-# Both are in the API's response and both reach the agent through the generated
-# tools. Neither is needed to answer a question about infrastructure, and an
-# agent that reads one can be induced to repeat it.
-#
-# The instances area is split across this directory; every file here declares
-# the same product_area, and interface.yaml lists them together. This file holds
-# the resource itself -- the sibling files hang detail off an instance ID.
+# Cloud compute instances, distinguished from bare metal, VKE nodes and Compute Cluster instances.
+# default_password and kvm (the noVNC console link) are withheld from every response.
 
 tools:
   - name: vultr_compute_instances_list
@@ -45,8 +32,7 @@ tools:
     input:
       type: object
       properties:
-        # The API filters on these itself, so they cost one request and stay
-        # accurate across a paginated account.
+        # Filtered by the API.
         label:
           type: string
           description: >-
@@ -74,9 +60,7 @@ tools:
           type: string
           description: ID of the firewall group applied to the instance.
 
-        # The API cannot filter on these, so the server does. Supplying one
-        # makes the tool scan the account rather than fetch a single page; the
-        # result reports in meta.filtered how much it covered.
+        # Filtered here, scanning the account; meta.filtered reports the coverage.
         label_contains:
           type: string
           description: >-
@@ -134,8 +118,7 @@ tools:
 
     output:
       from_openapi: true
-      # Every field the agent can filter on is also returned, so it can see what
-      # it selected by. Deployment credentials and the console link are not.
+      # Every filterable field is returned; credentials and the console link are not.
       include:
         - id
         - label
@@ -147,10 +130,7 @@ tools:
         - server_status
         - main_ip
         - os
-        # What the instance was deployed with. For a Marketplace instance these
-        # are the only fields naming the application -- the label is usually
-        # empty, the hostname generic, and os just the base system -- so without
-        # them "which one is my Minecraft server" took a get per instance.
+        # The only fields naming a Marketplace instance's application.
         - image_id
         - app_id
         - vcpu_count
@@ -210,22 +190,7 @@ tools:
 
     output:
       from_openapi: true
-      # A single instance is cheap to return in full, so this keeps the detail a
-      # search result drops -- everything except the two withheld fields.
-      #
-      # No IPv6 here, and not by choice. The spec documents `v6_networks`, an
-      # array of objects, and the API has never once sent it: not on the local
-      # stack, not on production. What it actually returns is v6_main_ip,
-      # v6_network and v6_network_size as flat fields, which openapi.json does
-      # not document for instances at all -- so the validator rejects them,
-      # correctly, as fields the 200 response does not have.
-      #
-      # The bare metal schema documents exactly those three flat fields for the
-      # near-identical bare_metal object, which is the third piece of evidence
-      # that this is a bug in the instance schema rather than an inconsistency
-      # in the API. Reported upstream; when the spec is fixed the three fields
-      # go in here and get-instance-ipv6 can be reconsidered, since it is
-      # currently the only way to get an instance's IPv6 at all.
+      # Everything except the withheld fields. No IPv6: the API sends flat v6_* fields the spec does not document.
       include:
         - id
         - label

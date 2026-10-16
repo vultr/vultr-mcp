@@ -3,8 +3,7 @@
     python -m vultr_mcp.interface            # validate the shipped layer
     python -m vultr_mcp.interface --list     # ...and print what it compiles to
 
-Exits non-zero on any problem, so CI fails on drift the moment openapi.json
-moves under a definition rather than at the tool call that needed it.
+Exits non-zero on any problem, so CI fails when openapi.json moves under a definition.
 """
 
 from __future__ import annotations
@@ -18,12 +17,7 @@ from vultr_mcp.interface.validator import validate_manifest
 
 
 def _scaffold(args) -> int:
-    """Print a draft product area file, with the review notes on stderr.
-
-    The draft goes to stdout so it can be redirected into interface/, and
-    everything the reviewer needs to know goes to stderr so redirecting does
-    not swallow it.
-    """
+    """Print a draft product area file to stdout, with the review notes on stderr."""
     import json
 
     from vultr_mcp.interface.scaffold import scaffold_area
@@ -59,14 +53,7 @@ def _scaffold(args) -> int:
 
 
 def _drift(args) -> int:
-    """Report unreviewed operations in covered areas.
-
-    A new endpoint appearing upstream is news, not a failure -- breaking the
-    build over someone else's release is how a check like this gets switched
-    off. Stale references are different: those mean the layer is pointing at
-    something that no longer exists. CI that wants the strict gate can ask for
-    it with --fail-on-unreviewed.
-    """
+    """Report unreviewed operations in covered areas; fails only on stale references unless --fail-on-unreviewed."""
     import json
 
     from vultr_mcp.interface.drift import detect_drift, format_report
@@ -135,8 +122,7 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 1
     if warnings:
-        # Disabled tools only. Worth seeing on every run, since a draft nobody
-        # looks at is how drift gets in, but never a reason to fail a build.
+        # Disabled tools only: shown on every run, never a failure.
         print(f"\n{len(warnings)} warning(s) on disabled tools", file=sys.stderr)
 
     import json

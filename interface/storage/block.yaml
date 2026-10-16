@@ -1,13 +1,7 @@
 product_area: block
 family: storage
 
-# Block storage is the volume product: disks attached to one instance at a time.
-#
-# Vultr has two unrelated things called snapshots, and they are in different
-# product areas. The ones here are snapshots of a block storage volume, and are
-# named vultr_storage_block_snapshots_*. Snapshots of an instance's own disk are
-# vultr_compute_snapshots_* in snapshot.yaml. The family prefix is doing the
-# same job it does for clusters.
+# Volumes attached to one instance at a time; these snapshots are of volumes, not instance disks (vultr_compute_snapshots_*).
 
 tools:
   - name: vultr_storage_blocks_list

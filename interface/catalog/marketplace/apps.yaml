@@ -1,11 +1,9 @@
 product_area: marketplace
 family: marketplace
 
-# The marketplace area is split across this directory; every file here declares
-# the same product_area, and interface.yaml lists them together.
+# One file of the marketplace area, which interface.yaml lists across this directory.
 
-# Browsing the marketplace: the apps anyone can deploy, and how they are
-# classified.
+# Browsing the marketplace: the apps anyone can deploy, and how they are classified.
 
 # Removed from the surface entirely, generated tool included.
 excluded:
@@ -40,8 +38,7 @@ tools:
     input:
       type: object
       properties:
-        # GET /marketplace/apps declares no parameters, so every search below
-        # is applied here against the fetched rows.
+        # Applied here, since GET /marketplace/apps takes no parameters.
         name:
           type: string
           description: Case-insensitive text contained in the application name.
@@ -58,8 +55,7 @@ tools:
 
     output:
       from_openapi: true
-      # readme and instructions are deliberately absent; see the note at the
-      # top of this file.
+      # readme and instructions are left out.
       include:
         - id
         - name

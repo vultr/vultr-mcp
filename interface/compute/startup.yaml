@@ -1,15 +1,7 @@
 product_area: startup
 family: compute
 
-# Neither tool returns `script`. A startup script is arbitrary shell run as root
-# at first boot, and in practice it is where people put the token that registers
-# a node, the password that joins a cluster, the key that pulls a private image.
-#
-# The by-id get used to return the body, on the reasoning that asking for one
-# script is a deliberate act. That changed on 2026-09-28 with the rule this
-# server now follows: it gives an agent information, never a credential it
-# could act with. The same decision excluded user data, the VNC console and the
-# kubeconfig. Names, types and dates stay; the body is read in the Vultr console.
+# Neither tool returns `script`: startup scripts commonly hold tokens, passwords and keys.
 
 tools:
   - name: vultr_compute_startup_scripts_list

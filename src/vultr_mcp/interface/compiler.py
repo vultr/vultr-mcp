@@ -1,13 +1,6 @@
-"""Turn validated product area files into everything the runtime needs.
+"""Turn validated product area files into the plain dataclasses the runtime executes, once at startup.
 
-Compilation happens once, at build time: no YAML read or $ref resolved while a
-tool call is in flight, only plain dataclasses saying which parameter goes
-where, which fields to keep, and how each computed value is derived.
-
-The other half of the job is refusal. Anything the runtime could not faithfully
-execute -- a header parameter, a request body, a vanished operation -- fails
-here with a located message rather than in a live call, which is why
-``compile_interface`` runs the validator first.
+Anything the runtime could not execute faithfully fails here, via the validator, rather than in a live call.
 """
 
 from __future__ import annotations
@@ -29,8 +22,7 @@ from vultr_mcp.interface.validator import (
     validate_manifest,
 )
 
-# Keys the layer adds to an input property that are instructions to the
-# compiler, not part of the JSON Schema the agent sees.
+# Input-property keys meant for the compiler, not the JSON Schema the agent sees.
 _LAYER_ONLY_KEYS = frozenset({"maps_to", "filter"})
 
 
@@ -72,25 +64,16 @@ class ComputedPlan:
 
 @dataclass(frozen=True)
 class OutputPlan:
-    """How to shape the response before the agent pays tokens for it.
-
-    ``container_key`` is the envelope key holding the results (``clusters`` for
-    GET /clusters), derived from the response schema rather than configured, so
-    it cannot drift out of step with the API.
-    """
+    """How to shape the response; ``container_key`` (``clusters`` for GET /clusters) comes from the response schema."""
 
     container_key: str | None
     is_collection: bool
     envelope_include: frozenset[str] | None
     item_include: frozenset[str] | None
-    # True when the payload is the resource rather than a wrapper around it, so
-    # the runtime shapes the top level instead of looking for a container.
+    # The payload is the resource itself, not a wrapper around it.
     unwrapped: bool = False
 
-# Vultr pages every collection the same way: `per_page` sets the size, `cursor`
-# walks forward, and `meta.links.next` carries the next cursor. The names are
-# read off the operation rather than assumed, so an endpoint that pages
-# differently simply does not auto-page.
+# per_page and cursor, read off the operation, so an endpoint that pages differently does not auto-page.
 _PAGE_PARAM = "per_page"
 _CURSOR_PARAM = "cursor"
 
@@ -131,23 +114,13 @@ class CompiledTool:
 
     @property
     def filters_client_side(self) -> bool:
-        """Whether results are filtered here rather than by the API.
-
-        This is what makes the fetch policy necessary: a filter applied after
-        the fact only sees the page it was given.
-        """
+        """Whether results are filtered here rather than by the API."""
         return bool(self.filters)
 
 
 @dataclass(frozen=True)
 class DeclinedOperation:
-    """An operation reviewed and deliberately left without a tool.
-
-    Declining changes nothing about the served surface -- the generated tool
-    stays. It exists so that drift detection can tell an operation nobody has
-    looked at from one somebody decided about, which is the difference between
-    a report worth reading and a list of thirteen intentional omissions.
-    """
+    """An operation reviewed and left to its generated tool, so drift does not report it as unreviewed."""
 
     operation_id: str
     product_area: str
@@ -156,16 +129,7 @@ class DeclinedOperation:
 
 @dataclass(frozen=True)
 class ExcludedOperation:
-    """An operation that must not be served at all.
-
-    The one thing here that removes rather than replaces: a declined operation
-    keeps its generated tool, an excluded one is dropped by an EXCLUDE route.
-    Hence ``method`` and ``path_template`` -- route maps match on those, not on
-    operationId.
-
-    For operations where serving them is itself the harm: handing out a
-    credential, or changing state on a surface that believes it is read-only.
-    """
+    """An operation that must not be served at all, dropped by an EXCLUDE route on its method and path."""
 
     operation_id: str
     product_area: str
@@ -227,10 +191,7 @@ def compile_tool(
             )
         )
 
-    # The output plan is built whether or not the file declares one: the
-    # container key is how the runtime finds the results at all, so a tool that
-    # only filters or computes still needs it. Declaring `output` adds trimming
-    # on top.
+    # Always built, since the runtime finds results by the container key; declaring `output` adds trimming.
     shape = operation.response
     declared_output = definition.get("output") or {}
     include = declared_output.get("include") if declared_output.get("from_openapi") else None
@@ -239,8 +200,7 @@ def compile_tool(
     if include:
         requested = set(include)
         kept_envelope = requested & shape.envelope
-        # The container key itself is always kept -- dropping it would throw
-        # away the results the tool exists to return.
+        # The container key itself is always kept.
         if shape.container_key:
             kept_envelope.add(shape.container_key)
         envelope_include = frozenset(kept_envelope)
@@ -295,15 +255,9 @@ def compile_tool(
 def compile_interface(
     interface_dir: Path, spec: dict[str, Any], *, validate: bool = True
 ) -> CompiledInterface:
-    """Compile the whole layer.
-
-    Raises InterfaceError when validation fails, because a layer that does not
-    compile means the agent-facing surface is not the reviewed one -- shipping
-    a partial version of it silently is worse than not starting.
-    """
+    """Compile the whole layer, raising InterfaceError when validation fails rather than serving part of it."""
     if validate:
-        # Only errors stop the build. Warnings belong to disabled tools, which
-        # are never registered -- see Problem.severity.
+        # Only errors stop the build; warnings belong to disabled tools.
         fatal = errors(validate_manifest(interface_dir, spec))
         if fatal:
             raise InterfaceError(fatal)
@@ -332,9 +286,7 @@ def compile_interface(
                 )
             for operation_id, excluded_entry in (document.get("excluded") or {}).items():
                 operation = index.resolve(operation_id)
-                # The validator already errored on an unknown operationId; if
-                # compilation is running anyway, drop it rather than emit a
-                # route that matches nothing and quietly excludes nothing.
+                # Unknown operationId, already reported by the validator.
                 if operation is None:
                     continue
                 excluded.append(

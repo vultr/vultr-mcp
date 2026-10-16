@@ -1,11 +1,9 @@
 product_area: managed_databases
 family: database
 
-# The managed_databases area is split across this directory; every file here
-# declares the same product_area, and interface.yaml lists them together.
+# One file of the managed_databases area, which interface.yaml lists across this directory.
 
-# Kafka Connect connectors: what can be created, what exists, and how each one
-# is doing.
+# Kafka Connect connectors: what can be created, what exists, and their status.
 
 tools:
   - name: vultr_database_available_connectors_list

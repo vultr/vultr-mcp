@@ -18,14 +18,12 @@ spec:
         runAsNonRoot: true
         runAsUser: 1000
         fsGroup: 1000
-      # ghcr.io packages start private. The secret holds a classic PAT with
-      # read:packages only -- not the write:packages token used to push.
-      # Moved off atl.vultrcr.com (vcr-creds) when that registry hit its quota.
+      # A read:packages token for the private ghcr.io package.
       imagePullSecrets:
         - name: ghcr-creds
       containers:
         - name: vultr-mcp
-          image: ghcr.io/vultr/vultr-mcp:2.1.21
+          image: ghcr.io/vultr/vultr-mcp:2.1.22
           imagePullPolicy: Always
           ports:
             - containerPort: 8080
@@ -37,37 +35,13 @@ spec:
                 name: vultr-mcp-secrets
           resources:
             requests:
-              # Back to 200m. It was raised to 500m to buy a faster boot when
-              # boot was ~38s of redundant recompilation; at ~4.5s the extra
-              # guaranteed CPU no longer earns its scheduling cost.
               cpu: 200m
-              # 384Mi request / 1Gi limit, up from 256Mi / 512Mi. A 2.1.11 pod was
-              # OOM-killed on 2026-09-28 holding several large billing responses at
-              # once (a 21 MB pending-charges CSV, since excluded, and 4.5 MB JSON
-              # pages) for one large account. The limit is headroom for responses
-              # like that; the request is raised so the scheduler reserves real
-              # space rather than letting limits overcommit a crowded node.
+              # Headroom for several large billing responses held at once.
               memory: 384Mi
             limits:
               cpu: "1"
               memory: 1Gi
-          # Boot builds a FastMCP server per category endpoint (~36) over the
-          # 1.6MB OpenAPI spec, which on a busy node takes well past the 10s the
-          # liveness probe used to allow — the container was SIGKILLed mid-start
-          # and crash-looped (exit 137). startupProbe gives it up to 150s to come
-          # up and suppresses liveness until it does; liveness then guards the
-          # steady state as before.
-          # 5s x 30 = 150s, back where it was. It was briefly raised to 450s
-          # for a boot that took 38s on a full core and ~300s throttled, before
-          # that turned out to be the interface layer recompiling once per
-          # server: 35 servers, identical result each time. Caching it (see
-          # load_interface) took boot to ~4.5s, so the headroom is no longer
-          # needed and a slow start should fail loudly again rather than be
-          # absorbed.
-          #
-          # Do not trim below this without measuring: boot is silent until
-          # uvicorn binds, so a pod killed inside this window leaves no logs
-          # saying why -- which is exactly how the 2.1.0 rollout failed.
+          # Up to 150s to boot (normally ~5s), silent until uvicorn binds; measure before trimming.
           startupProbe:
             httpGet:
               path: /healthz
@@ -97,65 +71,6 @@ spec:
           volumeMounts:
             - name: tmp
               mountPath: /tmp
-            # The audit records, as files for a shipper to tail. Shared with a
-            # sidecar rather than sent anywhere by this container: the server
-            # knows the path and nothing about what reads it.
-            - name: audit-logs
-              mountPath: /var/log/vultr-mcp
-        # Ships the audit files to ClickHouse (k8s/observability/). Same image,
-        # different entrypoint: the binary is only in the Dockerfile's
-        # with-shipper target, which is what the release workflow publishes --
-        # a plain `docker build .` lacks it and this container would not start.
-        # This tag and the server's must move together. One table per file,
-        # log_<filename> -- log_mcp_tool_call and log_mcp_upstream_call.
-        #
-        # Its credentials come from their own secret, never vultr-mcp-secrets:
-        # the server container has no reason to hold a ClickHouse password.
-        # Lines are dropped, not queued, when ClickHouse is down -- clicktail's
-        # stated design, and stdout still carries every record.
-        - name: clicktail
-          image: ghcr.io/vultr/vultr-mcp:2.1.21
-          imagePullPolicy: Always
-          command: ["/usr/local/bin/clicktail"]
-          env:
-            - name: CLICKTAIL_WATCH_DIR
-              value: /var/log/vultr-mcp
-            - name: CLICKTAIL_CLICKHOUSE_URL
-              value: clickhouse:9000
-            - name: CLICKTAIL_CLICKHOUSE_DATABASE
-              value: vultr_mcp
-            - name: CLICKTAIL_CLICKHOUSE_USER
-              value: clicktail
-            - name: CLICKTAIL_CLICKHOUSE_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: clickhouse-credentials
-                  key: password
-          resources:
-            requests:
-              cpu: 10m
-              memory: 32Mi
-            limits:
-              cpu: 200m
-              memory: 128Mi
-          securityContext:
-            allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: true
-            capabilities:
-              drop: ["ALL"]
-          volumeMounts:
-            # Read-write: collapsing shipped bytes off the front is a write.
-            - name: audit-logs
-              mountPath: /var/log/vultr-mcp
       volumes:
         - name: tmp
           emptyDir: {}
-        # emptyDir, not a volume that outlives the pod: the file is a handoff
-        # to the shipper, not the store. Anything unshipped when a pod dies is
-        # lost, which is the cost of not putting a queue in the request path.
-        # sizeLimit is a backstop -- the app stops writing a file at
-        # VULTR_MCP_AUDIT_FILE_MAX_MB, so this should never be the thing that
-        # binds. Collapsing needs ext4 or xfs under the emptyDir.
-        - name: audit-logs
-          emptyDir:
-            sizeLimit: 1Gi

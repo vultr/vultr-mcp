@@ -1,16 +1,7 @@
 product_area: account
 family: account
 
-# One tool, for one reason. GET /account/bgp returns `password` -- "Password
-# used to form a BGP neighborship" -- and the account category is exposed, so
-# the generated tool was handing that to any agent that asked.
-#
-# It went unnoticed because the response is the resource itself rather than a
-# wrapper around it, and the shape reader used to treat that as "no readable
-# schema". Nothing to allowlist against meant nothing was withheld.
-#
-# The rest of the area is covered now. One operation is declined below because
-# the spec gives it no way to work, not because nobody looked.
+# GET /account/bgp returns the BGP neighborship password, which its tool withholds.
 
 tools:
   - name: vultr_account_bgp_get
@@ -34,8 +25,7 @@ tools:
 
     output:
       from_openapi: true
-      # `password` is deliberately absent: it is the shared secret used to form
-      # the BGP neighborship, and no question about BGP configuration needs it.
+      # `password` is withheld: it is the BGP neighborship's shared secret.
       include:
         - asn
         - enabled

@@ -1,8 +1,7 @@
 product_area: load_balancer
 family: network
 
-# The load_balancer area is split across this directory; every file here
-# declares the same product_area, and interface.yaml lists them together.
+# One file of the load_balancer area, which interface.yaml lists across this directory.
 
 # What a load balancer forwards, and what it will accept.
 
@@ -36,17 +35,7 @@ tools:
             vultr_network_load_balancers_list.
           maps_to: load-balancer-id
 
-        page_size:
-          type: integer
-          description: Maximum number of results to return.
-          default: 100
-          minimum: 1
-          maximum: 500
-          maps_to: per_page
-
-        cursor:
-          type: string
-          description: Cursor returned by a previous request for the next page.
+        # No page_size or cursor: the spec no longer declares paging here, and a load balancer holds a handful of rules.
 
     output:
       from_openapi: true
@@ -123,17 +112,23 @@ tools:
     input:
       type: object
       required:
-        - loadbalancer_id
+        - load_balancer_id
       properties:
-        loadbalancer_id:
+        load_balancer_id:
           type: string
           description: >-
             ID of the load balancer, as returned in the id field by
             vultr_network_load_balancers_list.
-          maps_to: loadbalancer-id
+          maps_to: load-balancer-id
 
-    # No `output` block; see the note at the top of this file on why the
-    # declared response shape cannot be shaped against.
+    output:
+      from_openapi: true
+      include:
+        - id
+        - ip_type
+        - port
+        - source
+        - meta
 
   - name: vultr_network_load_balancer_firewall_rules_get
     access: read
@@ -154,15 +149,15 @@ tools:
     input:
       type: object
       required:
-        - loadbalancer_id
+        - load_balancer_id
         - firewall_rule_id
       properties:
-        loadbalancer_id:
+        load_balancer_id:
           type: string
           description: >-
             ID of the load balancer, as returned in the id field by
             vultr_network_load_balancers_list.
-          maps_to: loadbalancer-id
+          maps_to: load-balancer-id
 
         firewall_rule_id:
           type: string
@@ -171,4 +166,10 @@ tools:
             vultr_network_load_balancer_firewall_rules_list.
           maps_to: firewall-rule-id
 
-    # No `output` block, for the same reason as the list tool above.
+    output:
+      from_openapi: true
+      include:
+        - id
+        - ip_type
+        - port
+        - source

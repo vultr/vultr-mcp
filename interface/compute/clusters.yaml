@@ -190,11 +190,7 @@ tools:
             vultr_catalog_metal_plans_list.
           maps_to: plan-id
 
-    # No `output` block: the response is two sibling arrays, locations and
-    # fabric_locations, and shaping applies to only one container. Both are
-    # short lists of region IDs with nothing worth trimming or withholding, so
-    # the whole payload is passed through rather than claiming a shape the
-    # layer cannot honour.
+    # No `output` block: shaping applies to one container, and this response has two short region lists.
 
   - name: vultr_compute_clusters_metrics_get
     access: read
@@ -232,8 +228,7 @@ tools:
             to -1days.
 
     output:
-      # metrics.instances is a map keyed by instance ID, so there are no item
-      # fields to allowlist against.
+      # metrics.instances is a map keyed by instance ID, with no fields to allowlist.
       from_openapi: true
 
 excluded:

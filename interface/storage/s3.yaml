@@ -1,23 +1,7 @@
 product_area: s3
 family: storage
 
-# Vultr's OpenAPI tag is `s3`, which tells an agent nothing; the product is
-# Object Storage, and the tool names say so.
-#
-# The two subscription tools withhold s3_access_key and s3_secret_key. Together
-# those are a working credential for the bucket -- not a reference to one, the
-# actual pair -- and the generated tools returned them on every row of every
-# listing. An agent asked to report on storage usage got the keys whether or not
-# anyone wanted them, which is the shape of accident this layer exists to
-# prevent. The cluster and tier tools below are catalog data and carry no
-# credential of any kind.
-#
-# s3_hostname is kept. It is the endpoint, not a secret, and it is what someone
-# needs to know where a subscription lives.
-#
-# Anyone who genuinely needs the keys can read them in the customer portal,
-# where getting them is a deliberate act by a person rather than a field an
-# agent was handed.
+# Object Storage (tag `s3`); subscriptions withhold s3_access_key and s3_secret_key, a working credential pair.
 
 tools:
   - name: vultr_storage_object_storage_list
@@ -40,8 +24,7 @@ tools:
     input:
       type: object
       properties:
-        # GET /object-storage accepts only paging, so every search below is
-        # applied here against the fetched rows.
+        # Applied here, since GET /object-storage accepts only paging.
         label_contains:
           type: string
           description: >-
@@ -213,8 +196,7 @@ tools:
 
     output:
       from_openapi: true
-      # sales_desc is a paragraph of marketing copy on every row; sales_name
-      # carries the same identification in a few words.
+      # sales_desc is left out: a paragraph of marketing copy that sales_name already covers.
       include:
         - id
         - slug

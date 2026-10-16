@@ -1,8 +1,7 @@
 product_area: container_registry
 family: registry
 
-# The container_registry area is split across this directory; every file here
-# declares the same product_area, and interface.yaml lists them together.
+# One file of the container_registry area, which interface.yaml lists across this directory.
 
 # The registry itself, and the robot accounts that can pull from it.
 
@@ -67,8 +66,7 @@ tools:
 
     output:
       from_openapi: true
-      # root_user is absent entirely: it nests `password`, and include cannot
-      # reach inside a nested object to drop one field.
+      # root_user is withheld whole: it nests `password`, which include cannot drop alone.
       include:
         - id
         - name
@@ -109,9 +107,7 @@ tools:
 
     output:
       from_openapi: true
-      # This response is the registry itself rather than a wrapper around one,
-      # so the include list applies to the payload directly. root_user is
-      # withheld here for the same reason as in the listing.
+      # root_user is withheld, as in the listing; the response is unwrapped.
       include:
         - id
         - name
@@ -151,8 +147,7 @@ tools:
 
     output:
       from_openapi: true
-      # `secret` is absent: it is the robot's password, and this tool answers
-      # who can reach the registry without handing over the means to be them.
+      # `secret`, the robot's password, is withheld.
       include:
         - name
         - description

@@ -1,27 +1,9 @@
 product_area: instances
 family: compute
 
-# Addressing and network attachment for an instance. See instances.yaml for the
-# area's shared notes; this file is the networking slice of it.
+# Addressing and network attachment for an instance.
 
-# Reviewed and left to the generated surface. Declining does not hide anything:
-# the generated tool is still exposed and still callable. It records that
-# somebody looked, so a report of new endpoints in this area is one line rather
-# than a pile of decisions repeated back.
-#
-# Both IPv6 and IPv4 were declined here as redundant with
-# vultr_compute_instances_get, and both were wrong. Live calls against the local
-# stack and production both show the API returning v6_main_ip, v6_network and
-# v6_network_size as flat fields, and never the v6_networks array the spec
-# documents -- so this tool returns no IPv6 information at all, and
-# get-instance-ipv6 is the only way to get any. Declines that rest on
-# "another tool already returns X" are only as sound as the spec, and the spec
-# is wrong here in a way nothing but a real response could reveal.
-#
-# Both are covered by tools below now. list-instance-vpcs was nearly declined
-# on the same reasoning -- the VPCs area lists what is attached to a VPC -- and
-# was kept for the same reason: that answers the question in the other
-# direction, and nothing but this operation says which VPCs one instance is in.
+# Declined operations keep their generated tool; declining records that someone reviewed them.
 declined:
   attach-instance-network:
     reason: >-
@@ -91,11 +73,7 @@ tools:
 
     output:
       from_openapi: true
-      # mac_address is declared and never sent. A production instance returned
-      # gateway, ip, netmask, reverse and type, and nothing else. The bare metal
-      # tool keeps it: that schema has been the trustworthy one of the pair
-      # before -- it is where the flat IPv6 fields are documented correctly --
-      # and no bare metal server was available to check against.
+      # mac_address is declared in the spec but never sent.
       include:
         - ip
         - netmask

@@ -1,8 +1,7 @@
 product_area: container_registry
 family: registry
 
-# The container_registry area is split across this directory; every file here
-# declares the same product_area, and interface.yaml lists them together.
+# One file of the container_registry area, which interface.yaml lists across this directory.
 
 # Account-wide reference data rather than anything about one registry.
 

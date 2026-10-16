@@ -1,45 +1,9 @@
-"""Server-side rescue for loopback callbacks that cannot be reached.
+"""Server-side rescue for loopback callbacks the browser cannot reach.
 
-A CLI listening on ``http://127.0.0.1:<port>/callback`` only receives the code
-when the browser is on the same machine. An agent on an instance reached over
-SSH is not, so a successful authorization ends on ``ERR_CONNECTION_REFUSED``
-with a valid code stranded in the URL bar.
-
-We issue that code, so for loopback targets the 302 is replaced with a page
-that delivers it to the listener itself via ``fetch`` -- keeping the
-same-machine case automatic -- and shows it for pasting if that fails. Removing
-the human step entirely needs the client to poll, which is ``device_flow``.
-
-Why the fetch is not the only path
-----------------------------------
-That probe is a request from a public origin to a local one, which browsers
-increasingly gate: Chrome preflights it and a bare CLI listener does not answer
-with ``Access-Control-Allow-Private-Network``, so the request is refused before
-it is made and ``no-cors`` does not exempt it. A rejected probe therefore means
-"could not ask", not "nothing is listening", and a same-machine client ends up
-on the paste path it never needed -- with nowhere to paste, for a client whose
-CLI has no ``--code`` option.
-
-A top-level navigation is not gated that way, being what the ordinary 302 did.
-So the ways out are offered as a link as well as text to paste: one of them
-fits every case, and the page no longer has to guess which.
-
-Why success is not a dead end either
-------------------------------------
-The probe resolving proves only that something answered on that port, never
-that the client accepted the hand-off -- ``no-cors`` yields an opaque response,
-so an error status and a rejection by a listener that wants a real navigation
-both look like success. Observed 2026-09-22: the page said "Connected" while
-Claude Code sat at its own paste prompt, with the link hidden behind a verdict
-the page was not entitled to. The ways out are therefore always on the page,
-folded away rather than removed.
-
-Clients differ in what they want pasted -- a whole callback URL, or the bare
-code -- so both are offered. The code alone is useless to a client whose prompt
-wants the URL, and the URL a user can see is ours, carrying the upstream code
-rather than the proxy-issued one.
-
-Non-loopback redirects get the ordinary 302.
+A CLI listening on 127.0.0.1 only gets the code when the browser is on the same machine. For
+loopback targets the 302 becomes a page that tries to deliver the code with ``fetch``, and always
+also offers a link and both the callback URL and the bare code to paste, since browsers may block
+the probe and its success proves nothing. Non-loopback redirects get the ordinary 302.
 """
 
 from __future__ import annotations
@@ -55,13 +19,7 @@ _LOOPBACK_NAMES = {"localhost", "localhost.localdomain", "ip6-localhost"}
 
 
 def is_loopback_target(url: str) -> bool:
-    """True when a redirect target can only be served by the viewing machine.
-
-    Covers ``127.0.0.0/8`` (not just ``127.0.0.1``), IPv6 ``::1`` including its
-    bracketed form, and the ``localhost`` names. Anything else -- a public
-    host, a LAN address, a gateway origin -- is reachable in principle and is
-    left alone.
-    """
+    """True when a redirect target can only be served by the viewing machine (127.0.0.0/8, ::1, localhost)."""
     try:
         host = (urlparse(url).hostname or "").strip().lower()
     except ValueError:

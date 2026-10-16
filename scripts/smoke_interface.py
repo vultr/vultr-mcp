@@ -1,21 +1,9 @@
 """Call every compiled interface tool against a real API and report what happened.
 
-Everything the runtime does has so far been verified against mock transports --
-against fixtures written from the spec's examples, which is to say against
-assumptions about what Vultr returns. This runs the same code against a real
-server: auth forwarding, path substitution, the rename map, client-side
-filtering, the auto-pagination loop, response shaping, and computed fields.
+Read-only: it refuses to call a write tool. Tools needing an id are fed one harvested from a list
+tool in the same product area.
 
-Read-only by construction. Compiled tools carry an `access` that the validator
-cross-checks against the HTTP method, and this refuses to call a write one
-anyway.
-
-    VULTR_API_BASE_URL=http://local.api.vultr.com/v2 \
-    VULTR_API_KEY=... \
-    uv run python scripts/smoke_interface.py
-
-Tools needing an id are fed one harvested from a search tool in the same
-product area, so by-id paths get exercised rather than skipped.
+    VULTR_API_KEY=... uv run python scripts/smoke_interface.py [substring]
 """
 
 from __future__ import annotations
@@ -43,12 +31,7 @@ from vultr_mcp.server import (  # noqa: E402
 
 TIMEOUT = float(os.environ.get("SMOKE_TIMEOUT", "30"))
 
-# Arguments a tool needs before it will return anything, where the spec does not
-# say so. GET /logs rejects a call with no time range -- 422, "Either a
-# start_time or end_time must be provided" -- but marks neither parameter
-# required, so nothing in the definition can be validated against that. Without
-# this the smoke run reports a permanent 422 that is really a missing argument,
-# and a check that always shows the same complaint stops being read.
+# Arguments a tool needs where the spec does not say so (GET /logs 422s without a time range).
 SMOKE_ARGUMENTS: dict[str, dict[str, object]] = {
     "vultr_account_logs_list": {
         "start_time": (
@@ -66,18 +49,11 @@ class Result:
         self.items: int | None = None
         self.seconds = 0.0
         self.sample: dict | None = None
-        # True when the collection came back as scalars rather than records, so
-        # "no sample" can be reported as what it is rather than as an empty
-        # result.
+        # The collection came back as scalars rather than records.
         self.scalar_rows: bool = False
-        # Set when the spec's container key is not in the response at all, which
-        # disables shaping and filtering without raising anything.
+        # The spec's container key is missing from the response, which silently disables shaping and filtering.
         self.shape_mismatch: str | None = None
-        # Rows to take ids from. More than one, because a collection is not
-        # always homogeneous: /applications mixes one-click entries, whose
-        # image_id is empty, with marketplace ones that have a real id. Sampling
-        # only the first row meant whichever kind came first decided whether the
-        # by-id tools could run at all.
+        # Several rows to take ids from, since a collection may mix kinds (/applications).
         self.harvest_rows: list = []
 
     @property
@@ -87,14 +63,6 @@ class Result:
 
 def _container(tool: CompiledTool) -> str | None:
     return tool.output.container_key if tool.output else None
-
-
-def _harvest_id(payload: dict, tool: CompiledTool) -> str | None:
-    """An id from a search result, to feed the matching by-id tool."""
-    body = payload.get(_container(tool) or "", [])
-    if isinstance(body, list) and body and isinstance(body[0], dict):
-        return body[0].get("id")
-    return None
 
 
 async def _run(tool: CompiledTool, arguments: dict, client) -> Result:
@@ -107,8 +75,7 @@ async def _run(tool: CompiledTool, arguments: dict, client) -> Result:
     except asyncio.TimeoutError:
         result.status, result.detail = "timeout", f"no response in {TIMEOUT:.0f}s"
     except runtime.VultrAPIError as error:
-        # Upstream said no. That is information about the API or the
-        # credential, not about the layer.
+        # Upstream refused: about the API or the credential, not the layer.
         result.status, result.detail = "api-error", str(error)[:120]
     except json.JSONDecodeError as error:
         # A dev stack with display_errors on emits PHP warnings into the body.
@@ -129,12 +96,7 @@ async def _run(tool: CompiledTool, arguments: dict, client) -> Result:
         container = _container(tool)
         body = payload.get(container) if container else None
         if container and container not in payload:
-            # The spec named a container the API does not send. Nothing raises:
-            # shape_response returns the payload untouched, so `include` never
-            # trims and -- worse -- declared filters never run, and the tool
-            # answers a filtered question with every row it has. /plans-metal
-            # returns `plans_metal` where the spec says `plans`, which is how
-            # this was found: silent, and wrong in the direction nobody checks.
+            # The spec named a container the API does not send, so filters silently never run.
             lists = sorted(
                 key for key, value in payload.items() if isinstance(value, list)
             )
@@ -142,8 +104,6 @@ async def _run(tool: CompiledTool, arguments: dict, client) -> Result:
             result.shape_mismatch = (
                 f"declared container {container!r} absent from the response"
                 + (f"; the collection is {', '.join(lists)}" if lists else "")
-                # Without the actual keys a mismatch says only that something is
-                # wrong, and the fix needs to know what the payload really is.
                 + "; the response is "
                 + (
                     ", ".join(f"{key}={_describe(payload[key])}" for key in keys[:8])
@@ -152,11 +112,7 @@ async def _run(tool: CompiledTool, arguments: dict, client) -> Result:
             )
         if isinstance(body, list):
             result.items = len(body)
-            # Not every collection holds records. get-instance-neighbors returns
-            # instance ids, list-available-versions returns version strings,
-            # get-dns-domain-dnssec returns DNS records as text. `sample` is a
-            # row to inspect fields on, so a scalar row is no sample at all --
-            # taking one regardless is how this crashed on `row.items()`.
+            # Some collections hold scalars (ids, versions), which are no sample to inspect.
             result.sample = body[0] if body and isinstance(body[0], dict) else None
             result.scalar_rows = bool(body) and not isinstance(body[0], dict)
             result.harvest_rows = [row for row in body[:8] if isinstance(row, dict)]
@@ -182,9 +138,7 @@ def _check_shaping(result: Result) -> list[str]:
 
     include = tool.output.item_include if tool.output else None
     if not include:
-        # Shaping is off for this tool, usually because the spec was wrong about
-        # the shape. Print what the API actually sends, so whoever restores the
-        # allowlist has the field names rather than the spec's guess.
+        # Shaping is off; print what the API actually sends for whoever restores the allowlist.
         return [f"no allowlist; the row carries: {', '.join(sorted(sample))}"]
 
     if include:
@@ -196,9 +150,7 @@ def _check_shaping(result: Result) -> list[str]:
             notes.append(
                 f"include names absent from the response: {', '.join(missing[:6])}"
             )
-            # The absent names alone cannot tell you whether the field was
-            # renamed, nested, or is simply not set on this row, so say what the
-            # row actually carries.
+            # Say what the row does carry, since absence alone does not explain a rename.
             notes.append(f"  the row carries: {', '.join(sorted(sample))}")
 
     for plan in tool.computed:
@@ -208,12 +160,7 @@ def _check_shaping(result: Result) -> list[str]:
 
 
 def _announce(index: int, total: int, tool: CompiledTool) -> None:
-    """Name the tool before the call, so a stall is attributable to one of them.
-
-    At 24 tools a silent run finished before anyone wondered. At 180, with a
-    per-call timeout of 30s, silence is indistinguishable from a hang -- and
-    which tool is hanging is exactly what you need to know.
-    """
+    """Name the tool before the call, so a stall is attributable to one of them."""
     print(f"[{index:>3}/{total}] {tool.name:<46}", end="", flush=True)
 
 
@@ -235,8 +182,7 @@ async def main() -> int:
     interface = compile_interface(REPO / "interface", load_spec())
     tools = [tool for tool in interface.tools if not tool.is_write]
 
-    # An optional substring narrows the run to one area or one tool. A full
-    # sweep is 180 live calls; verifying a single change should not need it.
+    # An optional substring narrows the run to one area or tool.
     only = sys.argv[1] if len(sys.argv) > 1 else None
     if only:
         tools = [t for t in tools if only in t.name or only == t.product_area]
@@ -262,10 +208,7 @@ async def main() -> int:
     )
 
     searches = [tool for tool in tools if not _needs_id(tool)]
-    # Fewest path parameters first, so a tool that needs two of them can be fed
-    # from the result of one that needed one: get-database-user wants a database
-    # id AND a username, and the username only exists once the users list has
-    # run.
+    # Fewest path parameters first, so later tools can be fed from earlier results.
     by_id = sorted(
         (tool for tool in tools if _needs_id(tool)),
         key=lambda tool: sum(1 for p in tool.parameters if p.location == "path"),
@@ -316,14 +259,10 @@ async def main() -> int:
     for r in mismatches:
         print(f"  shape mismatch: {r.tool.name}: {r.shape_mismatch}")
 
-    # A mismatch means a tool is quietly not doing what its definition says --
-    # no error, no exception, just unshaped rows and filters that never ran --
-    # so it fails the run the same way a layer bug does.
+    # A container mismatch fails the run, since the tool silently ignores its definition.
     if layer_bugs or mismatches:
         return 1
-    # A credential was supplied and nothing worked: a wrong key, an unreachable
-    # host, an IP allowlist. That must not pass quietly in CI, where nobody
-    # reads the output unless it fails.
+    # A credential was supplied and nothing worked, which must fail CI.
     if os.environ.get("VULTR_API_KEY") and results and not passed:
         print("a key was supplied but nothing succeeded; treating that as failure")
         return 1
@@ -331,12 +270,7 @@ async def main() -> int:
 
 
 def _describe(value: object) -> str:
-    """A one-line shape for a response value, enough to fix a spec against.
-
-    Top-level key names alone were not enough twice over: /databases/
-    available-services sends `available_services`, and knowing only the name
-    left the question of what is inside it open for another run.
-    """
+    """A one-line shape for a response value, enough to fix a spec against."""
     if isinstance(value, dict):
         keys = sorted(value)
         shown = ", ".join(keys[:8]) + ("..." if len(keys) > 8 else "")
@@ -349,17 +283,8 @@ def _describe(value: object) -> str:
 
 
 def _harvest(store: dict, tool: CompiledTool, row: dict) -> None:
-    """Remember a sample row, tagged with the collection it came from.
-
-    Keyed by product area but keeping each source separate, because ids of
-    different resources are not interchangeable. Feeding an audit-log
-    *location* id to the subscription tool earns a 400, which reads like a
-    broken tool and is really a broken harness.
-    """
-    # Empty strings are not ids, and feeding one back builds a path with a gap
-    # in it -- /applications//variables, which answers 404 and reads like a
-    # broken tool. Vultr's one-click applications carry image_id: "" because the
-    # field only applies to marketplace ones. Zero is kept: it is a real id.
+    """Remember a sample row per product area, tagged with its collection, since ids are not interchangeable."""
+    # Empty strings are not ids (they build paths like /applications//variables); zero is.
     scalars = {
         k: v for k, v in row.items() if isinstance(v, (str, int)) and v != ""
     }
@@ -369,12 +294,7 @@ def _harvest(store: dict, tool: CompiledTool, row: dict) -> None:
 
 
 def _resource_matches(param: str, container: str) -> bool:
-    """Whether `<param>_id` names the resource this collection holds.
-
-    baremetal_id against bare_metals, registry_id against registries,
-    database_id against databases: compared with separators removed and a
-    trailing plural dropped, which is enough for every shape Vultr uses.
-    """
+    """Whether `<param>_id` names this collection's resource (baremetal_id and bare_metals), ignoring separators and plurals."""
     def normalise(text: str) -> str:
         text = text.replace("_", "").replace("-", "").lower()
         return text[:-1] if text.endswith("s") and not text.endswith("ss") else text
@@ -383,15 +303,7 @@ def _resource_matches(param: str, container: str) -> bool:
 
 
 def _fill_path(tool: CompiledTool, harvested: dict) -> tuple[dict, list[str]]:
-    """Values for every path parameter, or the names we could not supply.
-
-    An id parameter prefers a row from the collection that actually holds that
-    resource, and only falls back to any id in the area when nothing matches.
-    Other parameters (`username`) are satisfied by a field of the same name.
-    Calling with one of two path parameters filled produces a confusing 404
-    rather than a useful result, so an unfillable tool is skipped and says which
-    value was missing.
-    """
+    """Values for every path parameter, preferring the collection that holds each id, or the names we could not supply."""
     sources = harvested.get(tool.product_area, [])
     arguments = dict(SMOKE_ARGUMENTS.get(tool.name, {}))
     missing: list[str] = []

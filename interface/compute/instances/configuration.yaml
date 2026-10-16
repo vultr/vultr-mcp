@@ -1,9 +1,7 @@
 product_area: instances
 family: compute
 
-# What an instance was configured with rather than what it is doing: the
-# attached ISO and the backup schedule. See instances.yaml for the area's shared
-# notes. The cloud-init payload is excluded; the reason is below.
+# An instance's attached ISO and backup schedule; its cloud-init payload is excluded.
 
 excluded:
   get-instance-userdata:

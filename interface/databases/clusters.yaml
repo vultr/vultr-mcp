@@ -1,19 +1,11 @@
 product_area: managed_databases
 family: database
 
-# The managed_databases area is split across this directory; every file here
-# declares the same product_area, and interface.yaml lists them together.
+# One file of the managed_databases area, which interface.yaml lists across this directory.
 
-# The database cluster itself, and the facts that hang off one: what it is
-# costing, when it was backed up, what maintenance is pending, and the state of
-# a migration into it.
+# A database cluster and its usage, backups, pending maintenance and migration state.
 
-# The one read in this area with no tool, and it is not an oversight.
-#
-# list-service-alerts is a read: it lists a database's existing alerts and
-# creates nothing. server.py already knows that -- READ_ONLY_METHOD_OVERRIDES
-# keeps it on the read-only surface despite the verb. But the interface layer
-# cannot express it twice over, and neither blocker is ours to remove.
+# list-service-alerts is a read served by its generated tool (READ_ONLY_METHOD_OVERRIDES); the layer cannot express it.
 declined:
   list-service-alerts:
     reason: >-
@@ -63,10 +55,7 @@ tools:
           type: string
           description: Vultr region ID, such as ewr.
 
-        # Applied here, because the API cannot. GET /databases takes no
-        # per_page or cursor at all -- it returns the whole account in one
-        # response -- so there is no page size to cap matches against and no
-        # paging loop to run.
+        # Applied here; GET /databases returns the whole account in one unpaged response.
         label_contains:
           type: string
           description: >-
@@ -92,8 +81,7 @@ tools:
 
     output:
       from_openapi: true
-      # password, access_key, access_cert, and ca_certificate are all absent.
-      # `user` is the username and stays: it identifies, it does not authorise.
+      # password, access_key, access_cert and ca_certificate are withheld; `user` is just the username.
       include:
         - id
         - label
@@ -143,8 +131,7 @@ tools:
 
     output:
       from_openapi: true
-      # The same credentials are withheld. This view adds the sizing,
-      # maintenance, and engine-specific settings the list drops.
+      # The same credentials are withheld.
       include:
         - id
         - label
@@ -253,9 +240,7 @@ tools:
             vultr_database_clusters_list.
           maps_to: database-id
 
-    # No `output` block: the response carries latest_backup and oldest_backup
-    # side by side, and shaping applies to a single container. Both are two
-    # fields each, so the whole payload passes through.
+    # No `output` block: shaping applies to one container, and this response has two small ones.
 
   - name: vultr_database_maintenance_updates_list
     access: read
@@ -286,8 +271,7 @@ tools:
             vultr_database_clusters_list.
           maps_to: database-id
 
-    # No `output` block: available_updates is a bare array of strings, so there
-    # are no item fields to allowlist against.
+    # No `output` block: a bare array of strings.
 
   - name: vultr_database_migration_get
     access: read
@@ -318,9 +302,7 @@ tools:
 
     output:
       from_openapi: true
-      # `credentials` is absent: it holds the source database's connection
-      # details, which is somebody else's system's credential rather than
-      # Vultr's, and no less real for that.
+      # `credentials` is withheld: the source database's connection details.
       include:
         - status
         - method

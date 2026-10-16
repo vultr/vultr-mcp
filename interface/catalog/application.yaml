@@ -1,15 +1,7 @@
 product_area: application
 family: catalog
 
-# These are the applications you can deploy on an instance -- the one-click and
-# marketplace images. The neighbouring product area, `marketplace`, is the
-# vendor side of the same catalogue: builds, gallery images and the variables a
-# vendor manages. This area answers "what can I deploy and what does it need
-# configured"; that one answers "how is this app published".
-#
-# The variables tool matters more than its size suggests. A marketplace app is
-# deployed with variables, and getting them wrong is the usual reason a
-# deployment comes up broken.
+# Applications deployable on an instance and the variables they need; `marketplace` is the vendor side.
 
 tools:
   - name: vultr_catalog_applications_list

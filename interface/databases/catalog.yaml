@@ -1,11 +1,9 @@
 product_area: managed_databases
 family: database
 
-# The managed_databases area is split across this directory; every file here
-# declares the same product_area, and interface.yaml lists them together.
+# One file of the managed_databases area, which interface.yaml lists across this directory.
 
-# Account-wide reference data rather than anything about one cluster: what can
-# be ordered, and what it can be configured with.
+# Account-wide reference data: what can be ordered and how it can be configured.
 
 tools:
   - name: vultr_database_services_list
@@ -29,15 +27,7 @@ tools:
       type: object
       properties: {}
 
-    # No `output` block, and none is possible. The response is
-    # `{available_services: ...}`; the spec declares the results under
-    # `databases`. Confirmed live 2026-09-02.
-    #
-    # An allowlist cannot be written even knowing that, which is the part worth
-    # recording: `include` is resolved against the *declared* schema, whose only
-    # container is `databases`, so naming the real key fails the build and
-    # naming the declared one never matches. Passing the payload through is the
-    # only correct behaviour until the spec names what the API sends.
+    # No `output` block: the API sends `available_services` where the spec declares `databases`.
 
   - name: vultr_database_plans_list
     access: read
@@ -121,8 +111,7 @@ tools:
             vultr_database_clusters_list.
           maps_to: database-id
 
-    # No `output` block: available_versions is a bare array of version strings,
-    # so there are no item fields to allowlist against.
+    # No `output` block: a bare array of version strings.
 
   - name: vultr_database_advanced_options_list
     access: read

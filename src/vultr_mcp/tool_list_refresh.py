@@ -1,19 +1,8 @@
 """Tell connected clients to refetch the tool list after a release, without a reconnect.
 
-The HTTP app runs stateless behind a round-robin ingress, so a deploy breaks no
-connection -- but a client keeps the ``tools/list`` it fetched when it connected,
-and after a release it offers removed tools, misses new ones and reads old
-descriptions until the user reconnects. MCP's signal for this is
-``notifications/tools/list_changed``. A stateless server has no session stream to
-push it on, so it rides the response of the client's own ``tools/call``: sent with
-the call's request id, the transport puts it on that call's response stream, and
-Claude Code refetches the list straight away. Sent without the request id -- the
-SDK's own ``send_tool_list_changed()`` -- it is silently dropped.
-
-Each caller is told once per change to the tool list, not on every call: the
-digest of the list it was last told about is kept per caller and endpoint, in the
-shared Redis so every replica agrees. A call naming a tool that no longer exists
-is told regardless, with an error that says why.
+A stateless server has no session stream, so ``notifications/tools/list_changed`` rides the
+response of the client's own ``tools/call``; it must carry that call's request id or it is dropped.
+Each caller is told once per change, tracked per caller and endpoint in the shared Redis.
 """
 
 from __future__ import annotations
@@ -47,12 +36,7 @@ UNKNOWN_TOOL_MESSAGE = (
 
 
 def _caller_and_endpoint() -> tuple[str, str] | None:
-    """Who is calling and on which endpoint, or None outside an authenticated HTTP request.
-
-    A FastMCP proxy token names the client registration it was issued to, which
-    survives every refresh; a raw API key has no such claim, so the key's own
-    hash stands in. Both are hashed before use, so no credential is stored.
-    """
+    """(caller, endpoint): the proxy token's client_id, else the raw key (hashed later), or None outside HTTP."""
     try:
         from fastmcp.server.dependencies import get_http_request
 
@@ -157,7 +141,7 @@ _SHARED_STORE: Backend | None = None
 
 
 def build_seen_store() -> Backend:
-    """Redis when the deployment shares one, so every replica agrees; else in-process. One per process, shared by every endpoint's server."""
+    """One store per process, shared by every endpoint: Redis when configured, else in memory."""
     global _SHARED_STORE
     if _SHARED_STORE is None:
         client = redis_from_env()

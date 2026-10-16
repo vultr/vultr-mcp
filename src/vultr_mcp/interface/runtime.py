@@ -1,17 +1,6 @@
-"""Execute a compiled interface tool: call the API, then shape what comes back.
+"""Execute a compiled interface tool: rename arguments, call the API, filter client-side, shape the response.
 
-Three things the generated surface does not do:
-
-**Renaming.** The agent sees ``page_size``, the API wants ``per_page``. The
-compiler resolved the mapping, so this is a lookup, not a guess.
-
-**Client-side filtering.** ``GET /clusters`` accepts only ``per_page`` and
-``cursor``, so a tool offering search by label does the searching itself. A
-filter applied after the fact only sees what was fetched, so every filtered
-response reports how much was scanned -- "how many clusters do I have?" must
-not be answered confidently from a partial one.
-
-**Shaping.** The main lever on token cost; computed fields ride the same pass.
+Filtered responses report how much was scanned, so a count is never taken from a partial scan.
 """
 
 from __future__ import annotations
@@ -26,22 +15,10 @@ import httpx
 from vultr_mcp.interface import expressions
 from vultr_mcp.interface.compiler import CompiledTool, FilterPlan
 
-# Fetch policy for client-side filtering.
-#
-# Filtering happens after a paged fetch, so "give me 100" plus a label filter
-# would otherwise mean "fetch 100, then filter", not "find 100 matches" -- and
-# an agent counting results would silently undercount on a multi-page account.
-# So when a filter is active the runtime pages through the collection itself,
-# up to this many requests, and reports whether it reached the end.
-#
-# The cap exists because an account with thousands of resources should not turn
-# one tool call into an unbounded fan-out. When it is hit, the response says so
-# rather than pretending to be complete.
+# With a filter active the runtime pages through the collection itself, up to this many requests.
 MAX_AUTO_PAGES = 10
 
-# Per-request page size used while auto-paging, independent of the page_size the
-# agent asked for: that one is about how many results it wants back, this one is
-# about how few round trips it takes to scan the collection.
+# Per-request page size while auto-paging, independent of the page_size the agent asked for.
 AUTO_PAGE_SIZE = 500
 
 
@@ -82,12 +59,7 @@ def _passes(item: Any, active: list[tuple[FilterPlan, Any]]) -> bool:
 
 
 def _shape_item(item: Any, tool: CompiledTool) -> Any:
-    """Keep the allowlisted fields of one item, then add its computed fields.
-
-    Computed values are derived from the *unshaped* item, so a field can be
-    counted or summed without also being returned -- ``instance_count`` does not
-    force ``instances`` into the payload.
-    """
+    """Keep the allowlisted fields of one item, then add computed fields derived from the unshaped item."""
     if not isinstance(item, dict):
         return item
 
@@ -113,16 +85,11 @@ def shape_response(
     arguments: dict[str, Any],
     scan: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Filter, trim, and annotate a response. Pure -- no I/O, so it is testable.
-
-    ``scan`` carries what the fetch policy did (pages fetched, whether the
-    collection was exhausted) and is folded into ``meta`` when filtering ran.
-    """
+    """Filter, trim and annotate a response (no I/O); ``scan`` says what the fetch did and lands in ``meta``."""
     plan = tool.output
     container = plan.container_key if plan else None
 
-    # An unwrapped response is its own item: there is no key to look under, so
-    # the include list and the computed fields apply to the payload itself.
+    # An unwrapped response is its own item.
     if plan and plan.unwrapped:
         return _shape_item(payload, tool)
 
@@ -166,12 +133,7 @@ def shape_response(
 
 
 def _result_limit(tool: CompiledTool, arguments: dict[str, Any]) -> int | None:
-    """How many matches the agent asked for.
-
-    When filtering happens here, the page-size input stops meaning "rows to
-    fetch" and starts meaning "matches to return" -- which is what an agent
-    that wrote page_size actually wanted.
-    """
+    """How many matches the agent asked for: when filtering here, page_size means matches to return."""
     if not tool.pagination or not tool.pagination.agent_page_param:
         return None
     name = tool.pagination.agent_page_param
@@ -190,11 +152,7 @@ def _filter_meta(
     truncated: bool,
     scan: dict[str, Any] | None,
 ) -> dict[str, Any]:
-    """Say plainly what the filter saw, so counts are never overstated.
-
-    ``meta.total`` stays as the API reported it -- the size of the collection,
-    not of the match -- and the filtered block sits beside it.
-    """
+    """What the filter saw, beside the API's own ``meta.total``, so counts are never overstated."""
     meta = dict(api_meta) if isinstance(api_meta, dict) else {}
     complete = bool(scan["complete"]) if scan else True
     filtered: dict[str, Any] = {
@@ -218,30 +176,15 @@ def _filter_meta(
 
 
 class ArgumentError(ValueError):
-    """The caller passed an argument this tool does not have.
-
-    Its own class so the audit record's error chain says which kind of mistake
-    it was -- countable, separate from the API refusing a well-formed call.
-    """
+    """The caller passed an argument this tool does not have; its own class so audit records can count it."""
 
 
-# An unknown argument is refused only when it carries a value. A stray key set
-# to null or "" asks for nothing, so refusing it would cost a retry for no gain.
+# An unknown argument is refused only when it carries a value.
 _EMPTY = (None, "", [], {})
 
 
 def check_arguments(tool: CompiledTool, arguments: dict[str, Any]) -> None:
-    """Refuse argument names the tool does not have, naming the ones it does.
-
-    Silently ignoring them was the worse failure. In the audit records, calls
-    with an unknown argument mostly "succeeded": ``label_contains`` on a tool
-    that has only ``label`` returned the unfiltered list, and the agent reported
-    it as filtered. The rest failed confusingly -- ``cluster_id`` where the tool
-    takes ``vke_id`` left the path unfilled. One clear refusal costs one retry;
-    the message is written so the retry can be right.
-
-    The schema the agent was shown is the source of truth for what is accepted.
-    """
+    """Refuse argument names the tool's input schema lacks, naming the ones it accepts, since ignoring them misleads."""
     schema = tool.input_schema or {}
     accepted = sorted(schema.get("properties", {}))
     unknown = sorted(
@@ -254,11 +197,7 @@ def check_arguments(tool: CompiledTool, arguments: dict[str, Any]) -> None:
     missing = [name for name in required if arguments.get(name) in _EMPTY]
     described = []
     for name in unknown:
-        # One stray name standing in for the one required name that is absent is
-        # the clearest case there is (cluster_id for vke_id), even though the two
-        # spellings share little. Otherwise only suggest a genuinely close
-        # spelling: a loose guess (label_contains -> label) would steer an agent
-        # into an exact-match filter it did not ask for.
+        # One stray name for one missing required name is a clear swap; otherwise suggest only close spellings.
         if len(unknown) == 1 and len(missing) == 1:
             guess = missing[0]
         else:
@@ -274,24 +213,14 @@ def check_arguments(tool: CompiledTool, arguments: dict[str, Any]) -> None:
 def build_request(
     tool: CompiledTool, arguments: dict[str, Any]
 ) -> tuple[str, dict[str, Any]]:
-    """Resolve arguments into (path, query), applying declared defaults.
-
-    Defaults are applied here rather than left to the client, because MCP
-    clients do not fill in JSON Schema defaults -- an omitted ``page_size``
-    would otherwise reach the API as nothing at all.
-    """
+    """Resolve arguments into (path, query), applying declared defaults, which MCP clients do not fill in."""
     path = tool.path_template
     query: dict[str, Any] = {}
 
     for plan in tool.parameters:
         value = arguments.get(plan.agent_name, plan.default)
         if value is None:
-            # A missing path parameter used to leave its own placeholder in the
-            # URL, and we would send `/kubernetes/clusters/{vke-id}/resources`
-            # upstream -- where the API answers 404 "Invalid resource ID",
-            # indistinguishable from a cluster that does not exist. Reported as
-            # a server bug twice before anyone suspected the caller's argument
-            # name. A query parameter may be absent; a path segment may not.
+            # A query parameter may be absent; a path segment may not, or the API 404s on the placeholder.
             if plan.location == "path":
                 raise ValueError(
                     f"{tool.name} requires {plan.agent_name!r}, which was not supplied"
@@ -348,8 +277,7 @@ async def execute(
         arguments.get(plan.agent_name) not in (None, "", []) for plan in tool.filters
     )
     pagination = tool.pagination
-    # An explicit cursor means the agent is walking pages itself; honour that
-    # rather than scanning the collection out from under it.
+    # An explicit cursor means the agent is walking pages itself.
     walking_pages = bool(
         pagination
         and pagination.agent_cursor_param
@@ -357,8 +285,7 @@ async def execute(
     )
     if not filtering or pagination is None or walking_pages:
         payload = await call_api(client, tool.method, path, query)
-        # One page, filtered: honest about whether that page was the whole
-        # collection, so "complete" never means "complete as far as I looked".
+        # One page, filtered: complete only if there was no next page.
         scan = (
             {"pages": 1, "complete": not _next_cursor(payload)} if filtering else None
         )
@@ -387,18 +314,7 @@ async def execute(
             break
 
     merged = dict(payload)
-    # Only write the collection back where the API actually put one. When the
-    # spec names a container the response does not carry -- /plans-metal sends
-    # `plans_metal` against a declared `plans`, /storage-gateways sends
-    # `storage_gateways` against a declared `storage_gateway` -- `collected`
-    # stayed empty because nothing matched, and assigning it here would add a
-    # fabricated empty key beside the real collection. The agent would then see
-    # both an invented `plans: []` and the genuine `plans_metal`, with nothing
-    # raised and nothing logged.
-    #
-    # Passing the payload straight through is what shape_response already does
-    # for the single-call path in the same situation, so the two agree: a
-    # container the API does not send means no shaping, not invented data.
+    # Only where the API sent the container; some responses use a different key than the spec declares.
     if container and container in payload:
         merged[container] = collected
     return shape_response(

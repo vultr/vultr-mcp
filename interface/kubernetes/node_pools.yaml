@@ -1,8 +1,7 @@
 product_area: kubernetes
 family: kubernetes
 
-# The kubernetes area is split across this directory; every file here declares
-# the same product_area, and interface.yaml lists them together.
+# One file of the kubernetes area, which interface.yaml lists across this directory.
 
 # Node pools and the scheduling metadata on them.
 

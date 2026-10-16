@@ -1,11 +1,9 @@
 product_area: managed_databases
 family: database
 
-# The managed_databases area is split across this directory; every file here
-# declares the same product_area, and interface.yaml lists them together.
+# One file of the managed_databases area, which interface.yaml lists across this directory.
 
-# Database users. Credentials in these responses are shaped deliberately -- see
-# the tool definitions.
+# Database users, with their credentials withheld.
 
 tools:
   - name: vultr_database_users_list
@@ -39,9 +37,7 @@ tools:
 
     output:
       from_openapi: true
-      # password, access_key, and access_cert are absent. What remains answers
-      # "who can reach this database and with what rights" without handing over
-      # the means to become them.
+      # password, access_key and access_cert are withheld.
       include:
         - username
         - permission

@@ -1,14 +1,4 @@
-"""Validate interface layer definitions against the schema and openapi.json.
-
-The schema pass catches shape errors; the semantic pass catches drift -- a
-vanished operation, a filter on a field the API stopped returning, an
-expression naming something absent.
-
-The semantic pass is the one that matters. Area files are drafted by an LLM
-from openapi.json, so the failure mode is not a typo but a confidently invented
-field. Every reference is resolved against the spec, and the build fails on
-anything that cannot be found.
-"""
+"""Validate interface definitions: a schema pass for shape, then a semantic pass resolving every reference against openapi.json."""
 
 from __future__ import annotations
 
@@ -24,18 +14,10 @@ from vultr_mcp.interface import expressions
 from vultr_mcp.interface.scaffold import slug
 from vultr_mcp.interface.spec_index import Operation, SpecIndex
 
-# Parameter locations the runtime knows how to fill. A header or cookie
-# parameter would need credentials or transport plumbing the layer doesn't own.
+# Parameter locations the runtime knows how to fill.
 SUPPORTED_PARAMETER_LOCATIONS = frozenset({"query", "path"})
 
-# The closed verb vocabulary and the last segment of every tool name. An agent
-# pattern-matches on it across every area, so one word per action, everywhere.
-#
-# `list`, not `search`: `search` reads like finding a single item, competing
-# with `get` in exactly the prompts where the two must stay distinguishable.
-#
-# Lifecycle verbs use the word a person would say rather than the API's --
-# `stop` for halt, `restart` for reboot. Vultr's term goes in the description.
+# The closed verb vocabulary that ends every tool name; lifecycle verbs use a person's word, not the API's.
 TOOL_VERBS = frozenset(
     {
         # read
@@ -60,14 +42,7 @@ TOOL_VERBS = frozenset(
 
 @dataclass
 class Problem:
-    """One validation failure, located precisely enough to fix without hunting.
-
-    Severity is about whether the tool is *served*, not about how bad the
-    problem is. A disabled tool is not registered, so its problems cannot
-    reach an agent -- failing the build over one would mean a scaffolded draft
-    could stop the server from starting. They are still reported, because a
-    draft nobody can see is exactly the kind of thing that rots.
-    """
+    """One validation failure; problems on a disabled (unserved) tool are warnings, not errors."""
 
     where: str
     message: str
@@ -113,11 +88,7 @@ def _check_access(tool: dict[str, Any], operation: Operation, where: str) -> lis
 
 
 def _check_inputs(tool: dict[str, Any], operation: Operation, where: str) -> list[Problem]:
-    """Every input either reaches the API or is applied here as a filter.
-
-    An input that is neither is silently ignored at runtime, which is exactly
-    the kind of thing a drafting model produces.
-    """
+    """Every input either reaches the API or is applied here as a filter."""
     problems: list[Problem] = []
     schema = tool.get("input", {})
     properties = schema.get("properties", {})
@@ -311,9 +282,7 @@ def validate_product_area(
     excluded = document.get("excluded") or {}
     tool_operations = {tool["operation"] for tool in document["tools"]}
 
-    # Every problem with an exclusion is an ERROR: a decline that misses its
-    # target is untidy, an exclusion that misses its target silently serves the
-    # thing someone believed was gone.
+    # Exclusion problems are errors, since a missed exclusion serves something believed gone.
     for operation_id in excluded:
         location = f"{where}.excluded.{operation_id}"
         operation = index.resolve(operation_id)
@@ -345,9 +314,7 @@ def validate_product_area(
                 )
             )
 
-    # Declined operations are reviewed decisions, not served tools, so a stale
-    # one cannot mislead an agent -- it can only mislead the next person, and
-    # skew a drift report. Warnings, except where it contradicts a live tool.
+    # Stale declines are warnings, except where one contradicts a served tool.
     for operation_id in declined:
         location = f"{where}.declined.{operation_id}"
         operation = index.get(operation_id)
@@ -364,8 +331,7 @@ def validate_product_area(
             problems.append(
                 Problem(location, "is declined but also has a tool in this file")
             )
-        # Compare slugs, not raw tags: the area for "Container Registry" is
-        # container_registry, and drift resolves it the same way.
+        # Compare slugs, not raw tags, as drift does.
         if product_area not in {slug(tag) for tag in operation.tags}:
             problems.append(
                 Problem(
@@ -381,9 +347,6 @@ def validate_product_area(
     for position, tool in enumerate(document["tools"]):
         name = tool["name"]
         location = f"{where}.tools[{position}] ({name})"
-        # Everything found on a disabled tool is reported as a warning: it is
-        # never registered, so it cannot mislead an agent, and a draft must not
-        # be able to stop the server from starting.
         served = tool.get("enabled", True)
         found: list[Problem] = []
 
@@ -391,20 +354,13 @@ def validate_product_area(
             found.append(Problem(location, "duplicate tool name in this file"))
         seen.add(name)
 
-        # The family prefix is the agent's first signal, and the reason
-        # vultr_compute_clusters_list cannot be mistaken for a VKE tool. A
-        # name that drops it looks fine in isolation and quietly costs that
-        # distinction, so the file's declared family is enforced rather than
-        # trusted.
+        # The family prefix is enforced, since it is what tells compute clusters from VKE.
         prefix = f"vultr_{family}_"
         if not name.startswith(prefix):
             found.append(
                 Problem(location, f"name must start with '{prefix}' (family: {family})")
             )
 
-        # The verb is the other half of the convention, and the half an agent
-        # matches on when choosing between product areas. One invented verb --
-        # `find`, `fetch`, `query` -- and the surface stops being predictable.
         verb = name.rsplit("_", 1)[-1]
         if verb not in TOOL_VERBS:
             found.append(
@@ -429,33 +385,15 @@ def load_manifest(interface_dir: Path) -> dict[str, Any]:
 
 
 def area_files(interface_dir: Path, entry: Any) -> list[Path]:
-    """The file or files backing one product area.
-
-    An area is one file by default; a large area may list several, which are
-    read as though they were concatenated. It has to stay a single *area*
-    rather than becoming several: drift matches an area's name against an
-    OpenAPI tag (see `_tag_for_area`), so splitting `instances` into sibling
-    areas would leave names matching no tag, and every operation under the real
-    tag would be reported as undetected drift.
-    """
+    """The file or files backing one product area, read as one area since drift matches areas to tags."""
     names = [entry] if isinstance(entry, str) else list(entry or [])
     return [interface_dir / name for name in names]
-
-
-def load_schema(interface_dir: Path) -> dict[str, Any]:
-    """The format contract named by interface.yaml."""
-    manifest = load_manifest(interface_dir)
-    return json.loads((interface_dir / manifest["schema"]).read_text(encoding="utf-8"))
 
 
 def validate_manifest(
     interface_dir: Path, spec: Path | str | dict[str, Any]
 ) -> list[Problem]:
-    """Validate every product area named by interface.yaml.
-
-    ``spec`` is either an already-loaded openapi document or a path to one.
-    Returns an empty list when the whole interface layer is valid.
-    """
+    """Validate every product area in interface.yaml against a loaded spec or a path to one; empty when valid."""
     manifest = load_manifest(interface_dir)
     schema = json.loads((interface_dir / manifest["schema"]).read_text(encoding="utf-8"))
 
@@ -491,9 +429,7 @@ def validate_manifest(
                     )
                 )
 
-            # Tool names are the agent's whole vocabulary, so a collision across
-            # product areas is as bad as one within a file -- and an area split
-            # over several files makes a collision between siblings possible too.
+            # Tool names must be unique across every file.
             for tool in document.get("tools", []) or []:
                 name = tool.get("name")
                 if not name:

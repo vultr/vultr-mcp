@@ -1,29 +1,8 @@
 product_area: billing
 family: account
 
-# Billing reads money out of the account: history, invoices, and charges not yet
-# invoiced. Nothing here carries a payment instrument -- no card, no bank
-# detail, no billing address -- which is worth stating because it is the kind of
-# area where that assumption should be checked rather than assumed. The API
-# exposes amounts and descriptions only.
-#
-# The spec has the wrong schema attached to pending-charges, and it is a mix-up
-# rather than a missing field. It declares the billing-history shape -- id, date,
-# type, description, amount, balance, the same six as GET /billing/history.
-# Production returns the invoice-item shape instead: product, unit_type,
-# unit_price, units, total, start_date, end_date, description. Confirmed
-# 2026-09-02.
-#
-# So pending charges are uninvoiced *line items*, priced per unit, and not
-# account-level charge entries at all. The description says so.
-#
-# Its tool can carry no allowlist, and that is forced rather than chosen:
-# `include` is resolved against the declared 200 schema, so naming the fields
-# the API really sends would fail the build, and naming the declared ones shaped
-# every row to {} -- which is what it did until this was found.
-#
-# There is no tool for the pending-charges CSV export, and the reason is in the
-# excluded block rather than in a comment nobody would find.
+# Amounts and descriptions only; no payment instrument is exposed.
+# The spec gives pending-charges the billing-history schema, but the API returns invoice line items.
 
 excluded:
   pending-charges-csv:
@@ -60,8 +39,7 @@ tools:
     input:
       type: object
       properties:
-        # GET /billing/history declares no parameters, so this search is
-        # applied here against the fetched rows.
+        # Applied here, since GET /billing/history takes no parameters.
         description:
           type: string
           description: >-
@@ -221,16 +199,8 @@ tools:
 
     input:
       type: object
-      # No description filter. Filtering compares a field on each row, and the
-      # rows do not carry the fields the spec says they do -- see the output
-      # note below -- so the filter would silently match nothing.
+      # No filter: the rows lack the fields the spec declares, so it would match nothing.
       properties: {}
 
-    # No `output` block. The spec gives each pending charge id, date, type,
-    # description, amount and balance. Against production on 2026-09-02 the
-    # rows carried none of those six: the container was found and every declared
-    # name was absent. Because `include` is an allowlist and nothing matched,
-    # the tool was returning one empty object per charge -- five rows of
-    # nothing, reported as success. Passing the payload through is correct until
-    # the real field names are known; restore an allowlist then.
+    # No `output` block: an allowlist of the spec's declared fields would empty every row.
 

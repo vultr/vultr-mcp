@@ -1,28 +1,7 @@
 """Per-upstream-call timing and fault attribution.
 
-Why this is separate from audit.py
-----------------------------------
-The audit record answers "who did what". This answers "why was it slow" and
-"whose fault was the failure" -- different questions, different retention, and
-a much higher volume. They share an emitter and a request id so a diagnostic
-record can be joined back to the call that caused it, and nothing more.
-
-The two numbers that matter
----------------------------
-A tool call is not one API call. The interface layer's pagination scan walks up
-to ``max_auto_pages()`` pages to satisfy a single client-side filter, so "this
-tool took nine seconds" can mean one slow request or eight ordinary ones.
-Splitting ``duration_ms`` into ``upstream_ms`` and ``overhead_ms``, and counting
-the calls, is what separates a slow API from a slow server.
-
-Attribution
------------
-``fault`` exists because a 500 out of the MCP says nothing about where the
-failure was. An upstream 5xx is the API's; a 2xx that still ends in a tool error
-is ours, always, because the data arrived and we broke it on the way out; a 4xx
-is usually our request construction, which looks like a caller error and is not.
-Deriving this once, here, beats re-deriving it from a stack trace at the moment
-someone is asking.
+One tool call can make several API calls, so timing splits into ``upstream_ms`` and ``overhead_ms``
+to separate a slow API from a slow server, and ``fault`` says whose failure an error was.
 """
 
 from __future__ import annotations
@@ -35,9 +14,7 @@ from typing import Any, Iterable
 
 import httpx
 
-# Upstream calls made on behalf of the tool call currently in flight. Bound per
-# tool call by the audit middleware; a list, mutated in place, so a sub-task
-# that inherits a copy of the context still appends to the same record.
+# Upstream calls of the tool call in flight; a list mutated in place, so sub-tasks append to the same one.
 UPSTREAM_CALLS: contextvars.ContextVar[list[dict[str, Any]] | None] = contextvars.ContextVar(
     "vultr_mcp_upstream_calls", default=None
 )
@@ -46,18 +23,7 @@ _UUID = re.compile(r"\A[0-9a-fA-F]{8}-(?:[0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}\Z")
 
 
 class PathTemplates:
-    """Maps a concrete request path back to its OpenAPI template.
-
-    A logged path has to be groupable -- ``/instances/{instance-id}/ipv4`` is
-    something you can count and compare, ``/instances/8a3.../ipv4`` is not --
-    and it must not carry the id itself, which names a specific customer
-    resource.
-
-    Matched against the spec rather than guessed: no positional rule works here,
-    because a collection can be two segments deep
-    (``/cdns/pull-zones/{pullzone-id}``) and templated segments land on both odd
-    and even indices. The spec already knows, so ask it.
-    """
+    """Maps a concrete request path back to its OpenAPI template, so logged paths group and carry no ids."""
 
     def __init__(self, paths: Iterable[str]) -> None:
         self._root: dict[str, Any] = {}
@@ -76,8 +42,7 @@ class PathTemplates:
     def _walk(self, node: dict[str, Any], segments: list[str], i: int) -> str | None:
         if i == len(segments):
             return node.get("$")
-        # Literal before parameter: a real segment always beats a wildcard that
-        # would also accept it, which is how the spec itself disambiguates.
+        # A literal segment beats a wildcard that would also accept it.
         for key in (segments[i], "*"):
             child = node.get(key)
             if child is not None:
@@ -88,12 +53,7 @@ class PathTemplates:
 
 
 def redact_unknown(segments: list[str]) -> str:
-    """Fallback for a path no template matched: keep the shape, drop anything
-    that could be an identifier.
-
-    An unmatched path should not happen. If one does, it must not be the thing
-    that puts a customer id in the log.
-    """
+    """For a path no template matched: keep the shape, drop anything that could be an identifier."""
     out = []
     for segment in segments:
         if _UUID.match(segment) or segment.isdigit() or "." in segment or len(segment) > 24:
@@ -108,31 +68,16 @@ MAX_UPSTREAM_ERROR_CHARS = 200
 
 
 def error_snippet(body: bytes) -> str:
-    """The upstream's own words on a failure, truncated.
-
-    Without this, "the API returned 500" and "we turned something into a 500"
-    are told apart by inference -- we spent a bug report matching
-    ``response_bytes`` against the byte length of a quoted error string to
-    establish which had happened. The body is only kept for a non-2xx, where
-    it is an error message rather than a customer's data.
-    """
+    """The upstream's own error message on a non-2xx, truncated."""
     text = body[: MAX_UPSTREAM_ERROR_CHARS * 4].decode("utf-8", "replace").strip()
     return text[:MAX_UPSTREAM_ERROR_CHARS]
 
 
 def decode_error_body(body: bytes, encoding: str | None) -> bytes | None:
-    """Undo Content-Encoding on a failure's opening bytes; None when that can't be done.
-
-    The streamed path holds wire bytes, and the API compresses its errors: a
-    gzipped 403 went into four records as ``\\ufffd\\x08...`` rather than its
-    message. Works on a truncated head, since only the first bytes are kept --
-    a decompressobj yields what it can without needing the end of the stream.
-    """
+    """Undo Content-Encoding on a failure's (possibly truncated) opening bytes; None when that can't be done."""
     if not encoding or encoding.strip().lower() == "identity":
         return body
-    # Stacked encodings are applied left to right, so the outermost is last.
-    # Only a single gzip or deflate layer is undone; anything else is reported
-    # as undecodable rather than stored as noise.
+    # Only a single gzip or deflate layer is undone.
     if "," in encoding:
         return None
     name = encoding.strip().lower()
@@ -151,29 +96,14 @@ def decode_error_body(body: bytes, encoding: str | None) -> bytes | None:
 
 
 def record_upstream(entry: dict[str, Any]) -> None:
-    """Attribute one upstream call to the tool call in flight, if there is one.
-
-    Calls made outside a tool -- token exchange, discovery -- bind no list and
-    are dropped rather than attributed to whichever tool ran last.
-    """
+    """Attribute one upstream call to the tool call in flight; calls outside a tool are dropped."""
     calls = UPSTREAM_CALLS.get()
     if calls is not None:
         calls.append(entry)
 
 
 class InstrumentedTransport(httpx.AsyncBaseTransport):
-    """Times every upstream request, whichever surface made it.
-
-    Wrapping the transport rather than the two call sites is deliberate: the
-    generated surface and the interface layer share one ``AsyncClient``, so this
-    is the single place that sees both, and it cannot be bypassed by a call site
-    added later.
-
-    Timing runs to stream close, not to response headers. Headers-only would
-    park body download time in ``overhead_ms``, where a large list response
-    would read as server overhead when it is transfer -- pointing diagnosis at
-    the wrong half of the system.
-    """
+    """Times every upstream request to stream close, so body transfer counts as upstream time."""
 
     def __init__(
         self, inner: httpx.AsyncBaseTransport, templates: PathTemplates | None = None
@@ -204,20 +134,12 @@ class InstrumentedTransport(httpx.AsyncBaseTransport):
 
         entry["status"] = response.status_code
 
-        # `response_bytes` counts what the path it took could see: the decoded
-        # body when the transport hands one over, the wire bytes when we count
-        # a stream. A compressed response therefore reads far smaller than the
-        # JSON it carries -- 31 days of bandwidth measured 517 streamed and
-        # 2032 decoded. Recording the encoding is what stops someone reading
-        # a size as evidence of a payload it cannot be compared against.
+        # response_bytes is wire bytes for a stream, so the encoding is recorded alongside it.
         encoding = response.headers.get("content-encoding")
         if encoding:
             entry["response_encoding"] = encoding
 
-        # A transport that hands back an already-materialised body has nothing
-        # left to time, and wrapping its stream would record nothing at all --
-        # httpx never iterates a response whose content is set. Finish here
-        # instead of depending on that invariant holding.
+        # An already-materialised body is never streamed, so it is recorded now.
         if hasattr(response, "_content"):
             entry["duration_ms"] = round((time.perf_counter() - started) * 1000, 1)
             entry["response_bytes"] = len(response._content)
@@ -234,12 +156,7 @@ class InstrumentedTransport(httpx.AsyncBaseTransport):
 
 
 class _TimedStream(httpx.AsyncByteStream):
-    """Passes the body through untouched, finalising the timing when it ends.
-
-    Recording on close as well as on exhaustion covers the response nobody reads
-    to completion: an error path that closes early still produces a record, with
-    the time it actually consumed.
-    """
+    """Passes the body through, recording timing on exhaustion or early close."""
 
     def __init__(self, inner: Any, started: float, entry: dict[str, Any]) -> None:
         self._inner = inner
@@ -252,8 +169,7 @@ class _TimedStream(httpx.AsyncByteStream):
     async def __aiter__(self):
         async for chunk in self._inner:
             self._bytes += len(chunk)
-            # Only a failure's opening bytes, and only while short of the cap:
-            # a success streams past untouched, holding nothing.
+            # Only a failure's opening bytes are held.
             if self._entry.get("status", 0) >= 400 and len(self._head) < MAX_UPSTREAM_ERROR_CHARS * 4:
                 self._head += chunk
             yield chunk
@@ -296,8 +212,7 @@ def summarise(calls: list[dict[str, Any]]) -> dict[str, Any]:
         out["upstream_ms"] = round(sum(timed), 1)
         out["upstream_slowest_ms"] = max(timed)
     if statuses:
-        # The worst status is the one worth surfacing: a scan whose eighth page
-        # 500s is a failure, however well the first seven went.
+        # The worst status, since one failed page fails the scan.
         out["upstream_status"] = max(statuses)
     return out
 
@@ -322,8 +237,7 @@ def fault(outcome: str, calls: list[dict[str, Any]]) -> str | None:
     if status in (401, 403):
         return "auth"
     if status >= 400:
-        # The API rejected what we sent. Usually parameter mapping, which reads
-        # as a caller error and is not one.
+        # The API rejected what we sent, usually our parameter mapping.
         return "request"
     # Upstream said 2xx and the tool still failed: shaping, serialisation, ours.
     return "mcp"

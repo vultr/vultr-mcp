@@ -1,15 +1,7 @@
 product_area: dns
 family: network
 
-# Vultr's DNS is authoritative hosting for domains the account owns. The name
-# collision worth guarding against is reverse DNS: load balancers and reserved
-# IPs each have their own reverse-DNS operations, and none of them are records
-# in a zone hosted here. Each description says so.
-#
-# compute/instances.yaml declines list-instance-ipv6-reverse on the grounds that reverse
-# DNS is a DNS concern. That decline stands, and this file does not cover it
-# either: it is per-instance IPv6 reverse DNS, reached from the instance, and
-# nothing here changes that it is still served by its generated tool.
+# Authoritative DNS hosting; reverse DNS for load balancers, reserved IPs and instances lives with those resources.
 
 tools:
   - name: vultr_network_dns_domains_list
@@ -277,5 +269,4 @@ tools:
             vultr_network_dns_domains_list, such as example.com.
           maps_to: dns-domain
 
-    # No `output` block: dns_sec is a bare array of record strings, so there
-    # are no item fields to allowlist against.
+    # No `output` block: a bare array of record strings.

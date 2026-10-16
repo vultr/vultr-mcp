@@ -1,8 +1,7 @@
 product_area: vpcs
 family: network
 
-# The vpcs area is split across this directory; every file here declares the
-# same product_area, and interface.yaml lists them together.
+# One file of the vpcs area, which interface.yaml lists across this directory.
 
 # The VPC itself, and what is attached to one.
 

@@ -1,11 +1,9 @@
 product_area: managed_databases
 family: database
 
-# The managed_databases area is split across this directory; every file here
-# declares the same product_area, and interface.yaml lists them together.
+# One file of the managed_databases area, which interface.yaml lists across this directory.
 
-# What lives inside a cluster: the logical databases, and the connection pools
-# in front of them.
+# A cluster's logical databases and connection pools.
 
 tools:
   - name: vultr_database_logical_databases_list

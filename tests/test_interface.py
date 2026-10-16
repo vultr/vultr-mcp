@@ -1343,6 +1343,29 @@ def test_kafka_urls_carrying_the_admin_password_are_withheld(compiled):
     assert shaped["database"]["enable_schema_registry"] is True
 
 
+def test_log_metadata_carrying_request_bodies_is_withheld(compiled):
+    """Found in a production check: every log line carried the caller's IP, user ID and full request body."""
+    tool = next(t for t in compiled.tools if t.name == "vultr_account_logs_list")
+    payload = {
+        "logs": [
+            {
+                "timestamp": "2026-10-15T06:15:30+00:00",
+                "log_level": "debug",
+                "message": "Instance created",
+                "resource_type": "instances",
+                "resource_id": "i-1",
+                "metadata": {"ip_address": "203.0.113.9", "request_body": '{"root_pass": "LOG-SECRET"}'},
+            }
+        ]
+    }
+
+    shaped = runtime.shape_response(copy.deepcopy(payload), tool, {"start_time": "2026-10-15T00:00:00Z"})
+
+    assert "LOG-SECRET" not in json.dumps(shaped)
+    assert "203.0.113.9" not in json.dumps(shaped)
+    assert shaped["logs"][0]["message"] == "Instance created"
+
+
 def test_nested_credentials_are_dropped_with_their_parent(compiled):
     """include allowlists the top level; a nested object comes through whole.
 

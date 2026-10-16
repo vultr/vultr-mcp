@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
 
 from vultr_mcp.auth import DualTokenVerifier, _looks_like_jwt
 

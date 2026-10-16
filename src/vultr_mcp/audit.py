@@ -1,38 +1,13 @@
-"""One structured record per tool call, for audit.
+"""One structured record per tool call and sign-in, for audit.
 
-Why this exists
----------------
-Nothing else records what the MCP did. Vultr's audit log covers account and
-configuration changes, so a read-only surface leaves no trace there at all --
-which makes "every action is logged" untrue rather than merely incomplete.
-Every tool call already funnels through FastMCP's middleware chain, so one
-``on_call_tool`` hook covers the generated surface and the interface layer
-alike.
-
-Metadata only, deliberately
----------------------------
-Argument *names* are recorded, never their values; result *cardinality*, never
-its content. Tool responses carry the very things the interface layer shapes
-away -- kubeconfigs, load balancer private keys, VKE user-data -- so a log that
-captured payloads would rebuild, in the logging pipeline, the disclosure the
-shaping exists to prevent. Capturing payloads should be a separate decision
-with its own retention and access rules, not a default.
-
-What a record answers: who called which tool, as what identity, from which
-client, when, how long it took, and whether it worked. What it cannot answer:
-what the data was.
-
-Failure policy
---------------
-Auditing never breaks a call. Every field is gathered defensively and the whole
-emission is guarded: a logging bug must not turn a working tool into an error.
+Metadata only: argument names, never values; result counts, never content, since responses carry
+what the interface layer shapes away. Auditing never breaks a call: every field and the emission
+itself are guarded.
 """
 
 from __future__ import annotations
 
-import contextvars
 import json
-import logging
 import os
 import sys
 import time
@@ -45,24 +20,7 @@ from fastmcp.server.middleware import Middleware
 from vultr_mcp import diagnostics
 from vultr_mcp.suspension import SUSPENDED_REASON_CLAIM
 
-# The id of the tool call currently in flight, so the upstream request made on
-# its behalf can carry the same one. A contextvar rather than an argument
-# because the call site is httpx's auth hook, several frames below the tool and
-# with no route to pass anything down -- and because each concurrent call needs
-# its own value.
-CURRENT_REQUEST_ID: contextvars.ContextVar[str | None] = contextvars.ContextVar(
-    "vultr_mcp_request_id", default=None
-)
-
-# Sent on every upstream call. Namespaced rather than the conventional
-# X-Request-Id so it cannot be confused with an id the platform already
-# assigns, and so a row carrying it is unambiguously MCP-originated.
-REQUEST_ID_HEADER = "X-Vultr-MCP-Request-Id"
-
-# Claims worth recording from a verified OAuth token. `sub` is the consenting
-# user and `acctid` the account the call resolves against -- together they are
-# the answer to "who did this", and both are already validated by the time a
-# tool runs. Everything else in the token stays out.
+# The consenting user and the account the call resolves against; nothing else from the token.
 IDENTITY_CLAIMS = ("sub", "acctid")
 
 
@@ -72,53 +30,30 @@ def audit_enabled() -> bool:
 
 
 def audit_dir() -> str:
-    """Directory for the shipped copy of the records, or "" for stdout only.
-
-    stdout is how a person reads what a pod is doing; it is not a place a
-    collector can read from without the cluster in between, and it dies with
-    the pod. A file is what a log shipper tails, and the shipper is a sidecar
-    that knows nothing about this process beyond the path.
-    """
+    """Directory for a file copy of the records for a log shipper to tail, or "" for stdout only."""
     return os.environ.get("VULTR_MCP_AUDIT_DIR", "").strip()
 
 
 def audit_file_max_bytes() -> int:
-    """Size past which the file is abandoned for stdout only.
-
-    Clicktail collapses shipped bytes off the front of the file, so while it
-    runs the file stays near empty. A file this large means nothing is draining
-    it, and the choice is to stop feeding it or to let an emptyDir fill until
-    the pod is evicted. Losing lines is the clicktail design's own stance.
-    """
+    """Size past which a file is abandoned for stdout only, so an undrained file cannot fill its volume."""
     try:
         return max(1, int(os.environ.get("VULTR_MCP_AUDIT_FILE_MAX_MB", "256"))) * 1024 * 1024
     except ValueError:
         return 256 * 1024 * 1024
 
 
-# Which replica wrote a record. Both pods feed the same ClickHouse table, and
-# nothing else in a record tells them apart. HOSTNAME is the pod name in k8s.
+# Which replica wrote a record; HOSTNAME is the pod name in k8s.
 POD = os.environ.get("HOSTNAME") or None
 
-# One file per event type, because the two record shapes share almost no
-# columns and clicktail maps each file to its own table (log_<filename>).
-# Values are raw file descriptors, or None where opening failed.
+# One file per event type, since the record shapes share almost no fields; None where opening failed.
 _writers: dict[str, int | None] = {}
 
 
 def _writer(event: str) -> int | None:
-    """An O_APPEND descriptor for one event type, opened once.
+    """An O_APPEND descriptor for one event type, opened once; None if unconfigured or unopenable.
 
-    Not a logging handler, deliberately. Clicktail collapses consumed bytes
-    off the front of the file while we write, and its README is explicit that
-    a writer which seeks and then writes will corrupt it. Rotating handlers
-    seek to measure size and rename the file out from under the tailer --
-    and a renamed ``.log.1`` is never watched, so its lines never ship. One
-    ``write()`` of a whole line on an O_APPEND descriptor never seeks, never
-    leaves a partial line, and always lands at the current end.
-
-    Returns None when no directory is configured or the file cannot be opened
-    -- a log sink that takes the server down with it is worse than none.
+    Not a logging handler: rotating handlers seek and rename under a tailer, while one whole-line
+    write on an O_APPEND descriptor never seeks and always lands at the current end.
     """
     directory = audit_dir()
     if not directory:
@@ -132,8 +67,7 @@ def _writer(event: str) -> int | None:
         fd = os.open(
             os.path.join(directory, f"{event.replace('.', '_')}.log"),
             os.O_WRONLY | os.O_APPEND | os.O_CREAT,
-            # Group-writable: the tailer shares the pod's fsGroup, and
-            # collapsing a file is a write.
+            # Group-writable, for a tailer that shares the pod's fsGroup and truncates what it shipped.
             0o660,
         )
     except Exception:  # noqa: BLE001
@@ -143,25 +77,8 @@ def _writer(event: str) -> int | None:
     return fd
 
 
-def _close_writers() -> None:
-    """Close every open descriptor. For tests, and for a clean shutdown."""
-    for fd in _writers.values():
-        if fd is not None:
-            try:
-                os.close(fd)
-            except OSError:
-                pass
-    _writers.clear()
-
-
 def _identity() -> dict[str, Any]:
-    """Who the caller is, from the verified access token.
-
-    Returns the auth method always, and the OAuth subject and account when the
-    credential carries them. A raw API key resolves to no identity here at all
-    -- it is opaque until api.vultr.com resolves it -- so those records are
-    attributable only to the fact that a key was used.
-    """
+    """The auth method, plus the OAuth subject and account when the token carries them (a raw API key has none)."""
     try:
         from fastmcp.server.dependencies import get_access_token
 
@@ -186,13 +103,7 @@ def _identity() -> dict[str, Any]:
 
 
 def _endpoint() -> dict[str, Any]:
-    """Which URL the call came in on: the path and the Host header.
-
-    What decides when an old address can be retired -- the bare /<category>
-    paths /mcp/<category> replaced.
-    No query string: it is not part of an endpoint, and nothing a client puts
-    there belongs in this log. Empty under STDIO, where there is no request.
-    """
+    """The path and Host the call came in on, without the query string; empty under STDIO."""
     try:
         from fastmcp.server.dependencies import get_http_request
 
@@ -206,12 +117,7 @@ def _endpoint() -> dict[str, Any]:
 
 
 def _result_size(result: Any) -> int | None:
-    """How many items came back, never what they were.
-
-    Cardinality is what makes a record useful after the fact -- "this listed
-    400 instances" reads differently from "this listed one" -- and it discloses
-    nothing about content.
-    """
+    """How many items came back, never what they were."""
     try:
         content = getattr(result, "content", None)
         if isinstance(content, list):
@@ -224,13 +130,7 @@ def _result_size(result: Any) -> int | None:
 
 
 def error_types(exc: BaseException, limit: int = 4) -> list[str]:
-    """The exception class names, following the cause chain.
-
-    FastMCP wraps every tool failure in ``ToolError``, so the outermost type
-    alone says only "a tool failed". The chain distinguishes an upstream HTTP
-    error from a validation failure from a bug. Class names only: the messages
-    quote API responses and can carry the data this log must not hold.
-    """
+    """Exception class names down the cause chain, since FastMCP wraps every failure in ToolError; never messages."""
     names: list[str] = []
     seen: set[int] = set()
     current: BaseException | None = exc
@@ -242,17 +142,7 @@ def error_types(exc: BaseException, limit: int = 4) -> list[str]:
 
 
 def emit(record: dict[str, Any]) -> None:
-    """Write one record as a JSON line: always stdout, and a file when asked.
-
-    stdout because the cluster already ships it; JSON because the consumer is a
-    log pipeline rather than a person. Flushed so a record survives a pod that
-    is about to be killed -- the case where it matters most.
-
-    The file is the same line again, for a shipper to tail. Both, not one: the
-    file is what outlives the pod, and stdout is what someone reads at 2am
-    without a query engine. Neither failing may disturb the other, or the tool
-    call that produced the record.
-    """
+    """Write one record as a JSON line to stdout (flushed), and to a file when configured; neither failure affects the other."""
     if POD and "pod" not in record:
         record = {**record, "pod": POD}
 
@@ -270,21 +160,14 @@ def emit(record: dict[str, Any]) -> None:
     try:
         fd = _writer(str(record.get("event", "record")))
         if fd is not None and os.fstat(fd).st_size < audit_file_max_bytes():
-            # One call, whole line: the tailer reads complete lines and holds
-            # partials, but a line split across two writes can interleave with
-            # another thread's line between them.
+            # One write per whole line, so concurrent lines never interleave.
             os.write(fd, (line + "\n").encode("utf-8"))
     except Exception:  # noqa: BLE001
         pass
 
 
 def upstream_detail_enabled() -> bool:
-    """Per-upstream-call records, on by default.
-
-    The aggregate on the tool record answers most questions; the detail answers
-    the rest -- which of eight scan pages was the slow one, which path 500'd.
-    Separable because it is the higher-volume half.
-    """
+    """Per-upstream-call records, on by default; VULTR_MCP_AUDIT_UPSTREAM=false turns off the higher-volume half."""
     return os.environ.get("VULTR_MCP_AUDIT_UPSTREAM", "true").lower() not in ("0", "false", "no")
 
 
@@ -293,10 +176,7 @@ class AuditMiddleware(Middleware):
 
     def __init__(self) -> None:
         super().__init__()
-        # Create the files now, empty, rather than on the first record. A tailer
-        # that finds a file already holding lines starts from its end -- clicktail
-        # does, measured -- so a file created by the first call after a rollout
-        # loses that call. Boot is seconds; the tailer is ready well inside it.
+        # Created empty at boot: a tailer that finds a file already holding lines starts from its end.
         _writer("mcp.tool_call")
         if upstream_detail_enabled():
             _writer("mcp.upstream_call")
@@ -305,11 +185,9 @@ class AuditMiddleware(Middleware):
     async def on_call_tool(self, context, call_next):
         started = time.perf_counter()
         request_id = str(uuid.uuid4())
-        # Bound before the tool runs so every upstream call it makes lands here.
-        # A fresh list per call, and per task, so concurrent calls never merge.
+        # A fresh list per call, bound before the tool runs, collects its upstream calls.
         upstream: list[dict[str, Any]] = []
         diagnostics.UPSTREAM_CALLS.set(upstream)
-        CURRENT_REQUEST_ID.set(request_id)
         record: dict[str, Any] = {
             "event": "mcp.tool_call",
             "ts": datetime.now(timezone.utc).isoformat(),
@@ -318,8 +196,7 @@ class AuditMiddleware(Middleware):
 
         try:
             record["tool"] = getattr(context.message, "name", None)
-            # Names only. An argument value can be a label, an ID, or a
-            # free-text filter the caller chose -- none of it belongs here.
+            # Names only, never values.
             arguments = getattr(context.message, "arguments", None)
             if isinstance(arguments, dict):
                 record["argument_names"] = sorted(arguments)
@@ -361,16 +238,13 @@ def _finish(record: dict[str, Any], started: float, upstream: list[dict[str, Any
         record["duration_ms"] = round((time.perf_counter() - started) * 1000, 1)
         record.update(diagnostics.summarise(upstream))
 
-        # The whole point of the split: time this server spent, as distinct from
-        # time it spent waiting. A large overhead_ms is ours to explain.
+        # Time this server spent, as distinct from time spent waiting on Vultr.
         upstream_ms = record.get("upstream_ms")
         if upstream_ms is not None:
             record["overhead_ms"] = round(record["duration_ms"] - upstream_ms, 1)
 
         blame = diagnostics.fault(record.get("outcome", "error"), upstream)
-        # An argument the tool does not have fails before any upstream call,
-        # which fault() can only read as ours. It is the caller's: an eval
-        # separating model mistakes from infrastructure needs to see it that way.
+        # An unknown argument fails before any upstream call, but it is the caller's fault, not ours.
         if "ArgumentError" in record.get("error_chain", ()):
             blame = "caller"
         if blame is not None:
@@ -395,12 +269,7 @@ def _finish(record: dict[str, Any], started: float, upstream: list[dict[str, Any
 
 
 def _emit_safely(record: dict[str, Any]) -> None:
-    """Emit, swallowing anything that goes wrong.
-
-    ``emit`` guards its own writes, but this guards the call itself: a bug
-    introduced in emission -- or in whatever replaces it later -- must not turn
-    a working tool into a failed one. Auditing is never worth breaking a call.
-    """
+    """Emit, swallowing anything that goes wrong."""
     try:
         emit(record)
     except Exception:  # noqa: BLE001
@@ -415,16 +284,10 @@ AUTH_EVENT = "mcp.auth"
 def emit_auth(
     action: str, outcome: str, client_id: str | None, started: float, **fields: Any
 ) -> None:
-    """One ``mcp.auth`` record: a sign-in starting or completing, or a refresh.
+    """One ``mcp.auth`` record for a sign-in, a refresh, or a rejected bearer; never a token.
 
-    Tool-call records exist only once a client holds a working token, so they
-    cannot show the moment a user is made to sign in again -- which is what the
-    eval harness reported, and what pod logs keep for barely a day. ``action``
-    is ``authorize``, ``code_exchange``, ``refresh``, ``transparent_refresh``
-    (FastMCP's own, inside a request) or ``access`` (a bearer rejected with a
-    401, ``error`` saying why); ``outcome`` is ``ok``, ``error``, ``refused``,
-    ``held`` or ``rejected``. Never a token: the client, how a refresh was
-    resolved, the error the client was given, and the account once known.
+    ``action``: authorize, code_exchange, refresh, transparent_refresh or access.
+    ``outcome``: ok, error, refused, held or rejected.
     """
     if not audit_enabled():
         return
@@ -434,8 +297,7 @@ def emit_auth(
         "action": action,
         "outcome": outcome,
         "client_id": client_id,
-        # CIMD clients (Claude.ai and the like) identify by a URL; DCR clients
-        # by an opaque id they registered with us.
+        # CIMD clients identify by a URL, registered (DCR) clients by an opaque id.
         "client_kind": "cimd" if (client_id or "").startswith("https://") else "registered",
         "duration_ms": round((time.perf_counter() - started) * 1000, 1),
     }

@@ -1,11 +1,9 @@
 product_area: cdns
 family: network
 
-# The cdns area is split across this directory; every file here declares the
-# same product_area, and interface.yaml lists them together.
+# One file of the cdns area, which interface.yaml lists across this directory.
 
-# Push zones host files uploaded to Vultr, so the files themselves are readable
-# through this area.
+# Push zones host uploaded files, which are readable here.
 
 tools:
   - name: vultr_network_cdn_push_zones_list

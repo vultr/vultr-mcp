@@ -1,22 +1,7 @@
 product_area: logs
 family: account
 
-# This whole category was excluded from the tool surface, because ListAuditLogs
-# returns s3_access_key and s3_secret_key -- the credentials for the bucket
-# audit data is delivered to -- and the generated tool handed both to any agent
-# that asked. Excluding the category was the only lever available at the time,
-# and it cost `list-logs`, which reads application log lines and is genuinely
-# useful.
-#
-# These tools are what make the category safe to re-admit. Every read operation
-# in it is covered here, because the exclusion is per-category while the
-# replacement is per-operation: any operation left uncovered would come back as
-# its generated self, credentials and all.
-#
-# GetAuditLog is the reason the layer needed to learn about unwrapped
-# responses. Its 200 is the AuditLog object itself rather than a wrapper around
-# it, which the shape reader used to report as "no readable schema" -- leaving
-# nothing to allowlist against and no way to withhold anything.
+# Audit-log subscriptions carry the delivery bucket's S3 credentials, so every read operation here has a tool that withholds them.
 
 tools:
   - name: vultr_account_logs_list
@@ -78,7 +63,7 @@ tools:
         - message
         - resource_type
         - resource_id
-        - metadata
+        # metadata is absent: it carries the caller's IP and user ID and the full request body, which can hold passwords and keys.
 
   - name: vultr_account_audit_log_subscriptions_list
     access: read
@@ -103,10 +88,7 @@ tools:
 
     output:
       from_openapi: true
-      # s3_access_key and s3_secret_key are deliberately absent: together they
-      # are a working credential for the delivery bucket, and no question about
-      # audit configuration needs them. Excluding this category was the only
-      # protection before these lines existed.
+      # s3_access_key and s3_secret_key are withheld: together they are a working bucket credential.
       include:
         - id
         - label
@@ -155,9 +137,7 @@ tools:
 
     output:
       from_openapi: true
-      # The same two credentials are withheld here. This response is the
-      # subscription object itself rather than a wrapper around one, so the
-      # include list applies to the payload directly.
+      # The same two credentials are withheld; the response is unwrapped.
       include:
         - id
         - label

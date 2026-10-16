@@ -1,14 +1,7 @@
-"""The parts of openapi.json the interface layer needs, resolved once.
+"""The parts of openapi.json the interface layer needs, resolved once for the validator and compiler.
 
-The validator and compiler ask the spec the same questions, so they ask them
-here rather than each growing a copy. Two things a naive reading gets wrong:
-
-* **Path-item parameters.** 234 of Vultr's 330 paths declare path parameters on
-  the path item, not the operation, so reading only ``operation.parameters``
-  loses ``{pullzone-id}`` and makes every by-id tool look like it references a
-  parameter that doesn't exist.
-* **The container key.** A list response is an envelope, so shaping has to know
-  which key holds the results. Derived from the schema, never hard-coded.
+Path parameters are often declared on the path item rather than the operation, and the container
+key holding a response's results is derived from its schema.
 """
 
 from __future__ import annotations
@@ -16,16 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-# Methods that change state. `access` must agree with the operation's method, so
-# a write cannot be mislabelled `read` and slip past the read-only gate.
-#
-# Everything that is not a GET counts, which is the same rule server.py applies
-# to the generated surface. OPTIONS in particular: Vultr's two
-# docker-credentials routes mint registry credentials despite the verb, and
-# while the route maps already drop them, listing only the obvious four here
-# meant the validator would have *required* `access: read` on one of them --
-# and a read-only server keeps read tools. An interface tool could have walked
-# a credential-minting operation straight back onto the safe surface.
+# Methods that change state: everything but GET, the same rule server.py applies (OPTIONS mints registry credentials).
 WRITE_METHODS = frozenset({"post", "put", "patch", "delete", "options", "head", "trace"})
 HTTP_METHODS = WRITE_METHODS | {"get"}
 
@@ -34,7 +18,7 @@ _MAX_REF_DEPTH = 20
 
 
 def resolve(node: Any, spec: dict[str, Any], _depth: int = 0) -> dict[str, Any]:
-    """Follow $ref chains to the object they name, or {} if unresolvable."""
+    """Follow $ref chains to the object they name, or {}; merges allOf and infers a missing type."""
     while isinstance(node, dict) and "$ref" in node and _depth < _MAX_REF_DEPTH:
         target: Any = spec
         for part in node["$ref"].lstrip("#/").split("/"):
@@ -43,7 +27,26 @@ def resolve(node: Any, spec: dict[str, Any], _depth: int = 0) -> dict[str, Any]:
             target = target[part]
         node = target
         _depth += 1
-    return node if isinstance(node, dict) else {}
+    if not isinstance(node, dict):
+        return {}
+    if "allOf" in node and _depth < _MAX_REF_DEPTH:
+        merged = {key: value for key, value in node.items() if key != "allOf"}
+        properties = dict(merged.get("properties", {}))
+        for part in node["allOf"]:
+            part = resolve(part, spec, _depth + 1)
+            properties.update(part.get("properties", {}))
+            for key, value in part.items():
+                if key != "properties":
+                    merged.setdefault(key, value)
+        if properties:
+            merged["properties"] = properties
+        node = merged
+    if "type" not in node:
+        if "items" in node:
+            node = {**node, "type": "array"}
+        elif "properties" in node:
+            node = {**node, "type": "object"}
+    return node
 
 
 @dataclass(frozen=True)
@@ -59,14 +62,7 @@ class Parameter:
 
 @dataclass(frozen=True)
 class ResponseShape:
-    """The 200 response, split into the levels ``output.include`` references:
-    ``meta`` sits on the envelope, ``label`` on each item, so both are kept.
-
-    Most Vultr responses are envelopes; a minority return the resource itself
-    and are ``unwrapped``, with no container key because the payload *is* the
-    item. Treating those as "no readable schema" is what left GET /account/bgp
-    returning a BGP password with no way to shape it.
-    """
+    """The 200 response, split into envelope and item levels; ``unwrapped`` when the payload is the item itself."""
 
     envelope: frozenset[str]
     item_fields: frozenset[str]
@@ -105,20 +101,12 @@ class Operation:
 
     @property
     def is_deprecated(self) -> bool:
-        """Whether the spec marks this operation deprecated.
-
-        Vultr flags all 23 of them with the OpenAPI field rather than only in
-        prose, so this is reliable enough to act on.
-        """
+        """Whether the spec marks this operation deprecated."""
         return bool(self.raw.get("deprecated"))
 
     @property
     def parameters(self) -> dict[str, Parameter]:
-        """Parameters the operation accepts, path-item level included.
-
-        Operation-level entries win on a name collision, which is what the
-        OpenAPI spec prescribes.
-        """
+        """Parameters the operation accepts, path-item level included; operation-level entries win."""
         if self._parameters is None:
             resolved: dict[str, Parameter] = {}
             for source in (
@@ -166,12 +154,7 @@ class Operation:
             elif key != "meta" and value.get("type") == "object":
                 objects.append(key)
 
-        # A wrapper holds nothing but the thing it wraps: {"instance": {...}}
-        # or {"instances": [...], "meta": {...}}. A response that also carries
-        # scalars of its own is not wrapping anything -- it IS the resource.
-        # GET /registry/{id} returns id, name, public and urn alongside nested
-        # storage and root_user objects, and reading one of those objects as the
-        # container would shape the wrong level.
+        # A wrapper holds nothing but what it wraps; a response with scalars of its own is the resource.
         scalars = [
             key
             for key, value in properties.items()
@@ -180,8 +163,7 @@ class Operation:
             and resolve(value, self.spec).get("type") not in ("array", "object")
         ]
 
-        # A list response is the common case: one array of results beside
-        # `meta`. A get-by-id response wraps a single object under one key.
+        # A list wraps one array beside `meta`; a get-by-id wraps one object under one key.
         if arrays:
             container, extras, is_collection = arrays[0], tuple(arrays[1:]), True
         elif objects and not scalars:
@@ -197,8 +179,7 @@ class Operation:
                 node = resolve(node.get("items", {}), self.spec)
             item_fields = frozenset(node.get("properties", {}))
         elif properties:
-            # No array and no nested object, but the schema has properties of
-            # its own: the response is the resource, unwrapped.
+            # Properties of its own and nothing nested: the response is the resource.
             item_fields = frozenset(properties)
             unwrapped = True
 

@@ -1,13 +1,7 @@
 product_area: serverless_inference
 family: inference
 
-# Every read here returned `api_key` -- the key that authenticates calls to the
-# inference endpoint, so possession of it is the ability to spend the account's
-# inference budget. It was on every row of every listing.
-#
-# The subscription id is kept, because that is what identifies a subscription
-# for every other purpose. Anyone who needs the key itself reads it in the
-# customer portal, where a person retrieves it deliberately.
+# `api_key`, which spends the account's inference budget, is withheld from every response.
 
 tools:
   - name: vultr_inference_subscriptions_list

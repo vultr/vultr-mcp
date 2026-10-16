@@ -1,11 +1,9 @@
 product_area: vpcs
 family: network
 
-# The vpcs area is split across this directory; every file here declares the
-# same product_area, and interface.yaml lists them together.
+# One file of the vpcs area, which interface.yaml lists across this directory.
 
-# NAT gateways sit in a VPC and are read through this area, but they are their
-# own resource with their own firewall rules and port forwards.
+# NAT gateways sit in a VPC but have their own firewall rules and port forwards.
 
 tools:
   - name: vultr_network_nat_gateways_list

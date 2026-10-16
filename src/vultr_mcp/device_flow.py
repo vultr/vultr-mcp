@@ -1,17 +1,8 @@
-"""RFC 8628 device authorization grant, layered over the OAuth proxy.
+"""RFC 8628 device authorization grant, for clients whose browser is on another machine.
 
-The authorization-code flow needs the browser and the client on one machine,
-because the client listens on its own loopback redirect. An agent on a Vultr
-instance reached over SSH breaks that: the browser is on the operator's laptop,
-so ``127.0.0.1`` names two hosts and the callback is refused. Here the client
-polls instead of listening, and nothing has to reach back to it.
-
-The approval leg is an ordinary authorization-code flow driven from ``/device``
-against ``proxy.authorize()``, so consent, the upstream redirect and the IdP
-callback all run unchanged -- only the way a human says yes is different.
-
-State shares the proxy's key-value store, which must be Redis across replicas:
-the pod that completes an approval is rarely the pod being polled.
+The client polls instead of listening on a loopback redirect. Approval is an ordinary
+authorization-code flow driven from ``/device`` through ``proxy.authorize()``. State lives in the
+proxy's key-value store, which must be shared across replicas.
 """
 
 from __future__ import annotations
@@ -31,26 +22,17 @@ from starlette.routing import Route
 
 DEVICE_GRANT_TYPE = "urn:ietf:params:oauth:grant-type:device_code"
 
-# Collection name in the shared key-value store. Distinct from the proxy's own
-# collections so device state can be inspected or flushed independently.
 COLLECTION = "vultr-device-flow"
 
-# RFC 8628 section 6.1 wants a user code that survives being read aloud and
-# retyped. Digits and uppercase letters minus everything that gets confused:
-# 0/O, 1/I/L, plus vowels so a random draw can't spell something unfortunate.
+# No easily confused characters (0/O, 1/I/L) and no vowels, so a code cannot spell a word.
 USER_CODE_ALPHABET = "BCDFGHJKMNPQRSTVWXZ23456789"
 USER_CODE_LENGTH = 8
 
-# 15 minutes is long enough to find a browser, short enough that an
-# unattended pending code is not worth attacking.
 DEFAULT_EXPIRES_IN = 900
-# The floor the client is told to respect between polls, in seconds.
+# Seconds the client must wait between polls.
 DEFAULT_INTERVAL = 5
 
-# Stable id for the internal client the approval leg runs as. The device's own
-# client never takes part in that leg -- it has a loopback redirect_uri, which
-# is the whole problem -- so approval runs as this one, whose redirect_uri is
-# ours and is publicly reachable.
+# The internal client the approval leg runs as, since the device's own client has a loopback redirect_uri.
 DEVICE_CLIENT_ID = "vultr-mcp-device-flow"
 
 
@@ -59,33 +41,18 @@ def _now() -> int:
 
 
 def new_user_code() -> str:
-    """A fresh user code, displayed as ``XXXX-XXXX``.
-
-    ~38 bits over the restricted alphabet. That is deliberately far below the
-    device code's entropy: it is protected by a 15-minute TTL, single use, and
-    the fact that guessing one only reaches a consent screen an attacker still
-    has to authenticate through as the victim.
-    """
+    """A fresh ~38-bit user code, displayed as ``XXXX-XXXX``; single use and short-lived."""
     raw = "".join(secrets.choice(USER_CODE_ALPHABET) for _ in range(USER_CODE_LENGTH))
     return f"{raw[:4]}-{raw[4:]}"
 
 
 def normalize_user_code(value: str) -> str:
-    """Fold a typed code to its lookup form.
-
-    People retype these from a terminal into a browser, so accept lowercase,
-    missing or extra dashes, and stray whitespace.
-    """
+    """Fold a typed code to its lookup form, ignoring case, dashes and whitespace."""
     return "".join(ch for ch in (value or "").upper() if ch in USER_CODE_ALPHABET)
 
 
 def _device_key(device_code: str) -> str:
-    """Storage key for a device code.
-
-    Hashed so that a dump of the store -- a Redis inspection, a log of keys --
-    does not hand over usable device codes. The code itself is the secret the
-    client presents; the store only needs to recognise it.
-    """
+    """Storage key for a device code, hashed so a dump of the store holds no usable codes."""
     return "d:" + hashlib.sha256(device_code.encode()).hexdigest()
 
 
@@ -114,13 +81,7 @@ def _error(code: str, description: str, status: int = 400) -> JSONResponse:
 
 
 class DeviceFlowStore:
-    """Device-grant state on top of the proxy's key-value store.
-
-    Three record shapes share one collection: ``d:<sha256(device_code)>`` holds
-    the pending authorization, ``u:<user_code>`` and ``t:<state>`` point at it
-    for the verification page and the callback. Every write carries a TTL, so
-    an abandoned flow simply stops existing.
-    """
+    """Device-grant state: ``d:<sha256(device_code)>`` records, with ``u:<user_code>`` and ``t:<state>`` pointers; all expire."""
 
     def __init__(self, storage: Any, *, ttl: int = DEFAULT_EXPIRES_IN) -> None:
         self._storage = storage
@@ -164,8 +125,7 @@ class DeviceFlowStore:
         return await self.by_device_code(pointer["device_code"])
 
     async def save(self, record: dict[str, Any]) -> None:
-        # Keep the remaining lifetime rather than extending it on every write;
-        # a flow's clock starts when it is created, not when it is touched.
+        # Keep the remaining lifetime rather than extending it on every write.
         remaining = max(1, record["expires_at"] - _now())
         await self._put(_device_key(record["device_code"]), record, ttl=remaining)
 
@@ -266,12 +226,7 @@ def _failed_page(message: str) -> HTMLResponse:
 
 
 class DeviceFlowHandlers:
-    """The four endpoints, bound to one proxy instance.
-
-    A class rather than closures so the internal client is resolved once, the
-    store is shared, and tests can drive a handler directly without standing
-    up routing.
-    """
+    """The device-flow endpoints, bound to one proxy instance."""
 
     def __init__(self, proxy: Any, storage: Any, *, base_url: str) -> None:
         self._proxy = proxy
@@ -283,14 +238,7 @@ class DeviceFlowHandlers:
         return f"{self._base_url}/device/callback"
 
     async def _device_client(self):
-        """The internal client the approval leg runs as, registered on demand.
-
-        The device's own client cannot be used here: it registered a loopback
-        redirect_uri, which is precisely what this flow exists to avoid. This
-        one redirects to us, and the token it yields is an ordinary proxy
-        token whose upstream credential belongs to the user who approved --
-        which is all the caller needs.
-        """
+        """The internal client the approval leg runs as, registered on demand."""
         from mcp.shared.auth import OAuthClientInformationFull
 
         existing = await self._proxy.get_client(DEVICE_CLIENT_ID)
@@ -341,13 +289,7 @@ class DeviceFlowHandlers:
     # -- 2. the human approves in whatever browser they have ------------------
 
     async def verification(self, request: Request) -> Response:
-        """``GET|POST /device`` -- enter the code, then confirm.
-
-        GET only ever renders the form, even when ``?user_code=`` is present.
-        Approving takes a deliberate POST, so that merely following a link --
-        from a chat message, or a mail client prefetching it -- cannot
-        authorize anything.
-        """
+        """``GET|POST /device``: GET only renders the form, so following a link can never approve anything."""
         if request.method == "GET":
             return _prompt_page(request.query_params.get("user_code", ""))
 
@@ -364,8 +306,7 @@ class DeviceFlowHandlers:
         if record["expires_at"] <= _now():
             return _failed_page("That code has expired. Start again from your terminal.")
 
-        # Hand off to the ordinary authorization-code flow. Consent, the
-        # upstream Vultr redirect and the IdP callback all run untouched.
+        # Hand off to the ordinary authorization-code flow.
         from mcp.server.auth.provider import AuthorizationParams
 
         state = secrets.token_urlsafe(24)
@@ -424,11 +365,7 @@ class DeviceFlowHandlers:
     # -- 4. the client's poll picks it up -------------------------------------
 
     async def token_grant(self, request: Request) -> Response | None:
-        """Handle a device-code poll at ``/token``.
-
-        Returns ``None`` when the request is some other grant, so the caller
-        delegates to the proxy's own token handler untouched.
-        """
+        """Handle a device-code poll at ``/token``, or return None for any other grant."""
         try:
             form = await request.form()
         except Exception:
@@ -441,8 +378,7 @@ class DeviceFlowHandlers:
             return _error("invalid_request", "device_code is required")
 
         record = await self.store.by_device_code(device_code)
-        # An unknown code and an expired one are deliberately indistinguishable:
-        # the TTL deletes the record, so there is nothing left to tell apart.
+        # Unknown and expired look the same once the TTL has deleted the record.
         if record is None:
             return _error("expired_token", "The device code has expired or is unknown.")
 
@@ -450,8 +386,7 @@ class DeviceFlowHandlers:
             await self.store.consume(record)
             return _error("expired_token", "The device code has expired.")
 
-        # RFC 8628 section 3.5: a client polling faster than the interval it
-        # was given is told to slow down rather than answered.
+        # RFC 8628 3.5: a client polling faster than its interval is told to slow down.
         now = _now()
         if record["last_polled_at"] and now - record["last_polled_at"] < DEFAULT_INTERVAL:
             record["last_polled_at"] = now
@@ -482,5 +417,5 @@ def device_routes(handlers: DeviceFlowHandlers) -> list[Route]:
 
 
 def device_flow_enabled() -> bool:
-    """On unless explicitly disabled -- this is the headless-host path."""
+    """On unless VULTR_MCP_DEVICE_FLOW is false."""
     return os.environ.get("VULTR_MCP_DEVICE_FLOW", "true").lower() not in ("0", "false", "no")

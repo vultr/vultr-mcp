@@ -1,11 +1,7 @@
 product_area: firewall
 family: network
 
-# Firewall groups are the rule sets attached to instances and bare metal
-# servers. Two other Vultr products also call their rules "firewall rules":
-# load balancers have their own set, and NAT gateways have a third. An agent
-# asked to "check the firewall rules" has three plausible tools, so each of the
-# three says which one it is and names the others.
+# Firewall groups for instances and bare metal; load balancers and NAT gateways have their own rules, named in each description.
 
 tools:
   - name: vultr_network_firewall_groups_list

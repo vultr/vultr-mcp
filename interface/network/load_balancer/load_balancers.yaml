@@ -1,12 +1,9 @@
 product_area: load_balancer
 family: network
 
-# The load_balancer area is split across this directory; every file here
-# declares the same product_area, and interface.yaml lists them together.
+# One file of the load_balancer area, which interface.yaml lists across this directory.
 
-# The load balancer itself. ssl_cert_b64 is withheld from every response here
-# -- the spec describes it as the certificate, private key and chain, and
-# has_ssl answers the question anyone actually asks.
+# ssl_cert_b64 (certificate, private key and chain) is withheld from every response; has_ssl remains.
 
 tools:
   - name: vultr_network_load_balancers_list
@@ -195,5 +192,4 @@ tools:
             vultr_network_load_balancers_list.
           maps_to: load-balancer-id
 
-    # No `output` block: the response carries ipv4 and ipv6 side by side with
-    # no declared item fields, so there is nothing to allowlist against.
+    # No `output` block: ipv4 and ipv6 side by side, with no declared item fields.

@@ -1,17 +1,7 @@
 product_area: backup
 family: compute
 
-# Backups are the automatic images Vultr takes on a schedule. Three neighbours
-# an agent has to be kept away from:
-#
-#   snapshots        on-demand images somebody asked for (snapshot.yaml)
-#   block snapshots  images of a block storage volume (block.yaml)
-#   backup schedule  the cadence itself rather than the images it produced,
-#                    which is vultr_compute_instances_backup_schedule_get
-#
-# The last is the easiest to get wrong, because "show me the backups for this
-# instance" and "show me the backup settings for this instance" are one word
-# apart in English and two different tools here.
+# Scheduled automatic images; not snapshots, block snapshots, or the schedule itself (backup_schedule_get).
 
 tools:
   - name: vultr_compute_backups_list

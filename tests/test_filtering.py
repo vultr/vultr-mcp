@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
 from fastmcp import Client
 
 from vultr_mcp.server import (
@@ -11,10 +10,6 @@ from vultr_mcp.server import (
     create_server,
     load_spec,
 )
-
-# Substrings that should only appear in tools from excluded identity
-# categories — used to assert those tools are gone.
-IDENTITY_TOOL_HINTS = ("iam_", "_iam", "scim", "organization", "api_key", "apikey")
 
 
 async def _tool_names(server) -> list[str]:

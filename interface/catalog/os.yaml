@@ -1,9 +1,7 @@
 product_area: os
 family: catalog
 
-# One operation, one tool. The distinction worth drawing is against the three
-# other things an instance can boot from, each of which has its own tool: a
-# marketplace application, an uploaded ISO, or a snapshot.
+# Distinct from the other things an instance can boot from: applications, ISOs and snapshots.
 
 tools:
   - name: vultr_catalog_operating_systems_list

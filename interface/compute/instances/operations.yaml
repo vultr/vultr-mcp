@@ -1,9 +1,7 @@
 product_area: instances
 family: compute
 
-# Runtime facts about a running instance -- usage, what it could be resized to,
-# the state of an async job, and which instances share its physical host. See
-# instances.yaml for the area's shared notes.
+# Runtime facts about an instance: usage, upgrade options, job state, and host neighbors.
 
 tools:
   - name: vultr_compute_instances_bandwidth_get
@@ -44,9 +42,7 @@ tools:
           minimum: 1
           maximum: 180
 
-    # No `output` block, for the same reason as the bare metal bandwidth tool:
-    # the response is one key per day and the spec models it with two
-    # hard-coded example dates, so an allowlist would empty every response.
+    # No `output` block: one key per day, which the spec models as two literal example dates.
 
   - name: vultr_compute_instances_neighbors_list
     access: read
@@ -78,8 +74,7 @@ tools:
             vultr_compute_instances_list.
           maps_to: instance-id
 
-    # No `output` block: the payload is a bare array of instance ID strings,
-    # so there are no item fields to allowlist against.
+    # No `output` block: a bare array of instance IDs.
 
   - name: vultr_compute_instances_upgrades_get
     access: read
@@ -117,8 +112,7 @@ tools:
           description: >-
             Limit the answer to one kind of upgrade. Omit for everything
             available.
-          # Spelled out as an enum because the spec leaves this a bare string
-          # and names the values only in prose.
+          # An enum, since the spec names the values only in prose.
           enum:
             - all
             - applications

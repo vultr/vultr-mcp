@@ -1,16 +1,8 @@
 product_area: vfs
 family: storage
 
-# The Vultr File System is shared network storage that several instances mount
-# at once, which is what distinguishes it from block storage (one instance at a
-# time) and Object Storage (S3, not a filesystem). All three descriptions here
-# name the other two, because "storage" alone does not pick between them.
-#
-# getVFS declares no output block. The shape reader picks `tags` -- an array
-# nested inside the subscription -- as the container rather than the
-# subscription itself, so a declared shape would describe the tags. Nothing in
-# the payload needs trimming or withholding, so it passes through whole. The
-# same misreading is handled the same way in container_registry.yaml.
+# Shared storage several instances mount at once, unlike block storage and Object Storage.
+# getVFS has no output block: the shape reader would take the nested `tags` array as the container.
 
 tools:
   - name: vultr_storage_vfs_list
@@ -34,8 +26,7 @@ tools:
     input:
       type: object
       properties:
-        # GET /vfs declares no parameters at all, not even paging, so every
-        # search below is applied here against the fetched rows.
+        # Applied here, since GET /vfs takes no parameters.
         label:
           type: string
           description: Case-insensitive text contained in the subscription label.

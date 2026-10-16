@@ -1,10 +1,7 @@
 product_area: baremetal
 family: compute
 
-# The baremetal area is split across this directory; every file here declares
-# the same product_area, and interface.yaml lists them together. The split
-# mirrors compute/instances/, because the two products answer the same shapes
-# of question.
+# One file of the baremetal area, which interface.yaml lists across this directory.
 
 # Addressing and network attachment for a bare metal server.
 

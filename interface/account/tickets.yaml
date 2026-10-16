@@ -1,17 +1,7 @@
 product_area: tickets
 family: account
 
-# Support tickets, their replies and attachments. Two things to note.
-#
-# Ticket content is written by people and read back by an agent: a reply body is
-# whatever a customer or a support engineer typed, and attachments are whatever
-# was uploaded. It is data, not instruction, and it is worth knowing that this
-# is one of the few places in the Vultr API where free text from outside the
-# account reaches the model.
-#
-# The severity options tool declares no output block: the response carries
-# `severity` and `severity_custom` side by side and shaping applies to a single
-# container.
+# Ticket replies and attachments are free text from people, which reaches the model as data.
 
 tools:
   - name: vultr_account_tickets_list
@@ -35,8 +25,7 @@ tools:
     input:
       type: object
       properties:
-        # GET /tickets declares no parameters, so both searches below are
-        # applied here against the fetched rows.
+        # Applied here, since GET /tickets takes no parameters.
         subject:
           type: string
           description: Case-insensitive text contained in the ticket subject.
@@ -150,12 +139,7 @@ tools:
 
     output:
       from_openapi: true
-      # `attachments` is kept although a production reply came back without it.
-      # The sample was one reply that had none, and the field is how an agent
-      # learns an attachment exists at all: vultr_account_ticket_attachments_get
-      # takes an index into this array. Dropping a name that is merely unset on
-      # the row sampled would make that tool unreachable, which is the opposite
-      # error to the one made with pending charges.
+      # `attachments` is kept: vultr_account_ticket_attachments_get takes an index into it.
       include:
         - index
         - date
@@ -241,5 +225,4 @@ tools:
       type: object
       properties: {}
 
-    # No `output` block: the response carries severity and severity_custom side
-    # by side, and shaping applies to a single container.
+    # No `output` block: shaping applies to one container, and this response has two.

@@ -6,19 +6,14 @@ metadata:
     app: vultr-mcp
 data:
   VULTR_MCP_TRANSPORT: "http"
-  # Without this, Python block-buffers stdout to a pipe and a pod that dies
-  # during startup produces no logs at all -- which is exactly when you need
-  # them. Cost is negligible; the alternative is diagnosing a boot failure
-  # blind.
+  # Otherwise a pod that dies during startup leaves no logs.
   PYTHONUNBUFFERED: "1"
   SSL_VERIFY: "true"
   REDIS_HOST: "redis"
   REDIS_PORT: "6379"
 
   # ---- OAuth 2.1 / OIDC via FastMCP OAuthProxy ----
-  # OAuth + header auth run side by side via DualTokenVerifier. Requires
-  # VULTR_OAUTH_CLIENT_SECRET in the secret and the platform /oauth/authorize
-  # fix live (both in place as of the recreate).
+  # OAuth and raw API keys both work; VULTR_OAUTH_CLIENT_SECRET goes in the secret.
   VULTR_OIDC_ENABLED: "true"
   VULTR_OIDC_PROVIDER_ID: "d66bf304-1e2b-4b7f-93f7-2a8c3a23df1f"
   VULTR_OAUTH_CLIENT_ID: "56377b7e-ffbc-4a65-a704-e215e89f3d44"
@@ -27,21 +22,12 @@ data:
   # VULTR_OIDC_AUDIENCE: ""
 
   # ---- Audit records ----
-  # Where the records are written as files, one per event type, for the
-  # clicktail sidecar to tail into ClickHouse. Must match the audit-logs
-  # mountPath in deployment.yaml. Unset means stdout only, which dies with the pod.
-  VULTR_MCP_AUDIT_DIR: "/var/log/vultr-mcp"
-  # No rotation, by design: clicktail collapses shipped bytes off the front of
-  # each file, so a drained file stays near empty. A file this large means the
-  # sidecar has stopped draining it, and the app stops writing that file
-  # (stdout keeps every record) rather than fill the volume. Two event types
-  # x 64MB stays well under the audit-logs sizeLimit.
-  VULTR_MCP_AUDIT_FILE_MAX_MB: "64"
+  # Records always go to stdout. Set this to also write them as files, one per event type, for a log shipper.
+  # VULTR_MCP_AUDIT_DIR: "/var/log/vultr-mcp"
 
   # ---- Tool surface ----
   # Always read-only; there is no write switch.
   # Identity categories excluded by default; empty string disables exclusions.
   # VULTR_MCP_EXCLUDED_CATEGORIES: "api-keys,users,iam,scim,organizations,oidc"
-  # Category endpoints to expose (default: all non-excluded). Trim to reduce
-  # boot cost / session-manager count per replica.
+  # Endpoint groups to mount (default: all).
   # VULTR_MCP_CATEGORY_ENDPOINTS: "instances,kubernetes,dns,firewall,block"

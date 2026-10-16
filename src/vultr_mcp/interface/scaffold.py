@@ -1,18 +1,7 @@
-"""Draft a product area file from openapi.json.
+"""Draft a product area file from openapi.json: the mechanical half, for a person to review.
 
-Only the mechanical half: parameter names, paging, the 200 response shape, the
-tool name implied by the file's family. All lookups against the spec, which is
-what stops a hand-written definition referencing a field that doesn't exist.
-
-It cannot write "Do not use this tool for Vultr Kubernetes Engine clusters"
-when the spec says "List all clusters in your account", or judge which of
-fifteen read operations deserve tools. So every tool it emits is
-``enabled: false`` with a visibly stubbed description -- a starting point for
-review, never something to merge unread.
-
-One judgment it does make, because the cost is asymmetric: credential-looking
-fields are left out of ``output.include`` and listed in a comment instead, so
-including one is deliberate. GET /instances returns ``default_password``.
+Every tool is emitted ``enabled: false`` with a stubbed description, and credential-looking fields
+are left out of ``output.include`` and listed in a comment, so including one is deliberate.
 """
 
 from __future__ import annotations
@@ -23,17 +12,7 @@ from dataclasses import dataclass
 
 from vultr_mcp.interface.spec_index import Operation, SpecIndex
 
-# Field names that must be opted into rather than out of.
-#
-# Matched on underscore-separated tokens, not substrings: substrings flag
-# `valkey` (the database engine) and miss `s3_access_key`, since "api_key" is
-# not a substring of "access_key" -- which would have put the access half of an
-# S3 credential pair into a draft while withholding the secret half.
-#
-# `private` was a token and is not now: it only ever flagged private_ip and
-# private_network (addressing, not secrets), while private_key is already
-# caught by `key`. A token producing only false positives teaches reviewers to
-# skim the comment.
+# Field-name tokens (underscore-separated, not substrings) that must be opted into rather than out of.
 SENSITIVE_TOKENS = frozenset(
     {
         "password",
@@ -46,9 +25,7 @@ SENSITIVE_TOKENS = frozenset(
         "keys",
         "apikey",
         "kvm",
-        # `access_cert` is a TLS client certificate and authenticates as surely
-        # as a password. The same token catches `ca_certificate`, which is not
-        # secret but is a PEM blob nobody asked for, so opting in suits it too.
+        # Client certificates authenticate like passwords; CA certificates are unwanted PEM blobs.
         "cert",
         "certificate",
         "certs",
@@ -57,13 +34,7 @@ SENSITIVE_TOKENS = frozenset(
 
 
 def is_sensitive(field: str) -> bool:
-    """Whether a response field looks like something an agent should not echo.
-
-    Deliberately over-inclusive. The consequence of a false positive is a
-    commented-out line a reviewer un-comments; the consequence of a miss is a
-    credential in every response, forever, because nobody re-reads an include
-    list once it validates.
-    """
+    """Whether a response field looks like something an agent should not echo; deliberately over-inclusive."""
     return any(token in SENSITIVE_TOKENS for token in field.lower().split("_"))
 
 
@@ -73,23 +44,13 @@ _CURSOR_PARAM = "cursor"
 
 _VERB_PREFIXES = ("list", "get", "create", "update", "delete", "patch", "put")
 
-# The schema's identifier patterns. Anything the spec supplies that cannot be
-# expressed as one is reported in a comment rather than emitted: Vultr models a
-# dynamic hostname as the literal response field
-# `{registry-region-name}.vultrcr.com`, and writing that into a draft produces a
-# file that will not parse.
+# The schema's identifier patterns; names that do not fit are reported in a comment rather than emitted.
 _IDENTIFIER = re.compile(r"^[a-z][a-z0-9_]*$")
 _TOOL_NAME = re.compile(r"^vultr_[a-z0-9]+(_[a-z0-9]+)+$")
 
 
 def _scalar(value: str) -> str:
-    """A string as a YAML scalar that cannot break the document.
-
-    JSON strings are valid YAML, so json.dumps is a correct quoter, and it
-    handles the colons, brackets, and hashes that litter Vultr's parameter
-    prose -- "Filter upgrade by type: - all" is a real description, and unquoted
-    it ends the mapping early.
-    """
+    """A string as a YAML scalar that cannot break the document (JSON strings are valid YAML)."""
     return json.dumps(value)
 
 
@@ -108,13 +69,7 @@ def _snake(name: str) -> str:
 
 
 def tool_name(family: str, area: str, operation: Operation) -> str:
-    """Derive a name in the family_resource_action convention.
-
-    ``list-instances`` becomes ``vultr_compute_instances_list`` and
-    ``get-instance-bandwidth`` becomes ``vultr_compute_instances_bandwidth_get``.
-    Singular resources are normalised to the area slug so the two sit together
-    in a listing. It is a draft name; renaming it is the reviewer's call.
-    """
+    """A draft name in the family_resource_action convention: list-instances -> vultr_compute_instances_list."""
     tokens = [token for token in re.split(r"[-_]", operation.operation_id) if token]
     if tokens and tokens[0].lower() in _VERB_PREFIXES:
         tokens = tokens[1:]
@@ -146,11 +101,7 @@ def _describe(operation: Operation) -> str:
 
 
 def _input_lines(operation: Operation) -> tuple[list[str], list[str]]:
-    """Input properties for every parameter the operation accepts.
-
-    Returns the lines and the parameters skipped for want of a legal
-    agent-facing name.
-    """
+    """Input property lines for every parameter, and the parameters skipped for want of a legal name."""
     lines: list[str] = ["    input:", "      type: object"]
     skipped: list[str] = []
 
@@ -171,8 +122,7 @@ def _input_lines(operation: Operation) -> tuple[list[str], list[str]]:
             "page_size" if parameter.name == _PAGE_PARAM else _snake(parameter.name)
         )
     ]
-    # An operation with no parameters is normal, not an error. Emitted as an
-    # explicit empty mapping, because a bare `properties:` parses as null.
+    # An explicit empty mapping, because a bare `properties:` parses as null.
     lines.append("      properties: {}" if not usable else "      properties:")
 
     for parameter in operation.parameters.values():
@@ -222,8 +172,7 @@ def _output_lines(operation: Operation) -> tuple[list[str], list[str]]:
         return [], []
 
     all_fields = sorted(shape.item_fields)
-    # Fields the format cannot name. Reported so a reviewer knows the response
-    # holds something the include list is silently not covering.
+    # Fields the format cannot name, reported so a reviewer knows the include list misses them.
     unexpressible = [field for field in all_fields if not _IDENTIFIER.match(field)]
     fields = [field for field in all_fields if _IDENTIFIER.match(field)]
     withheld = [
@@ -246,9 +195,7 @@ def _output_lines(operation: Operation) -> tuple[list[str], list[str]]:
         )
         lines += [f"      #   {field}" for field in withheld]
     if not keep:
-        # Nothing nameable to allowlist. Leaving `include` off means "keep
-        # everything", which is right for a response keyed by dates and wrong if
-        # the only fields were credential-shaped -- so say which case this is.
+        # Nothing nameable to allowlist; say whether that is because every field looked like a credential.
         lines.append(
             "      # Nothing to allowlist: no field here can be named in an include"
             " list."

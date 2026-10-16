@@ -1,10 +1,7 @@
 product_area: iso
 family: catalog
 
-# Two different collections behind one product tag: /iso is the account's own
-# uploaded ISOs, /iso-public is Vultr's library. An agent asked "what ISOs are
-# available" can reasonably mean either, so the two tools say which they are in
-# their first line rather than leaving it to be inferred from a name.
+# /iso is the account's own uploads, /iso-public is Vultr's library; each tool says which in its first line.
 
 tools:
   - name: vultr_catalog_isos_list

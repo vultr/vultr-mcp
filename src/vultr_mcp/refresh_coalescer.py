@@ -1,23 +1,9 @@
-"""One upstream refresh per refresh token, however many times it is presented.
+"""One upstream refresh per refresh token, however many times and on whichever pod it is presented.
 
-Vultr rotates refresh tokens and treats a second use of one as theft: the loser
-of the rotation race gets ``invalid_grant`` and the whole token family is
-revoked -- including the successor the winner was just handed
-(vultr.com ``classes/OIDC/Controller/Provider.php``, ``tokenFromRefreshToken``).
-A client whose access token lapses with two requests in flight refreshes twice.
-Behind two replicas those land on different pods, where FastMCP's refresh lock
-(per process) never sees both, and the user is signed out within the hour.
-
-So the first refresh of a token takes a lock, does the real exchange, and leaves
-its result behind for a short window; any other refresh of the same token -- on
-any pod -- collects that result instead of calling upstream again. Keyed by a
-hash of the presented token and bound to its client_id: only whoever holds that
-exact token can collect it, which is what they would have got by presenting it
-first. The tokens are Fernet-encrypted at rest, like FastMCP's own stored tokens.
-
-Across replicas this needs the shared Redis (``REDIS_HOST``). Without it, or
-when Redis is unreachable, a refresh goes straight through -- the behaviour
-before this existed, never worse.
+Vultr treats a reused refresh token as theft and revokes the whole token family, so the first
+refresh takes a lock and leaves its (encrypted) result for duplicates to collect, keyed by a hash of
+the token and bound to its client_id. Needs the shared Redis across replicas; without it, or when
+Redis is down, refreshes go straight through.
 """
 
 from __future__ import annotations
@@ -36,18 +22,11 @@ from fastmcp.utilities.logging import get_logger
 from mcp.server.auth.provider import TokenError
 from mcp.shared.auth import OAuthToken
 
-# FastMCP's logger, so these land in the pod log beside its own refresh lines.
 logger = get_logger(__name__)
 
-# How long a finished refresh stays collectable. Long enough for a duplicate
-# that queued behind a slow request; short enough that a stolen token is not a
-# standing way in.
+# How long a finished refresh, or a failed one, stays collectable by duplicates.
 RESULT_TTL_S = 60
-# A failed refresh is shared too, so the duplicate fails fast and identically
-# instead of repeating a doomed upstream call.
 ERROR_TTL_S = 10
-# The lock outlives any sane upstream refresh; if its holder dies, waiters stop
-# waiting once it expires.
 LOCK_TTL_MS = 30_000
 WAIT_S = 20.0
 POLL_S = 0.1
@@ -131,8 +110,7 @@ class MemoryBackend:
             del self._data[key]
 
 
-# Delete the lock only if it is still ours: a holder that overran the TTL must
-# not release the next holder's lock.
+# Delete the lock only if it is still ours.
 _RELEASE = "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end"
 
 
@@ -206,12 +184,7 @@ class RefreshCoalescer:
     # -- the two things the proxy asks ----------------------------------------
 
     async def claimed_scopes(self, key: str, client_id: str) -> list[str] | None:
-        """Scopes of a refresh of this token that is in flight or just finished.
-
-        For ``load_refresh_token``: once the winner rotates, the old token is
-        gone from FastMCP's store, and a duplicate would be refused before it
-        ever reached ``exchange_refresh_token``. None means nothing to collect.
-        """
+        """Scopes of an in-flight or just-finished refresh of this token, or None if there is nothing to collect."""
         entry = await self._result(key, client_id)
         if entry is not None and "token" in entry:
             return entry["scopes"]
@@ -228,10 +201,7 @@ class RefreshCoalescer:
         exchange: Callable[[], Awaitable[OAuthToken]],
         report: Callable[[str], None] = lambda _: None,
     ) -> OAuthToken:
-        """``report`` hears how the refresh resolved, for the audit record:
-        ``upstream`` (this call refreshed), ``shared_finished`` / ``shared_inflight``
-        (a duplicate, served another call's result), or ``direct`` (no
-        coalescing -- store down, or the other call vanished)."""
+        """Run or collect a client refresh; ``report`` hears upstream, shared_finished, shared_inflight or direct."""
         entry = await self._result(key, client_id)
         if entry is not None:
             logger.info("refresh coalescer: served a duplicate refresh from a finished one")
@@ -282,13 +252,7 @@ class RefreshCoalescer:
         return await exchange()
 
     async def run_upstream(self, key: str, call: Callable[[], Awaitable[dict[str, Any]]]) -> dict[str, Any]:
-        """One Vultr refresh per upstream refresh token, shared by every path and pod that presents it.
-
-        The client's refresh and FastMCP's transparent refresh inside a request
-        hold different proxy tokens but the same upstream one, so ``run`` alone
-        cannot stop them presenting it twice. Only a success is shared: after a
-        failure the lock is simply released, and a waiter makes its own attempt.
-        """
+        """One Vultr refresh per upstream refresh token, shared by every path and pod; only successes are shared."""
         upstream_key = f"upstream:{key}"
         entry = await self._result(upstream_key, _UPSTREAM_OWNER)
         if entry is not None:
@@ -349,8 +313,7 @@ def build_refresh_coalescer(upstream_client_secret: str | None) -> RefreshCoales
     """Redis when the deployment shares one (every replica agrees), else in-process."""
     from fastmcp.server.auth.jwt_issuer import derive_jwt_key
 
-    # Derived from the OAuth client secret, as FastMCP derives its own storage
-    # key: stable across pods and restarts, never configured separately.
+    # Derived from the OAuth client secret, so it is stable across pods and restarts.
     material = upstream_client_secret or uuid.uuid4().hex
     fernet = Fernet(derive_jwt_key(high_entropy_material=material, salt="vultr-mcp-refresh-coalescer"))
 

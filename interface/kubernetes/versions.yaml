@@ -1,8 +1,7 @@
 product_area: kubernetes
 family: kubernetes
 
-# The kubernetes area is split across this directory; every file here declares
-# the same product_area, and interface.yaml lists them together.
+# One file of the kubernetes area, which interface.yaml lists across this directory.
 
 # Account-wide reference data: the Kubernetes versions VKE will deploy.
 
@@ -28,5 +27,4 @@ tools:
       type: object
       properties: {}
 
-    # No `output` block: versions is a bare array of version strings, so there
-    # are no item fields to allowlist against.
+    # No `output` block: a bare array of version strings.

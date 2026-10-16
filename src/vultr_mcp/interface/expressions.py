@@ -1,14 +1,6 @@
-"""The closed grammar computed fields are written in.
+"""The small closed grammar computed fields are written in, such as ``length(instances)``.
 
-Computed fields answer things the API does not return -- "how many instances
-does this cluster have" is a count of an array the agent would otherwise fetch
-in full and tally. The derivation lives in the YAML rather than a Python helper
-because a model drafting an area file can write ``length(instances)`` but
-cannot wire up a function. The grammar is tiny and closed so anything invented
-fails the build instead of a tool call.
-
-Parsing and evaluation live together so the validator and runtime can never
-disagree about what an expression means.
+Parsing and evaluation live together so the validator and runtime never disagree about an expression.
 """
 
 from __future__ import annotations
@@ -66,11 +58,7 @@ def parse(source: str) -> tuple[Expression | None, str | None]:
 
 
 def read_path(item: Any, path: tuple[str, ...]) -> Any:
-    """Read a dotted path, mapping over lists encountered along the way.
-
-    ``sum(instances.vcpu_count)`` therefore means "the vcpu_count of every
-    instance", which is the only reading that makes the function useful.
-    """
+    """Read a dotted path, mapping over lists along the way: ``instances.vcpu_count`` is every instance's."""
     current: Any = item
     for index, segment in enumerate(path):
         if isinstance(current, list):
@@ -94,11 +82,7 @@ def _flatten(value: Any) -> list[Any]:
 
 
 def evaluate(expression: Expression, item: Any) -> Any:
-    """Evaluate a parsed expression against one result item.
-
-    Returns None when the data the expression reads is absent, which the caller
-    treats as "omit the field" rather than "report zero".
-    """
+    """Evaluate a parsed expression against one item; None (omit the field) when its data is absent."""
     values = [read_path(item, path) for path in expression.paths]
     first = values[0]
 

@@ -1,11 +1,9 @@
 product_area: container_registry
 family: registry
 
-# The container_registry area is split across this directory; every file here
-# declares the same product_area, and interface.yaml lists them together.
+# One file of the container_registry area, which interface.yaml lists across this directory.
 
-# Rules a registry applies on its own: what it copies elsewhere, and what it
-# deletes over time.
+# Replication and retention rules.
 
 tools:
   - name: vultr_registry_replications_list
@@ -124,8 +122,4 @@ tools:
             vultr_registry_retention_rules_list.
           maps_to: retention-rule-id
 
-    # No `output` block. The response is one rule, but the shape reader picks
-    # tag_selectors -- an array nested inside it -- as the container, so a
-    # declared shape would describe the selectors rather than the rule. Nothing
-    # here is worth trimming or withholding, so the payload passes through as
-    # the API sends it.
+    # No `output` block: the shape reader would take the nested tag_selectors array as the container.

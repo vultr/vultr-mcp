@@ -569,6 +569,80 @@
         "description": "Clears cached content on server proxies so that visitors can get the latest page versions.\n\n**Note:** This action may only be performed once every six hours.\n\n**Note:** This action may take a few extra seconds to complete."
       }
     },
+    "/cdns/pull-zones/{cdn-uuid}/metadata": {
+      "parameters": [
+        {
+          "schema": {
+            "type": "string"
+          },
+          "name": "cdn-uuid",
+          "in": "path",
+          "required": true,
+          "description": "The [Pull Zone ID](#operation/list-pullzones)."
+        }
+      ],
+      "get": {
+        "summary": "Get CDN Pull Zone Metadata",
+        "tags": [
+          "CDNs"
+        ],
+        "x-codeSamples": [
+          {
+            "lang": "Curl",
+            "source": "curl \"https://api.vultr.com/v2/cdns/pull-zones/{cdn-uuid}/metadata\" \\\n  -X GET \\\n  -H \"Authorization: Bearer ***}\""
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ips": {
+                      "type": "array",
+                      "description": "An array of global CDN IP addresses.",
+                      "items": {
+                        "type": "string",
+                        "description": "A CDN IP address."
+                      }
+                    }
+                  }
+                },
+                "examples": {
+                  "response": {
+                    "value": {
+                      "ips": [
+                        "192.168.1.1",
+                        "10.0.0.1",
+                        "..."
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        },
+        "operationId": "get-pullzone-metadata",
+        "security": [
+          {
+            "API Key": []
+          }
+        ],
+        "description": "Get the global CDN IP list for a CDN Pull Zone subscription. The IP list is sourced from Cortex and cached for 5 minutes."
+      }
+    },
     "/cdns/push-zones": {
       "get": {
         "summary": "List CDN Push Zones",
@@ -1399,6 +1473,80 @@
           }
         ],
         "description": "Get the deployment status of a CDN Push Zone File"
+      }
+    },
+    "/cdns/push-zones/{cdn-uuid}/metadata": {
+      "parameters": [
+        {
+          "schema": {
+            "type": "string"
+          },
+          "name": "cdn-uuid",
+          "in": "path",
+          "required": true,
+          "description": "The [Push Zone ID](#operation/list-pushzones)."
+        }
+      ],
+      "get": {
+        "summary": "Get CDN Push Zone Metadata",
+        "tags": [
+          "CDNs"
+        ],
+        "x-codeSamples": [
+          {
+            "lang": "Curl",
+            "source": "curl \"https://api.vultr.com/v2/cdns/push-zones/{cdn-uuid}/metadata\" \\\n  -X GET \\\n  -H \"Authorization: Bearer ***}\""
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ips": {
+                      "type": "array",
+                      "description": "An array of global CDN IP addresses.",
+                      "items": {
+                        "type": "string",
+                        "description": "A CDN IP address."
+                      }
+                    }
+                  }
+                },
+                "examples": {
+                  "response": {
+                    "value": {
+                      "ips": [
+                        "192.168.1.1",
+                        "10.0.0.1",
+                        "..."
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        },
+        "operationId": "get-pushzone-metadata",
+        "security": [
+          {
+            "API Key": []
+          }
+        ],
+        "description": "Get the global CDN IP list for a CDN Push Zone subscription. The IP list is sourced from Cortex and cached for 5 minutes."
       }
     },
     "/private-networks/{network-id}": {
@@ -5324,6 +5472,14 @@
             "in": "query",
             "name": "cursor",
             "description": "Cursor for paging. See [Meta and Pagination](#section/Introduction/Meta-and-Pagination)."
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "instance-id",
+            "description": "Filter by SSH keys configured for a [Compute Instance id](#operation/list-instances) or a [Bare Metal Instance id](#operation/list-baremetals)."
           }
         ]
       },
@@ -5410,6 +5566,105 @@
         "security": [
           {
             "API Key": []
+          }
+        ]
+      }
+    },
+    "/software-licenses": {
+      "get": {
+        "summary": "List Software Licenses",
+        "tags": [
+          "software-licenses"
+        ],
+        "x-codeSamples": [
+          {
+            "lang": "Curl",
+            "source": "curl \"https://api.vultr.com/v2/software-licenses\" \\\n-X GET \\\n-H \"Authorization: Bearer ${VULTR_API_KEY}\""
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "software_licenses": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/software-license"
+                      }
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/meta"
+                    }
+                  }
+                },
+                "examples": {
+                  "response": {
+                    "value": {
+                      "software_licenses": [
+                        {
+                          "id": "423c51da-b208-11f1-a02f-4ea691eb8110",
+                          "license": "cPanel",
+                          "price": 20,
+                          "tier_current": "1 Account",
+                          "tier_maximum": "100 Accounts",
+                          "instance_id": "8138bda4-810c-4f58-b8f0-0be1393662e0"
+                        }
+                      ],
+                      "meta": {
+                        "total": 1,
+                        "links": {
+                          "next": "",
+                          "prev": ""
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "operationId": "list-software-licenses",
+        "description": "List all Software Licenses in your account.",
+        "security": [
+          {
+            "API Key": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "per_page",
+            "description": "Number of items requested per page. Default is 100 and Max is 500.\n"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "cursor",
+            "description": "Cursor for paging. See [Meta and Pagination](#section/Introduction/Meta-and-Pagination)."
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "instance-id",
+            "description": "Filter by software licenses attached to a [Compute Instance id](#operation/list-instances) or a [Bare Metal Instance id](#operation/list-baremetals)."
           }
         ]
       }
@@ -8188,7 +8443,7 @@
     },
     "/blocks": {
       "get": {
-        "summary": "List Block storages",
+        "summary": "List Block Storages",
         "tags": [
           "block"
         ],
@@ -8217,29 +8472,33 @@
                     }
                   }
                 },
-                "examples": {
-                  "block storage list": {
-                    "value": {
-                      "blocks": [
-                        {
-                          "id": "cb676a46-66fd-4dfb-b839-443f2e6c0b60",
-                          "date_created": "2020-10-10T01:56:20+00:00",
-                          "cost": 5,
-                          "status": "pending",
-                          "size_gb": 50,
-                          "region": "ewr",
-                          "attached_to_instance": "742c9913-d088-4d67-bc61-5a10e922fbd1",
-                          "label": "Example Block Storage",
-                          "mount_id": "ewr-example112233"
-                        }
-                      ],
-                      "meta": {
-                        "total": 1,
-                        "links": {
-                          "next": "",
-                          "prev": ""
-                        }
-                      }
+                "example": {
+                  "blocks": [
+                    {
+                      "id": "cb676a46-66fd-4dfb-b839-443f2e6c0b60",
+                      "date_created": "2020-10-10T01:56:20+00:00",
+                      "cost": 5,
+                      "pending_charges": 0,
+                      "status": "active",
+                      "size_gb": 50,
+                      "region": "ewr",
+                      "attached_to_instance": "742c9913-d088-4d67-bc61-5a10e922fbd1",
+                      "attached_to_instance_ip": "10.0.0.1",
+                      "attached_to_instance_label": "attached instance label",
+                      "attached_to_instance_as_bd": false,
+                      "label": "Example Block Storage",
+                      "mount_id": "ewr-example112233",
+                      "block_type": "high_perf",
+                      "os_id": 0,
+                      "snapshot_id": "",
+                      "bootable": false
+                    }
+                  ],
+                  "meta": {
+                    "total": 1,
+                    "links": {
+                      "next": "",
+                      "prev": ""
                     }
                   }
                 }
@@ -8279,6 +8538,14 @@
             "in": "query",
             "name": "cursor",
             "description": "Cursor for paging. See [Meta and Pagination](#section/Introduction/Meta-and-Pagination)."
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "instance-id",
+            "description": "Filter by block storage attached to a [Compute Instance id](#operation/list-instances)."
           }
         ]
       },
@@ -8298,22 +8565,25 @@
                     }
                   }
                 },
-                "examples": {
-                  "created block storage": {
-                    "value": {
-                      "block": {
-                        "id": "cb676a46-66fd-4dfb-b839-443f2e6c0b60",
-                        "date_created": "2020-10-10T01:56:20+00:00",
-                        "cost": 5,
-                        "status": "active",
-                        "size_gb": 50,
-                        "region": "ewr",
-                        "attached_to_instance": "742c9913-d088-4d67-bc61-5a10e922fbd1",
-                        "label": "Example Block Storage",
-                        "mount_id": "ewr-example112233",
-                        "block_type": "high_perf"
-                      }
-                    }
+                "example": {
+                  "block": {
+                    "id": "cb676a46-66fd-4dfb-b839-443f2e6c0b60",
+                    "date_created": "2020-10-10T01:56:20+00:00",
+                    "cost": 5,
+                    "pending_charges": 0,
+                    "status": "active",
+                    "size_gb": 50,
+                    "region": "ewr",
+                    "attached_to_instance": "742c9913-d088-4d67-bc61-5a10e922fbd1",
+                    "attached_to_instance_ip": "10.0.0.1",
+                    "attached_to_instance_label": "attached instance label",
+                    "attached_to_instance_as_bd": false,
+                    "label": "Example Block Storage",
+                    "mount_id": "ewr-example112233",
+                    "block_type": "high_perf",
+                    "os_id": 0,
+                    "snapshot_id": "",
+                    "bootable": false
                   }
                 }
               }
@@ -8405,368 +8675,6 @@
       },
       "parameters": []
     },
-    "/blocks/snapshots": {
-      "get": {
-        "summary": "List Block storage snapshots",
-        "tags": [
-          "block"
-        ],
-        "x-codeSamples": [
-          {
-            "lang": "Curl",
-            "source": "curl \"https://api.vultr.com/v2/blocks/snapshots\" \\\n  -X GET \\\n  -H \"Authorization: Bearer ${VULTR_API_KEY}\""
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "snapshots": {
-                      "type": "array",
-                      "items": {
-                        "$ref": "#/components/schemas/blockstorage_snapshot"
-                      }
-                    },
-                    "meta": {
-                      "$ref": "#/components/schemas/meta"
-                    }
-                  }
-                },
-                "examples": {
-                  "block storage snapshots list": {
-                    "value": {
-                      "snapshots": [
-                        {
-                          "id": "cb676a46-66fd-4dfb-b839-443f2e6c0b60",
-                          "block_id": "ay2c5b1a-66fd-4dfb-b839-443f2e6c0b60",
-                          "description": "Example block storage snapshot",
-                          "state": "COMPLETE",
-                          "added_at": "2020-10-10 01:56:20",
-                          "updated_at": "2020-10-10 01:56:35",
-                          "size": 10737418240,
-                          "next_invoice_date": "2010-11-10",
-                          "next_invoice_price": "5"
-                        }
-                      ],
-                      "meta": {
-                        "total": 1,
-                        "links": {
-                          "next": "",
-                          "prev": ""
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request"
-          },
-          "401": {
-            "description": "Unauthorized"
-          },
-          "500": {
-            "description": "Internal Server Error"
-          }
-        },
-        "operationId": "list-block-snapshots",
-        "description": "List all Block Storage Snapshots in your account.",
-        "security": [
-          {
-            "API Key": []
-          }
-        ],
-        "parameters": [
-          {
-            "schema": {
-              "type": "integer"
-            },
-            "in": "query",
-            "name": "per_page",
-            "description": "Number of items requested per page. Default is 100 and Max is 500."
-          },
-          {
-            "schema": {
-              "type": "string"
-            },
-            "in": "query",
-            "name": "cursor",
-            "description": "Cursor for paging. See [Meta and Pagination](#section/Introduction/Meta-and-Pagination)."
-          }
-        ]
-      },
-      "post": {
-        "summary": "Create Block Storage Snapshot",
-        "operationId": "create-block-snapshot",
-        "responses": {
-          "201": {
-            "description": "Accepted",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "block": {
-                      "$ref": "#/components/schemas/blockstorage_snapshot"
-                    }
-                  }
-                },
-                "examples": {
-                  "created block storage snapshot": {
-                    "value": {
-                      "snapshot": [
-                        {
-                          "id": "cb676a46-66fd-4dfb-b839-443f2e6c0b60",
-                          "block_id": "ay2c5b1a-66fd-4dfb-b839-443f2e6c0b60",
-                          "description": "Example block storage snapshot",
-                          "state": "COMPLETE",
-                          "added_at": "2020-10-10 01:56:20",
-                          "updated_at": "2020-10-10 01:56:35",
-                          "size": 10737418240,
-                          "next_invoice_date": "2010-11-10",
-                          "next_invoice_price": "5"
-                        }
-                      ]
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request"
-          },
-          "401": {
-            "description": "Unauthorized"
-          },
-          "403": {
-            "description": "Forbidden"
-          },
-          "404": {
-            "description": "Not Found"
-          }
-        },
-        "description": "Create new Block Snapshot of a Block Storage subscription.",
-        "security": [
-          {
-            "API Key": []
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "block_id": {
-                    "type": "string",
-                    "description": "The Block id of the block subscription you want to snapshot"
-                  },
-                  "description": {
-                    "type": "string",
-                    "description": "The user-supplied description."
-                  }
-                },
-                "required": [
-                  "block_id",
-                  "description"
-                ]
-              },
-              "examples": {
-                "request": {
-                  "value": {
-                    "block_id": "ay2c5b1a-66fd-4dfb-b839-443f2e6c0b60",
-                    "description": "example-block-snapshot"
-                  }
-                }
-              }
-            }
-          },
-          "description": "Include a JSON object in the request body with a content type of **application/json**."
-        },
-        "tags": [
-          "block"
-        ],
-        "x-codeSamples": [
-          {
-            "lang": "Curl",
-            "source": "curl \"https://api.vultr.com/v2/blocks/snapshots\" \\\n  -X POST \\\n  -H \"Authorization: Bearer ${VULTR_API_KEY}\" \\\n  -H \"Content-Type: application/json\" \\\n  --data '{\n    \"block_id\": ay2c5b1a-66fd-4dfb-b839-443f2e6c0b60,\n    \"description\" : \"Example Block Storage\",\n  }'"
-          }
-        ]
-      },
-      "parameters": []
-    },
-    "/blocks/snapshots/{snapshot-id}": {
-      "parameters": [
-        {
-          "schema": {
-            "type": "string"
-          },
-          "name": "snapshot-id",
-          "in": "path",
-          "required": true,
-          "description": "The [Block Storage snapshot id](#operation/list-block-snapshots)."
-        }
-      ],
-      "get": {
-        "summary": "Get Block Storage Snapshots",
-        "tags": [
-          "block"
-        ],
-        "x-codeSamples": [
-          {
-            "lang": "Curl",
-            "source": "curl \"https://api.vultr.com/v2/blocks/snapshots/{snapshot-id}\" \\\n  -X GET \\\n  -H \"Authorization: Bearer ${VULTR_API_KEY}\""
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "snapshot": {
-                      "$ref": "#/components/schemas/blockstorage_snapshot"
-                    }
-                  }
-                },
-                "examples": {
-                  "single block storage": {
-                    "value": {
-                      "id": "cb676a46-66fd-4dfb-b839-443f2e6c0b60",
-                      "block_id": "ay2c5b1a-66fd-4dfb-b839-443f2e6c0b60",
-                      "description": "Example block storage snapshot",
-                      "state": "COMPLETE",
-                      "added_at": "2020-10-10 01:56:20",
-                      "updated_at": "2020-10-10 01:56:35",
-                      "size": 10737418240,
-                      "next_invoice_date": "2010-11-10",
-                      "next_invoice_price": "5"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request"
-          },
-          "401": {
-            "description": "Unauthorized"
-          },
-          "403": {
-            "description": "Forbidden"
-          }
-        },
-        "operationId": "get-block-snapshot",
-        "description": "Get information for Block Storage Snapshot.",
-        "security": [
-          {
-            "API Key": []
-          }
-        ]
-      },
-      "delete": {
-        "summary": "Delete Block Storage Snapshot",
-        "tags": [
-          "block"
-        ],
-        "x-codeSamples": [
-          {
-            "lang": "Curl",
-            "source": "curl \"https://api.vultr.com/v2/blocks/snapshots/{snapshot-id}\" \\\n  -X DELETE \\\n  -H \"Authorization: Bearer ${VULTR_API_KEY}\""
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "No Content"
-          },
-          "400": {
-            "description": "Bad Request"
-          },
-          "401": {
-            "description": "Unauthorized"
-          },
-          "404": {
-            "description": "Not Found"
-          }
-        },
-        "operationId": "delete-block-snapshot",
-        "description": "Delete Block Storage Snapshot.",
-        "security": [
-          {
-            "API Key": []
-          }
-        ]
-      },
-      "put": {
-        "summary": "Update Block Storage Snapshot",
-        "tags": [
-          "block"
-        ],
-        "x-codeSamples": [
-          {
-            "lang": "Curl",
-            "source": "curl \"https://api.vultr.com/v2/blocks/snapshots/{snapshot-id}\" \\\n  -X PATCH \\\n  -H \"Authorization: Bearer ${VULTR_API_KEY}\" \\\n  -H \"Content-Type: application/json\" \\\n  --data '{\n    \"description\" : \"Updated Block Storage Description\",\n  }'"
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "No Content"
-          },
-          "400": {
-            "description": "Bad Request"
-          },
-          "401": {
-            "description": "Unauthorized"
-          },
-          "403": {
-            "description": "Forbidden"
-          },
-          "404": {
-            "description": "Not Found"
-          }
-        },
-        "operationId": "update-block-snapshot",
-        "description": "Update information for Block Storage Snapshot.\n",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "description": {
-                    "type": "string",
-                    "description": "The user-supplied description."
-                  }
-                }
-              },
-              "examples": {
-                "patch request": {
-                  "value": {
-                    "description": "Updated Block Storage description"
-                  }
-                }
-              }
-            }
-          },
-          "description": "Include a JSON object in the request body with a content type of **application/json**."
-        },
-        "security": [
-          {
-            "API Key": []
-          }
-        ]
-      }
-    },
     "/blocks/{block-id}": {
       "parameters": [
         {
@@ -8817,6 +8725,7 @@
                         "attached_to_instance": "742c9913-d088-4d67-bc61-5a10e922fbd1",
                         "attached_to_instance_ip": "",
                         "attached_to_instance_label": "",
+                        "attached_to_instance_as_bd": false,
                         "label": "Example Block Storage",
                         "mount_id": "ewr-example112233",
                         "block_type": "high_perf",
@@ -8842,39 +8751,6 @@
         },
         "operationId": "get-block",
         "description": "Get information for Block Storage.",
-        "security": [
-          {
-            "API Key": []
-          }
-        ]
-      },
-      "delete": {
-        "summary": "Delete Block Storage",
-        "tags": [
-          "block"
-        ],
-        "x-codeSamples": [
-          {
-            "lang": "Curl",
-            "source": "curl \"https://api.vultr.com/v2/blocks/{block-id}\" \\\n  -X DELETE \\\n  -H \"Authorization: Bearer ${VULTR_API_KEY}\""
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "No Content"
-          },
-          "400": {
-            "description": "Bad Request"
-          },
-          "401": {
-            "description": "Unauthorized"
-          },
-          "404": {
-            "description": "Not Found"
-          }
-        },
-        "operationId": "delete-block",
-        "description": "Delete Block Storage.",
         "security": [
           {
             "API Key": []
@@ -8939,6 +8815,39 @@
           },
           "description": "Include a JSON object in the request body with a content type of **application/json**."
         },
+        "security": [
+          {
+            "API Key": []
+          }
+        ]
+      },
+      "delete": {
+        "summary": "Delete Block Storage",
+        "tags": [
+          "block"
+        ],
+        "x-codeSamples": [
+          {
+            "lang": "Curl",
+            "source": "curl \"https://api.vultr.com/v2/blocks/{block-id}\" \\\n  -X DELETE \\\n  -H \"Authorization: Bearer ${VULTR_API_KEY}\""
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        },
+        "operationId": "delete-block",
+        "description": "Delete Block Storage.",
         "security": [
           {
             "API Key": []
@@ -9090,6 +8999,358 @@
           },
           "description": "Include a JSON object in the request body with a content type of **application/json**."
         }
+      }
+    },
+    "/blocks/snapshots": {
+      "get": {
+        "summary": "List Block Storage Snapshots",
+        "tags": [
+          "block"
+        ],
+        "x-codeSamples": [
+          {
+            "lang": "Curl",
+            "source": "curl \"https://api.vultr.com/v2/blocks/snapshots\" \\\n  -X GET \\\n  -H \"Authorization: Bearer ${VULTR_API_KEY}\""
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "snapshots": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/blockstorage_snapshot"
+                      }
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/meta"
+                    }
+                  }
+                },
+                "example": {
+                  "snapshots": [
+                    {
+                      "id": "cb676a46-66fd-4dfb-b839-443f2e6c0b60",
+                      "block_id": "ay2c5b1a-66fd-4dfb-b839-443f2e6c0b60",
+                      "description": "Example block storage snapshot",
+                      "state": "COMPLETE",
+                      "added_at": "2020-10-10 01:56:20",
+                      "updated_at": "2020-10-10 01:56:35",
+                      "size": 10737418240,
+                      "next_invoice_date": "2010-11-10",
+                      "next_invoice_price": "5",
+                      "region": "ewr",
+                      "block_type": "high_perf"
+                    }
+                  ],
+                  "meta": {
+                    "total": 1,
+                    "links": {
+                      "next": "",
+                      "prev": ""
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        },
+        "operationId": "list-block-snapshots",
+        "description": "List all Block Storage Snapshots in your account.",
+        "security": [
+          {
+            "API Key": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "per_page",
+            "description": "Number of items requested per page. Default is 100 and Max is 500."
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "cursor",
+            "description": "Cursor for paging. See [Meta and Pagination](#section/Introduction/Meta-and-Pagination)."
+          }
+        ]
+      },
+      "post": {
+        "summary": "Create Block Storage Snapshot",
+        "operationId": "create-block-snapshot",
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "block": {
+                      "$ref": "#/components/schemas/blockstorage_snapshot"
+                    }
+                  }
+                },
+                "example": {
+                  "id": "cb676a46-66fd-4dfb-b839-443f2e6c0b60",
+                  "block_id": "ay2c5b1a-66fd-4dfb-b839-443f2e6c0b60",
+                  "description": "Example block storage snapshot",
+                  "state": "COMPLETE",
+                  "added_at": "2020-10-10 01:56:20",
+                  "updated_at": "2020-10-10 01:56:35",
+                  "size": 10737418240,
+                  "next_invoice_date": "2010-11-10",
+                  "next_invoice_price": "5",
+                  "region": "ewr",
+                  "block_type": "high_perf"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        },
+        "description": "Create new Block Snapshot of a Block Storage subscription.",
+        "security": [
+          {
+            "API Key": []
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "block_id": {
+                    "type": "string",
+                    "description": "The Block id of the block subscription you want to snapshot"
+                  },
+                  "description": {
+                    "type": "string",
+                    "description": "The user-supplied description."
+                  }
+                },
+                "required": [
+                  "block_id",
+                  "description"
+                ]
+              },
+              "examples": {
+                "request": {
+                  "value": {
+                    "block_id": "ay2c5b1a-66fd-4dfb-b839-443f2e6c0b60",
+                    "description": "example-block-snapshot"
+                  }
+                }
+              }
+            }
+          },
+          "description": "Include a JSON object in the request body with a content type of **application/json**."
+        },
+        "tags": [
+          "block"
+        ],
+        "x-codeSamples": [
+          {
+            "lang": "Curl",
+            "source": "curl \"https://api.vultr.com/v2/blocks/snapshots\" \\\n  -X POST \\\n  -H \"Authorization: Bearer ${VULTR_API_KEY}\" \\\n  -H \"Content-Type: application/json\" \\\n  --data '{\n    \"block_id\": \"ay2c5b1a-66fd-4dfb-b839-443f2e6c0b60\",\n    \"description\" : \"Example Block Storage\"\n  }'"
+          }
+        ]
+      },
+      "parameters": []
+    },
+    "/blocks/snapshots/{snapshot-id}": {
+      "parameters": [
+        {
+          "schema": {
+            "type": "string"
+          },
+          "name": "snapshot-id",
+          "in": "path",
+          "required": true,
+          "description": "The [Block Storage snapshot id](#operation/list-block-snapshots)."
+        }
+      ],
+      "get": {
+        "summary": "Get Block Storage Snapshot",
+        "tags": [
+          "block"
+        ],
+        "x-codeSamples": [
+          {
+            "lang": "Curl",
+            "source": "curl \"https://api.vultr.com/v2/blocks/snapshots/{snapshot-id}\" \\\n  -X GET \\\n  -H \"Authorization: Bearer ${VULTR_API_KEY}\""
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "snapshot": {
+                      "$ref": "#/components/schemas/blockstorage_snapshot"
+                    }
+                  }
+                },
+                "example": {
+                  "id": "cb676a46-66fd-4dfb-b839-443f2e6c0b60",
+                  "block_id": "ay2c5b1a-66fd-4dfb-b839-443f2e6c0b60",
+                  "description": "Example block storage snapshot",
+                  "state": "COMPLETE",
+                  "added_at": "2020-10-10 01:56:20",
+                  "updated_at": "2020-10-10 01:56:35",
+                  "size": 10737418240,
+                  "next_invoice_date": "2010-11-10",
+                  "next_invoice_price": "5",
+                  "region": "ewr",
+                  "block_type": "high_perf"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "operationId": "get-block-snapshot",
+        "description": "Get information about a Block Storage Snapshot.",
+        "security": [
+          {
+            "API Key": []
+          }
+        ]
+      },
+      "put": {
+        "summary": "Update Block Storage Snapshot",
+        "tags": [
+          "block"
+        ],
+        "x-codeSamples": [
+          {
+            "lang": "Curl",
+            "source": "curl \"https://api.vultr.com/v2/blocks/snapshots/{snapshot-id}\" \\\n  -X PATCH \\\n  -H \"Authorization: Bearer ${VULTR_API_KEY}\" \\\n  -H \"Content-Type: application/json\" \\\n  --data '{\n    \"description\" : \"Updated Block Storage Description\",\n  }'"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        },
+        "operationId": "update-block-snapshot",
+        "description": "Update information for Block Storage Snapshot.\n",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "description": {
+                    "type": "string",
+                    "description": "The user-supplied description."
+                  }
+                }
+              },
+              "examples": {
+                "patch request": {
+                  "value": {
+                    "description": "Updated Block Storage description"
+                  }
+                }
+              }
+            }
+          },
+          "description": "Include a JSON object in the request body with a content type of **application/json**."
+        },
+        "security": [
+          {
+            "API Key": []
+          }
+        ]
+      },
+      "delete": {
+        "summary": "Delete Block Storage Snapshot",
+        "tags": [
+          "block"
+        ],
+        "x-codeSamples": [
+          {
+            "lang": "Curl",
+            "source": "curl \"https://api.vultr.com/v2/blocks/snapshots/{snapshot-id}\" \\\n  -X DELETE \\\n  -H \"Authorization: Bearer ${VULTR_API_KEY}\""
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        },
+        "operationId": "delete-block-snapshot",
+        "description": "Delete Block Storage Snapshot.",
+        "security": [
+          {
+            "API Key": []
+          }
+        ]
       }
     },
     "/firewalls": {
@@ -10620,6 +10881,9 @@
           },
           "403": {
             "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found"
           }
         },
         "operationId": "create-object-storage-bucket",
@@ -10774,6 +11038,12 @@
           },
           "403": {
             "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Unprocessable Content"
           }
         },
         "operationId": "set-object-storage-bucket-lifecycle",
@@ -10901,6 +11171,9 @@
           },
           "403": {
             "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found"
           }
         },
         "operationId": "set-object-storage-bucket-archival",
@@ -11241,7 +11514,7 @@
     },
     "/storage-gateways": {
       "get": {
-        "summary": "List storage gateways",
+        "summary": "List Storage Gateways",
         "tags": [
           "storage-gateways"
         ],
@@ -11251,8 +11524,8 @@
             "source": "curl \"https://api.vultr.com/v2/storage-gateways\" \\\n  -X GET \\\n  -H \"Authorization: Bearer ${VULTR_API_KEY}\""
           }
         ],
-        "description": "Get a list of all Storage Gateways in your account.",
         "operationId": "list-storage-gateways",
+        "description": "Get a list of all Storage Gateways in your account.",
         "security": [
           {
             "API Key": []
@@ -11278,19 +11551,82 @@
         ],
         "responses": {
           "200": {
+            "description": "OK",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "storage_gateway": {
-                      "type": "array",
+                    "storage_gateways": {
+                      "description": "List of Storage Gateways.",
                       "items": {
-                        "$ref": "#/components/schemas/storage-gateway"
+                        "allOf": [
+                          {
+                            "$ref": "#/components/schemas/storage-gateway"
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "export_config": {
+                                "$ref": "#/components/schemas/storage-gateway-export-config"
+                              }
+                            }
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "network_config": {
+                                "$ref": "#/components/schemas/storage-gateway-network-config"
+                              }
+                            }
+                          }
+                        ]
                       }
                     },
                     "meta": {
                       "$ref": "#/components/schemas/meta"
+                    }
+                  }
+                },
+                "examples": {
+                  "storage-gateway-nfs4": {
+                    "type": "object",
+                    "value": {
+                      "storage_gateways": [
+                        {
+                          "id": "ac45b2d3-ec8e-4e4a-9def-9db532f2d1c3",
+                          "date_created": "2026-09-22 22:23:39",
+                          "status": "active",
+                          "type": "storage-gateway-nfs4",
+                          "region": "ewr",
+                          "label": "example storage gateway",
+                          "pending_charges": 0,
+                          "tags": [
+                            "example tag"
+                          ],
+                          "health": "Running",
+                          "export_config": [
+                            {
+                              "id": "c003b85e-5f32-4abc-9bdb-197b6ee0fa49",
+                              "name": "example export",
+                              "pseudo_root_path": "/",
+                              "vfs_uuid": "32b231f2-aad6-45e5-b56e-a5ff257b893a",
+                              "allowed_ips": [
+                                "10.1.96.0/20"
+                              ]
+                            }
+                          ],
+                          "network_config": {
+                            "public_ips": [],
+                            "vpc_ip_address": "10.1.96.3",
+                            "vpc_uuid": "fb0df44c-fdda-4975-ab86-d465a24ca618",
+                            "vpc_description": "example vpc"
+                          }
+                        }
+                      ],
+                      "meta": {
+                        "total": 1
+                      }
                     }
                   }
                 }
@@ -11319,7 +11655,7 @@
         "x-codeSamples": [
           {
             "lang": "Curl",
-            "source": "curl \"https://api.vultr.com/v2/storage-gateways\" \\\n  -X POST \\\n  -H \"Authorization: Bearer ${VULTR_API_KEY}\" \\\n  -H \"Content-Type: application/json\" \\\n  --data '{\n    \"label\" : \"my_storage_gateway\",\n    \"type\" : \"nfs4\",\n    \"region\" : \"ewr\",\n    \"network_config\" : {\n      \"primary\": {\n      }\n    },\n    \"export_config\": [{\n      \"label\": \"my_export_1\",\n      \"vfs_uuid\" : \"a632673e-2fd5-4ff1-b251-2e28e7b65504\",\n      \"pseudo_root_path\": \"/\",\n      \"allowed_ips\": [\"192.0.2.123\"]\n    }]\n  }'"
+            "source": "curl \"https://api.vultr.com/v2/storage-gateways\" \\\n  -X POST \\\n  -H \"Authorization: Bearer ${VULTR_API_KEY}\" \\\n  -H \"Content-Type: application/json\" \\\n  --data '{\n    \"label\" : \"my_storage_gateway\",\n    \"type\" : \"nfs4\",\n    \"region\" : \"ewr\",\n    \"export_config\" : [{\n      \"label\" : \"my_export_1\",\n      \"pseudo_root_path\" : \"/\",\n      \"vfs_uuid\" : \"a632673e-2fd5-4ff1-b251-2e28e7b65504\",\n      \"allowed_ips\" : [\"192.0.2.123\", \"10.1.96.0/20\"]\n    }],\n    \"network_config\" : {\n      \"primary\" : {\n        \"vpc\" : {\n          \"vpc_ip_address\" : \"\",\n          \"vpc_uuid\" : \"473bc00c-4aea-4e07-ae72-42633f18c3ea\",\n          \"vpc_description\" : \"\"\n        }\n      }\n    }\n  }'"
           }
         ],
         "requestBody": {
@@ -11344,7 +11680,7 @@
                     "enum": [
                       "nfs4"
                     ],
-                    "description": "The gateway type"
+                    "description": "The gateway type."
                   },
                   "region": {
                     "type": "string",
@@ -11357,8 +11693,28 @@
                     }
                   },
                   "network_config": {
-                    "items": {
-                      "$ref": "#/components/schemas/storage-gateway-network"
+                    "$ref": "#/components/schemas/storage-gateway-network"
+                  }
+                }
+              },
+              "example": {
+                "label": "example storage gateway",
+                "type": "nfs4",
+                "region": "ewr",
+                "export_config": [
+                  {
+                    "label": "example export",
+                    "pseudo_root_path": "/",
+                    "vfs_uuid": "32b231f2-aad6-45e5-b56e-a5ff257b893a",
+                    "allowed_ips": [
+                      "10.1.96.0/20"
+                    ]
+                  }
+                ],
+                "network_config": {
+                  "primary": {
+                    "vpc": {
+                      "vpc_uuid": "fb0df44c-fdda-4975-ab86-d465a24ca618"
                     }
                   }
                 }
@@ -11367,131 +11723,66 @@
           }
         },
         "responses": {
-          "202": {
-            "description": "Accepted",
+          "201": {
+            "description": "Created",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "storage_gateway": {
-                      "$ref": "#/components/schemas/storage-gateway"
+                    "storage_gateways": {
+                      "description": "Created Storage Gateway.",
+                      "allOf": [
+                        {
+                          "$ref": "#/components/schemas/storage-gateway"
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "export_config": {
+                              "$ref": "#/components/schemas/storage-gateway-export-config"
+                            }
+                          }
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "network_config": {
+                              "$ref": "#/components/schemas/storage-gateway-network-config"
+                            }
+                          }
+                        }
+                      ]
                     }
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request"
-          },
-          "401": {
-            "description": "Unauthorized"
-          }
-        }
-      }
-    },
-    "/storage-gateways/{storage-gateway-id}/exports/{export-id}": {
-      "parameters": [
-        {
-          "schema": null,
-          "type": "string",
-          "name": "storage-gateway-id",
-          "in": "path",
-          "required": true,
-          "description": "The [Storage Gateway id](#operation/list-storage-gateways)."
-        },
-        {
-          "schema": null,
-          "type": "int",
-          "name": "export-id",
-          "in": "path",
-          "required": true,
-          "description": "The [Storage Gateway export id](#operation/list-storage-gateways)."
-        }
-      ],
-      "delete": {
-        "summary": "Delete Storage Gateway Export",
-        "tags": [
-          "storage-gateways"
-        ],
-        "x-codeSamples": [
-          {
-            "lang": "Curl",
-            "source": "curl \"https://api.vultr.com/v2/storage-gateways/{storage-gateway-id}/exports/{export-id}\" \\\n  -X DELETE \\\n  -H \"Authorization: Bearer ${VULTR_API_KEY}\""
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "No Content"
-          },
-          "400": {
-            "description": "Bad Request"
-          },
-          "401": {
-            "description": "Unauthorized"
-          },
-          "403": {
-            "description": "Forbidden"
-          },
-          "404": {
-            "description": "Not Found"
-          }
-        },
-        "operationId": "delete-storage-gateway-export",
-        "description": "Delete a Storage Gateway Export.",
-        "security": [
-          {
-            "API Key": []
-          }
-        ]
-      },
-      "patch": {
-        "summary": "Update Storage Gateway Export",
-        "tags": [
-          "storage-gateways"
-        ],
-        "x-codeSamples": [
-          {
-            "lang": "Curl",
-            "source": "curl \"https://api.vultr.com/v2/storage-gateways/{storage-gateway-id}/exports/{export-id}\" \\\n  -X PATCH \\\n  -H \"Authorization: Bearer ${VULTR_API_KEY}\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"allowed_ips\": [\"10.0.0.0/8\"]}'"
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "allowed_ips": {
-                    "type": "array",
-                    "items": {
-                      "type": "string"
-                    },
-                    "description": "List of allowed client IPs with CIDR notation"
                   }
                 },
-                "required": [
-                  "allowed_ips"
-                ]
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "allowed_ips": {
-                      "type": "array",
-                      "items": {
-                        "type": "string"
-                      },
-                      "description": "Updated list of allowed client IPs with CIDR notation"
+                "example": {
+                  "storage_gateways": {
+                    "id": "ac45b2d3-ec8e-4e4a-9def-9db532f2d1c3",
+                    "date_created": "2026-09-22 22:23:39",
+                    "status": "active",
+                    "type": "storage-gateway-nfs4",
+                    "region": "ewr",
+                    "label": "example storage gateway",
+                    "pending_charges": 0,
+                    "tags": [],
+                    "health": "Running",
+                    "export_config": [
+                      {
+                        "id": "c003b85e-5f32-4abc-9bdb-197b6ee0fa49",
+                        "name": "example export",
+                        "pseudo_root_path": "/",
+                        "vfs_uuid": "32b231f2-aad6-45e5-b56e-a5ff257b893a",
+                        "allowed_ips": [
+                          "10.1.96.0/20"
+                        ]
+                      }
+                    ],
+                    "network_config": {
+                      "public_ips": [],
+                      "vpc_ip_address": "10.1.96.3",
+                      "vpc_uuid": "fb0df44c-fdda-4975-ab86-d465a24ca618",
+                      "vpc_description": "example vpc"
                     }
                   }
                 }
@@ -11503,85 +11794,6 @@
           },
           "401": {
             "description": "Unauthorized"
-          },
-          "403": {
-            "description": "Forbidden"
-          },
-          "404": {
-            "description": "Not Found"
-          }
-        },
-        "operationId": "update-storage-gateway-export",
-        "description": "Update the allowed client IPs for a Storage Gateway Export.",
-        "security": [
-          {
-            "API Key": []
-          }
-        ]
-      }
-    },
-    "/storage-gateways/{storage-gateway-id}/exports": {
-      "parameters": [
-        {
-          "schema": {
-            "type": "string"
-          },
-          "name": "storage-gateway-id",
-          "in": "path",
-          "required": true,
-          "description": "The [Storage Gateway id](#operation/list-storage-gateways)."
-        }
-      ],
-      "post": {
-        "summary": "Add a new export to this storage gateway",
-        "tags": [
-          "storage-gateways"
-        ],
-        "operationId": "add-storage-gateway-export",
-        "security": [
-          {
-            "API Key": []
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "array",
-                "items": {
-                  "$ref": "#/components/schemas/storage-gateway-export"
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "vpc": {
-                      "$ref": "#/components/schemas/storage-gateway-export"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request"
-          },
-          "401": {
-            "description": "Unauthorized"
-          },
-          "403": {
-            "description": "Forbidden"
-          },
-          "404": {
-            "description": "Not Found"
           }
         }
       }
@@ -11589,9 +11801,8 @@
     "/storage-gateways/{storage-gateway-id}": {
       "parameters": [
         {
-          "schema": {
-            "type": "string"
-          },
+          "schema": null,
+          "type": "string",
           "name": "storage-gateway-id",
           "in": "path",
           "required": true,
@@ -11618,7 +11829,58 @@
                   "type": "object",
                   "properties": {
                     "storage_gateway": {
-                      "$ref": "#/components/schemas/storage-gateway"
+                      "description": "Requested Storage Gateway details.",
+                      "allOf": [
+                        {
+                          "$ref": "#/components/schemas/storage-gateway"
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "export_config": {
+                              "$ref": "#/components/schemas/storage-gateway-export-config"
+                            }
+                          }
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "network_config": {
+                              "$ref": "#/components/schemas/storage-gateway-network-config"
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                },
+                "example": {
+                  "storage_gateway": {
+                    "id": "ac45b2d3-ec8e-4e4a-9def-9db532f2d1c3",
+                    "date_created": "2026-09-22 22:23:39",
+                    "status": "active",
+                    "type": "storage-gateway-nfs4",
+                    "region": "ewr",
+                    "label": "example storage gateway",
+                    "pending_charges": 0,
+                    "tags": [],
+                    "health": "Running",
+                    "export_config": [
+                      {
+                        "id": "c003b85e-5f32-4abc-9bdb-197b6ee0fa49",
+                        "name": "example export",
+                        "pseudo_root_path": "/",
+                        "vfs_uuid": "32b231f2-aad6-45e5-b56e-a5ff257b893a",
+                        "allowed_ips": [
+                          "10.1.96.0/20"
+                        ]
+                      }
+                    ],
+                    "network_config": {
+                      "public_ips": [],
+                      "vpc_ip_address": "10.1.96.3",
+                      "vpc_uuid": "fb0df44c-fdda-4975-ab86-d465a24ca618",
+                      "vpc_description": "example vpc"
                     }
                   }
                 }
@@ -11637,42 +11899,6 @@
         },
         "operationId": "get-storage-gateway",
         "description": "Get information about a Storage Gateway.",
-        "security": [
-          {
-            "API Key": []
-          }
-        ]
-      },
-      "delete": {
-        "summary": "Delete Storage Gateway",
-        "tags": [
-          "storage-gateways"
-        ],
-        "x-codeSamples": [
-          {
-            "lang": "Curl",
-            "source": "curl \"https://api.vultr.com/v2/storage-gateways/{storage-gateway-id}\" \\\n  -X DELETE \\\n  -H \"Authorization: Bearer ${VULTR_API_KEY}\""
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "No Content"
-          },
-          "400": {
-            "description": "Bad Request"
-          },
-          "401": {
-            "description": "Unauthorized"
-          },
-          "403": {
-            "description": "Forbidden"
-          },
-          "404": {
-            "description": "Not Found"
-          }
-        },
-        "operationId": "delete-storage-gateway",
-        "description": "Delete a Storage Gateway.",
         "security": [
           {
             "API Key": []
@@ -11712,19 +11938,15 @@
                 "properties": {
                   "label": {
                     "type": "string",
-                    "description": "The user-supplied label for the Storage Gateway."
+                    "description": "A new user-supplied label for the Storage Gateway."
                   }
                 },
                 "required": [
                   "label"
                 ]
               },
-              "examples": {
-                "request": {
-                  "value": {
-                    "label": "Updated Storage Gateway Label"
-                  }
-                }
+              "example": {
+                "label": "New Storage Gateway Label"
               }
             }
           },
@@ -11738,7 +11960,254 @@
         "x-codeSamples": [
           {
             "lang": "Curl",
-            "source": "curl \"https://api.vultr.com/v2/storage-gateway/{storage-gateway-id}\" \\\n  -X PUT \\\n  -H \"Authorization: Bearer ${VULTR_API_KEY}\" \\\n  -H \"Content-Type: application/json\" \\\n  --data '{\n    \"label\" : \"Updated Storage Gateway Label\"\n  }'"
+            "source": "curl \"https://api.vultr.com/v2/storage-gateway/{storage-gateway-id}\" \\\n  -X PUT \\\n  -H \"Authorization: Bearer ${VULTR_API_KEY}\" \\\n  -H \"Content-Type: application/json\" \\\n  --data '{\n    \"label\" : \"New Storage Gateway Label\"\n  }'"
+          }
+        ]
+      },
+      "delete": {
+        "summary": "Delete Storage Gateway",
+        "tags": [
+          "storage-gateways"
+        ],
+        "x-codeSamples": [
+          {
+            "lang": "Curl",
+            "source": "curl \"https://api.vultr.com/v2/storage-gateways/{storage-gateway-id}\" \\\n  -X DELETE \\\n  -H \"Authorization: Bearer ${VULTR_API_KEY}\""
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        },
+        "operationId": "delete-storage-gateway",
+        "description": "Delete a Storage Gateway.",
+        "security": [
+          {
+            "API Key": []
+          }
+        ]
+      }
+    },
+    "/storage-gateways/{storage-gateway-id}/exports": {
+      "parameters": [
+        {
+          "schema": {
+            "type": "string"
+          },
+          "name": "storage-gateway-id",
+          "in": "path",
+          "required": true,
+          "description": "The [Storage Gateway id](#operation/list-storage-gateways)."
+        }
+      ],
+      "post": {
+        "summary": "Add New Export to Storage Gateway",
+        "tags": [
+          "storage-gateways"
+        ],
+        "x-codeSamples": [
+          {
+            "lang": "curl",
+            "source": "curl \"https://api.vultr.com/v2/storage-gateways/{storage-gateway-id}/exports\" \\\n  -X POST \\\n  -H \"Authorization: Bearer ${VULTR_API_KEY}\" \\\n  -H \"Content-Type: application/json\" \\\n  -- data '{\n      \"label\" : \"my_export_1\",\n      \"pseudo_root_path\" : \"/\",\n      \"vfs_uuid\" : \"a632673e-2fd5-4ff1-b251-2e28e7b65504\",\n      \"allowed_ips\" : [ \"10.1.96.0/20\" ]\n    }'"
+          }
+        ],
+        "operationId": "add-storage-gateway-export",
+        "description": "Add a new export to an existing Storage Gateway.",
+        "security": [
+          {
+            "API Key": []
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/storage-gateway-export"
+              },
+              "example": {
+                "label": "example export",
+                "pseudo_root_path": "/",
+                "vfs_uuid": "32b231f2-aad6-45e5-b56e-a5ff235b893a",
+                "allowed_ips": [
+                  "10.1.96.0/20"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/storage-gateways/{storage-gateway-id}/exports/{export-id}": {
+      "parameters": [
+        {
+          "schema": null,
+          "type": "string",
+          "name": "storage-gateway-id",
+          "in": "path",
+          "required": true,
+          "description": "The [Storage Gateway id](#operation/list-storage-gateways)."
+        },
+        {
+          "schema": null,
+          "type": "int",
+          "name": "export-id",
+          "in": "path",
+          "required": true,
+          "description": "The [Storage Gateway export id](#operation/list-storage-gateways)."
+        }
+      ],
+      "patch": {
+        "summary": "Update Storage Gateway Export",
+        "tags": [
+          "storage-gateways"
+        ],
+        "x-codeSamples": [
+          {
+            "lang": "Curl",
+            "source": "curl \"https://api.vultr.com/v2/storage-gateways/{storage-gateway-id}/exports/{export-id}\" \\\n  -X PATCH \\\n  -H \"Authorization: Bearer ${VULTR_API_KEY}\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"allowed_ips\" : [ \"10.0.0.0/8\" ]}'"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "allowed_ips": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "List of allowed IPs with CIDR notation."
+                  }
+                },
+                "required": [
+                  "allowed_ips"
+                ]
+              },
+              "example": {
+                "allowed_ips": [
+                  "10.1.96.0/20"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "allowed_ips": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                },
+                "example": {
+                  "allowed_ips": [
+                    "10.1.96.0/20"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        },
+        "operationId": "update-storage-gateway-export",
+        "description": "Update the allowed client IPs for a Storage Gateway Export.",
+        "security": [
+          {
+            "API Key": []
+          }
+        ]
+      },
+      "delete": {
+        "summary": "Delete Storage Gateway Export",
+        "tags": [
+          "storage-gateways"
+        ],
+        "x-codeSamples": [
+          {
+            "lang": "Curl",
+            "source": "curl \"https://api.vultr.com/v2/storage-gateways/{storage-gateway-id}/exports/{export-id}\" \\\n  -X DELETE \\\n  -H \"Authorization: Bearer ${VULTR_API_KEY}\""
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        },
+        "operationId": "delete-storage-gateway-export",
+        "description": "Delete a Storage Gateway Export.",
+        "security": [
+          {
+            "API Key": []
           }
         ]
       }
@@ -12498,6 +12967,22 @@
             "in": "query",
             "name": "cursor",
             "description": "Cursor for paging. See [Meta and Pagination](#section/Introduction/Meta-and-Pagination)."
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "name",
+            "description": "Filter by record name. The value is relative to the domain (for example `www`, not `www.example.com`). An empty value matches the domain apex."
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "type",
+            "description": "Filter by DNS record type (e.g. `CNAME`)."
           }
         ]
       }
@@ -13028,7 +13513,7 @@
         "x-codeSamples": [
           {
             "lang": "Curl",
-            "source": "curl \"https://api.vultr.com/v2/load-balancers\" \\\n  -X POST \\\n  -H \"Authorization: Bearer ${VULTR_API_KEY}\" \\\n  -H \"Content-Type: application/json\" \\\n  --data '{\n    \"region\" : \"ewr\",\n    \"balancing_algorithm\" : \"roundrobin\",\n    \"ssl_redirect\" : false,\n    \"http2\": false,\n    \"http3\": false,\n    \"proxy_protocol\" : false,\n    \"timeout\" : 600,\n    \"label\" : \"Example Load Balancer\",\n    \"nodes\" : 1,\n    \"health_check\" : {\n      \"protocol\" : \"http\",\n      \"port\" : 80,\n      \"path\" : \"/health\",\n      \"check_interval\" : 10,\n      \"response_timeout\" : 5,\n      \"unhealthy_threshold\" : 3,\n      \"healthy_threshold\" : 3\n    },\n    \"forwarding_rules\": [\n      {\n        \"frontend_protocol\" : \"http\",\n        \"frontend_port\" : 80,\n        \"backend_protocol\" : \"http\",\n        \"backend_port\" : 80\n      }\n    ],\n    \"ssl\": {\n      \"private_key\": \"-----BEGIN RSA ... \",\n      \"certificate\": \"-----BEGIN RSA ... \",\n      \"chain\": \"-----BEGIN RSA ... \"\n    },\n    \"firewall_rules\": [\n      {\n        \"port\" : 80,\n        \"source\" : \"0.0.0.0/0\",\n        \"ip_type\" : \"v4\",\n      }\n    ],\n    \"auto_ssl\": {\n      \"domain_zone\" : \"example.com\",\n      \"domain_sub\" : \"sub\"\n    },\n    \"global_regions\": [\n      {\n        \"region_id\": \"ewr\",\n        \"vpc_id\": \"6c97149f-e340-453a-b3eb-67eaf6fb93b1\"\n      },\n      {\n        \"region_id\": \"atl\"\n      }\n    ],\n    \"ssl_cert_b64\": \"\"\n  }'"
+            "source": "curl \"https://api.vultr.com/v2/load-balancers\" \\\n  -X POST \\\n  -H \"Authorization: Bearer ${VULTR_API_KEY}\" \\\n  -H \"Content-Type: application/json\" \\\n  --data '{\n    \"region\" : \"ewr\",\n    \"balancing_algorithm\" : \"roundrobin\",\n    \"ssl_redirect\" : false,\n    \"http2\": false,\n    \"http3\": false,\n    \"proxy_protocol\" : false,\n    \"timeout\" : 600,\n    \"label\" : \"Example Load Balancer\",\n    \"nodes\" : 1,\n    \"health_check\" : {\n      \"protocol\" : \"http\",\n      \"port\" : 80,\n      \"path\" : \"/health\",\n      \"check_interval\" : 10,\n      \"response_timeout\" : 5,\n      \"unhealthy_threshold\" : 3,\n      \"healthy_threshold\" : 3\n    },\n    \"forwarding_rules\": [\n      {\n        \"frontend_protocol\" : \"http\",\n        \"frontend_port\" : 80,\n        \"backend_protocol\" : \"http\",\n        \"backend_port\" : 80\n      }\n    ],\n    \"ssl\": {\n      \"private_key\": \"-----BEGIN PRIVATE KEY-----\\n...\\n-----END PRIVATE KEY-----\",\n      \"certificate\": \"-----BEGIN CERTIFICATE-----\\n...\\n-----END CERTIFICATE-----\",\n      \"chain\": \"-----BEGIN CERTIFICATE-----\\n...\\n-----END CERTIFICATE-----\"\n    },\n    \"firewall_rules\": [\n      {\n        \"port\" : 80,\n        \"source\" : \"0.0.0.0/0\",\n        \"ip_type\" : \"v4\"\n      }\n    ],\n    \"global_regions\": [\n      {\n        \"region_id\": \"lax\",\n        \"vpc_id\": \"6c97149f-e340-453a-b3eb-67eaf6fb93b1\"\n      },\n      {\n        \"region_id\": \"atl\"\n      }\n    ]\n  }'"
           }
         ],
         "responses": {
@@ -13059,7 +13544,7 @@
                           "balancing_algorithm": "roundrobin",
                           "ssl_redirect": false,
                           "sticky_sessions": {
-                            "cookie_name": "example-cookie"
+                            "cookie_name": ""
                           },
                           "proxy_protocol": false,
                           "timeout": 600,
@@ -13108,7 +13593,7 @@
                         },
                         "global_regions": [
                           {
-                            "region_id": "ewr",
+                            "region_id": "lax",
                             "vpc_id": "6c97149f-e340-453a-b3eb-67eaf6fb93b1"
                           },
                           {
@@ -13153,6 +13638,9 @@
             "application/json": {
               "schema": {
                 "type": "object",
+                "required": [
+                  "region"
+                ],
                 "properties": {
                   "region": {
                     "type": "string",
@@ -13164,7 +13652,7 @@
                   },
                   "ssl_redirect": {
                     "type": "boolean",
-                    "description": "If `true`, this will redirect all HTTP traffic to HTTPS. You must have an HTTPS rule and SSL certificate installed on the load balancer to enable this option.\n\n* true\n* false"
+                    "description": "If `true`, this will redirect all HTTP traffic to HTTPS. You must have an HTTPS forwarding rule and an SSL certificate in `ssl` to enable this option. With `auto_ssl` it stays off until the certificate is issued (`has_ssl` is `true`) and there is an HTTPS rule, then send `ssl_redirect: true` again. Removing the last HTTPS forwarding rule or the certificate turns it back off.\n\n* true\n* false"
                   },
                   "http2": {
                     "type": "boolean",
@@ -13176,6 +13664,8 @@
                   },
                   "nodes": {
                     "type": "integer",
+                    "minimum": 1,
+                    "maximum": 99,
                     "description": "The number of nodes to add to the load balancer (1-99), must be an odd number. This defaults to 1."
                   },
                   "proxy_protocol": {
@@ -13184,6 +13674,7 @@
                   },
                   "timeout": {
                     "type": "integer",
+                    "minimum": 1,
                     "description": "The maximum time allowed for the connection to remain inactive before timing out in seconds. This defaults to 600."
                   },
                   "health_check": {
@@ -13192,55 +13683,74 @@
                     "properties": {
                       "protocol": {
                         "type": "string",
-                        "description": "The protocol to use for health checks.\n\n* HTTPS\n* HTTP\n* TCP"
+                        "description": "The protocol to use for health checks.\n\n* https\n* http\n* tcp"
                       },
                       "port": {
                         "type": "integer",
-                        "description": "The port to use for health checks."
+                        "minimum": 1,
+                        "maximum": 65535,
+                        "description": "The port to use for health checks. 65300-65310 are reserved."
                       },
                       "path": {
                         "type": "string",
-                        "description": "HTTP Path to check. Only applies if protocol is HTTP, or HTTPS."
+                        "description": "HTTP Path to check. Only applies if protocol is `http` or `https`."
                       },
                       "check_interval": {
                         "type": "integer",
+                        "minimum": 1,
+                        "maximum": 300,
                         "description": "Interval between health checks."
                       },
                       "response_timeout": {
                         "type": "integer",
+                        "minimum": 1,
+                        "maximum": 300,
                         "description": "Timeout before health check fails."
                       },
                       "unhealthy_threshold": {
                         "type": "integer",
-                        "description": "Number times a check must fail before becoming unhealthy."
+                        "minimum": 1,
+                        "description": "Number of times a check must fail before becoming unhealthy."
                       },
                       "healthy_threshold": {
                         "type": "integer",
+                        "minimum": 1,
                         "description": "Number of times a check must succeed before returning to healthy status."
                       }
                     }
                   },
                   "forwarding_rules": {
                     "type": "array",
-                    "description": "An array of forwarding rule objects.",
+                    "maxItems": 1000,
+                    "description": "An array of forwarding rule objects. `http` and `https` frontends forward to `http` or `https`, `tcp` and `udp` only to the same protocol. Frontend ports must be unique, except a `udp` rule can share one with a `tcp`, `http` or `https` rule. An `https` rule needs a certificate in `ssl` or `auto_ssl`.",
                     "items": {
                       "type": "object",
+                      "required": [
+                        "frontend_protocol",
+                        "frontend_port",
+                        "backend_protocol",
+                        "backend_port"
+                      ],
                       "properties": {
                         "frontend_protocol": {
                           "type": "string",
-                          "description": "The protocol on the Load Balancer to forward to the backend.\n\n* HTTP\n* HTTPS\n* TCP\n* UDP"
+                          "description": "The protocol on the Load Balancer to forward to the backend.\n\n* http\n* https\n* tcp\n* udp"
                         },
                         "frontend_port": {
                           "type": "integer",
-                          "description": "The port number on the Load Balancer to forward to the backend."
+                          "minimum": 1,
+                          "maximum": 65535,
+                          "description": "The port number on the Load Balancer to forward to the backend. 65300-65310 are reserved."
                         },
                         "backend_protocol": {
                           "type": "string",
-                          "description": "The protocol destination on the backend server.\n\n* HTTP\n* HTTPS\n* TCP\n* UDP"
+                          "description": "The protocol destination on the backend server.\n\n* http\n* https\n* tcp\n* udp"
                         },
                         "backend_port": {
                           "type": "integer",
-                          "description": "The port number destination on the backend server."
+                          "minimum": 1,
+                          "maximum": 65535,
+                          "description": "The port number destination on the backend server. 65300-65310 are reserved."
                         }
                       }
                     }
@@ -13319,16 +13829,16 @@
                   },
                   "private_network": {
                     "type": "string",
-                    "description": "Use `vpc` instead. ID of the private network you wish to use. If private_network is omitted it will default to the public network.",
+                    "description": "Use `vpc` instead. Ignored if `vpc` is also sent.",
                     "deprecated": true
                   },
                   "vpc": {
                     "type": "string",
-                    "description": "ID of the VPC you wish to use. If a VPC ID is omitted it will default to the public network."
+                    "description": "ID of the VPC you wish to use. The VPC must be in the same region as the Load Balancer. If a VPC ID is omitted it will default to the public network."
                   },
                   "auto_ssl": {
                     "type": "object",
-                    "description": "The Auto SSL configuration. Must be using Vultr DNS for Auto SSL.",
+                    "description": "The Auto SSL configuration. Must be using Vultr DNS for Auto SSL. Use either `ssl` or `auto_ssl`, not both.",
                     "properties": {
                       "domain_zone": {
                         "type": "string",
@@ -13342,7 +13852,7 @@
                   },
                   "global_regions": {
                     "type": "array",
-                    "description": "List of region objects with VPC information.",
+                    "description": "List of region objects with VPC information. A child Load Balancer is created in each region. Don't include the Load Balancer's own `region`.",
                     "items": {
                       "type": "object",
                       "properties": {
@@ -13352,7 +13862,7 @@
                         },
                         "vpc_id": {
                           "type": "string",
-                          "description": "ID of the VPC you wish to use. If a VPC ID is omitted it will default to the public network."
+                          "description": "ID of the VPC you wish to use. The VPC must be in the same region as the child Load Balancer. If a VPC ID is omitted it will default to the public network."
                         }
                       },
                       "required": [
@@ -13392,9 +13902,9 @@
                       }
                     ],
                     "ssl": {
-                      "private_key": "-----BEGIN RSA ... ",
-                      "certificate": "-----BEGIN RSA ... ",
-                      "chain": "-----BEGIN RSA ... "
+                      "private_key": "-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----",
+                      "certificate": "-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----",
+                      "chain": "-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----"
                     },
                     "firewall_rules": [
                       {
@@ -13404,13 +13914,9 @@
                       }
                     ],
                     "vpc": "9fed374c-0afc-42bf-926c-abcf840b5406",
-                    "auto_ssl": {
-                      "domain_zone": "example.com",
-                      "domain_sub": "sub"
-                    },
                     "global_regions": [
                       {
-                        "region_id": "ewr",
+                        "region_id": "lax",
                         "vpc_id": "6c97149f-e340-453a-b3eb-67eaf6fb93b1"
                       },
                       {
@@ -13579,7 +14085,7 @@
         "x-codeSamples": [
           {
             "lang": "Curl",
-            "source": "curl \"https://api.vultr.com/v2/load-balancers/{load-balancer-id}\" \\\n  -X PATCH \\\n  -H \"Authorization: Bearer ${VULTR_API_KEY}\"\n  -H \"Content-Type: application/json\" \\\n  --data '{\n    \"ssl\": {\n      \"private_key\": \"-----BEGIN RSA ... \",\n      \"certificate\": \"-----BEGIN RSA ... \",\n      \"chain\": \"-----BEGIN RSA ... \"\n    },\n    \"sticky_session\": {\n      \"cookie_name\": \"example-cookie\"\n    },\n    \"forwarding_rules\": [\n      {\n        \"frontend_protocol\": \"http\",\n        \"frontend_port\": 80,\n        \"backend_protocol\": \"http\",\n        \"backend_port\": 80\n      }\n    ],\n    \"health_check\": {\n      \"protocol\": \"http\",\n      \"port\": 80,\n      \"path\": \"/health\",\n      \"check_interval\": \"10\",\n      \"response_timeout\": \"5\",\n      \"unhealthy_threshold\": \"3\",\n      \"healthy_threshold\": \"3\"\n    },\n    \"proxy_protocol\": true,\n    \"timeout\": 600,\n    \"ssl_redirect\": true,\n    \"http2\": true,\n    \"http3\": true,\n    \"nodes\": 1,\n    \"balancing_algorithm\": \"roundrobin\",\n    \"instances\": [\n      \"73d85156c2c3129d\"\n    ]\n  }'"
+            "source": "curl \"https://api.vultr.com/v2/load-balancers/{load-balancer-id}\" \\\n  -X PATCH \\\n  -H \"Authorization: Bearer ${VULTR_API_KEY}\" \\\n  -H \"Content-Type: application/json\" \\\n  --data '{\n    \"ssl\": {\n      \"private_key\": \"-----BEGIN PRIVATE KEY-----\\n...\\n-----END PRIVATE KEY-----\",\n      \"certificate\": \"-----BEGIN CERTIFICATE-----\\n...\\n-----END CERTIFICATE-----\",\n      \"chain\": \"-----BEGIN CERTIFICATE-----\\n...\\n-----END CERTIFICATE-----\"\n    },\n    \"sticky_session\": {\n      \"cookie_name\": \"example-cookie\"\n    },\n    \"forwarding_rules\": [\n      {\n        \"frontend_protocol\": \"http\",\n        \"frontend_port\": 80,\n        \"backend_protocol\": \"http\",\n        \"backend_port\": 80\n      },\n      {\n        \"frontend_protocol\": \"https\",\n        \"frontend_port\": 443,\n        \"backend_protocol\": \"https\",\n        \"backend_port\": 443\n      }\n    ],\n    \"health_check\": {\n      \"protocol\": \"http\",\n      \"port\": 80,\n      \"path\": \"/health\",\n      \"check_interval\": 10,\n      \"response_timeout\": 5,\n      \"unhealthy_threshold\": 3,\n      \"healthy_threshold\": 3\n    },\n    \"proxy_protocol\": true,\n    \"timeout\": 600,\n    \"ssl_redirect\": true,\n    \"http2\": true,\n    \"http3\": true,\n    \"nodes\": 1,\n    \"balancing_algorithm\": \"roundrobin\",\n    \"instances\": [\n      \"cb676a46-66fd-4dfb-b839-443f2e6c0b60\"\n    ]\n  }'"
           }
         ],
         "responses": {
@@ -13657,25 +14163,36 @@
                   },
                   "forwarding_rules": {
                     "type": "array",
-                    "description": "An array of forwarding rule objects.",
+                    "maxItems": 1000,
+                    "description": "Send the complete array of forwarding rules. Rules left out are removed, and removing every HTTPS rule also turns off `http2`, `http3` and `ssl_redirect`. `http` and `https` frontends forward to `http` or `https`, `tcp` and `udp` only to the same protocol. Frontend ports must be unique, except a `udp` rule can share one with a `tcp`, `http` or `https` rule. An `https` rule needs an SSL certificate, installed or sent in `ssl`.",
                     "items": {
                       "type": "object",
+                      "required": [
+                        "frontend_protocol",
+                        "frontend_port",
+                        "backend_protocol",
+                        "backend_port"
+                      ],
                       "properties": {
                         "frontend_protocol": {
                           "type": "string",
-                          "description": "The protocol on the Load Balancer to forward to the backend.\n\n* HTTP\n* HTTPS\n* TCP\n* UDP"
+                          "description": "The protocol on the Load Balancer to forward to the backend.\n\n* http\n* https\n* tcp\n* udp"
                         },
                         "frontend_port": {
                           "type": "integer",
-                          "description": "The port number on the Load Balancer to forward to the backend."
+                          "minimum": 1,
+                          "maximum": 65535,
+                          "description": "The port number on the Load Balancer to forward to the backend. 65300-65310 are reserved."
                         },
                         "backend_protocol": {
                           "type": "string",
-                          "description": "The protocol destination on the backend server.\n\n* HTTP\n* HTTPS\n* TCP\n* UDP"
+                          "description": "The protocol destination on the backend server.\n\n* http\n* https\n* tcp\n* udp"
                         },
                         "backend_port": {
                           "type": "integer",
-                          "description": "The port number destination on the backend server."
+                          "minimum": 1,
+                          "maximum": 65535,
+                          "description": "The port number destination on the backend server. 65300-65310 are reserved."
                         }
                       }
                     }
@@ -13686,30 +14203,38 @@
                     "properties": {
                       "protocol": {
                         "type": "string",
-                        "description": "The protocol to use for health checks.\n\n* HTTPS\n* HTTP\n* TCP"
+                        "description": "The protocol to use for health checks.\n\n* https\n* http\n* tcp"
                       },
                       "port": {
                         "type": "integer",
-                        "description": "The port to use for health checks."
+                        "minimum": 1,
+                        "maximum": 65535,
+                        "description": "The port to use for health checks. 65300-65310 are reserved."
                       },
                       "path": {
                         "type": "string",
-                        "description": "HTTP Path to check. Only applies if protocol is HTTP, or HTTPS."
+                        "description": "HTTP Path to check. Only applies if protocol is `http` or `https`."
                       },
                       "check_interval": {
-                        "type": "string",
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 300,
                         "description": "Interval between health checks."
                       },
                       "response_timeout": {
-                        "type": "string",
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 300,
                         "description": "Timeout before health check fails."
                       },
                       "unhealthy_threshold": {
-                        "type": "string",
-                        "description": "Number times a check must fail before becoming unhealthy."
+                        "type": "integer",
+                        "minimum": 1,
+                        "description": "Number of times a check must fail before becoming unhealthy."
                       },
                       "healthy_threshold": {
-                        "type": "string",
+                        "type": "integer",
+                        "minimum": 1,
                         "description": "Number of times a check must succeed before returning to healthy status."
                       }
                     }
@@ -13720,11 +14245,12 @@
                   },
                   "timeout": {
                     "type": "integer",
+                    "minimum": 1,
                     "description": "The maximum time allowed for the connection to remain inactive before timing out in seconds. This defaults to 600."
                   },
                   "ssl_redirect": {
                     "type": "boolean",
-                    "description": "If `true`, this will redirect all HTTP traffic to HTTPS. You must have an HTTPS rule and SSL certificate installed on the load balancer to enable this option.\n\n* true\n* false"
+                    "description": "If `true`, this will redirect all HTTP traffic to HTTPS. You must have an HTTPS forwarding rule and an SSL certificate (installed or sent in `ssl`) to enable this option. With `auto_ssl` it stays off until the certificate is issued (`has_ssl` is `true`) and there is an HTTPS rule, then send `ssl_redirect: true` again. Removing the last HTTPS forwarding rule or the certificate turns it back off.\n\n* true\n* false"
                   },
                   "http2": {
                     "type": "boolean",
@@ -13736,7 +14262,9 @@
                   },
                   "nodes": {
                     "type": "integer",
-                    "description": "The number of nodes to add to the load balancer (1-99), must be an odd number. This defaults to 1."
+                    "minimum": 1,
+                    "maximum": 99,
+                    "description": "The total number of nodes for the Load Balancer (1-99), must be an odd number. If omitted, the current count is kept. With `global_regions`, every child region gets the same count."
                   },
                   "balancing_algorithm": {
                     "type": "string",
@@ -13755,12 +14283,12 @@
                   },
                   "private_network": {
                     "type": "string",
-                    "description": "Use `vpc` instead. ID of the private network you wish to use. If private_network is omitted it will default to the public network.",
+                    "description": "Use `vpc` instead. Ignored if empty or if `vpc` is also sent.",
                     "deprecated": true
                   },
                   "vpc": {
                     "type": "string",
-                    "description": "ID of the VPC you wish to use. If a VPC ID is omitted it will default to the public network."
+                    "description": "ID of the VPC you wish to use. The VPC must be in the same region as the Load Balancer. Send an empty string to switch to the public network. If omitted, the current network is kept. Don't send it in the same request as `instances`."
                   },
                   "firewall_rules": {
                     "type": "array",
@@ -13785,7 +14313,7 @@
                   },
                   "auto_ssl": {
                     "type": "object",
-                    "description": "The Auto SSL configuration. Must be using Vultr DNS for Auto SSL.",
+                    "description": "The Auto SSL configuration. Must be using Vultr DNS for Auto SSL. Use either `ssl` or `auto_ssl`, not both.",
                     "properties": {
                       "domain_zone": {
                         "type": "string",
@@ -13799,7 +14327,7 @@
                   },
                   "global_regions": {
                     "type": "array",
-                    "description": "List of region objects with VPC information. A bare array of [Region ids](#operation/list-regions) is also accepted, in which case the child Load Balancers use the public network.",
+                    "description": "Send the complete array of child regions, as region objects with VPC information. Child Load Balancers are created or destroyed to match your array, so an empty array removes all of them. A child region can't be removed until it has finished deploying. A bare array of [Region ids](#operation/list-regions) is also accepted, in which case new child Load Balancers use the public network. Send it in its own request. Other changes in the same request aren't applied to new child Load Balancers.",
                     "items": {
                       "type": "object",
                       "properties": {
@@ -13809,7 +14337,7 @@
                         },
                         "vpc_id": {
                           "type": "string",
-                          "description": "ID of the VPC you wish to use. The VPC must be in the same region as the child Load Balancer. If a VPC ID is omitted it will default to the public network."
+                          "description": "ID of the VPC you wish to use. The VPC must be in the same region as the child Load Balancer. If a VPC ID is omitted it will default to the public network. Only used when the region is added. It doesn't change the VPC of an existing child."
                         }
                       },
                       "required": [
@@ -13823,9 +14351,9 @@
                 "request": {
                   "value": {
                     "ssl": {
-                      "private_key": "-----BEGIN RSA ... ",
-                      "certificate": "-----BEGIN RSA ... ",
-                      "chain": "-----BEGIN RSA ... "
+                      "private_key": "-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----",
+                      "certificate": "-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----",
+                      "chain": "-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----"
                     },
                     "sticky_session": {
                       "cookie_name": "example-cookie"
@@ -13836,6 +14364,12 @@
                         "frontend_port": 80,
                         "backend_protocol": "http",
                         "backend_port": 80
+                      },
+                      {
+                        "frontend_protocol": "https",
+                        "frontend_port": 443,
+                        "backend_protocol": "https",
+                        "backend_port": 443
                       }
                     ],
                     "firewall_rules": [
@@ -13849,10 +14383,10 @@
                       "protocol": "http",
                       "port": 80,
                       "path": "/health",
-                      "check_interval": "10",
-                      "response_timeout": "5",
-                      "unhealthy_threshold": "3",
-                      "healthy_threshold": "3"
+                      "check_interval": 10,
+                      "response_timeout": 5,
+                      "unhealthy_threshold": 3,
+                      "healthy_threshold": 3
                     },
                     "proxy_protocol": true,
                     "timeout": 600,
@@ -13863,20 +14397,6 @@
                     "balancing_algorithm": "roundrobin",
                     "instances": [
                       "cb676a46-66fd-4dfb-b839-443f2e6c0b60"
-                    ],
-                    "vpc": "9fed374c-0afc-42bf-926c-abcf840b5406",
-                    "auto_ssl": {
-                      "domain_zone": "example.com",
-                      "domain_sub": "sub"
-                    },
-                    "global_regions": [
-                      {
-                        "region_id": "sea",
-                        "vpc_id": "6c97149f-e340-453a-b3eb-67eaf6fb93b1"
-                      },
-                      {
-                        "region_id": "atl"
-                      }
                     ]
                   }
                 }
@@ -14068,7 +14588,7 @@
                     "value": {
                       "forwarding_rules": [
                         {
-                          "id": "443f2e6c0b60",
+                          "id": "73d85156c2c3129d",
                           "frontend_protocol": "http",
                           "frontend_port": 80,
                           "backend_protocol": "http",
@@ -14107,24 +14627,6 @@
           {
             "API Key": []
           }
-        ],
-        "parameters": [
-          {
-            "schema": {
-              "type": "integer"
-            },
-            "in": "query",
-            "name": "per_page",
-            "description": "Number of items requested per page. Default is 100 and Max is 500."
-          },
-          {
-            "schema": {
-              "type": "string"
-            },
-            "in": "query",
-            "name": "cursor",
-            "description": "Cursor for paging. See [Meta and Pagination](#section/Introduction/Meta-and-Pagination)."
-          }
         ]
       },
       "post": {
@@ -14139,11 +14641,11 @@
           }
         ],
         "responses": {
-          "202": {
-            "description": "Accepted"
+          "204": {
+            "description": "No Content"
           },
           "400": {
-            "description": "Bad Request"
+            "description": "Bad Request. Returned when an identical forwarding rule already exists."
           },
           "401": {
             "description": "Unauthorized"
@@ -14159,7 +14661,7 @@
           }
         },
         "operationId": "create-load-balancer-forwarding-rules",
-        "description": "Create a new forwarding rule for a Load Balancer.",
+        "description": "Create a new forwarding rule for a Load Balancer. `http` and `https` frontends forward to `http` or `https`, `tcp` and `udp` only to the same protocol. Frontend ports must be unique, except a `udp` rule can share one with a `tcp`, `http` or `https` rule. An `https` rule needs an SSL certificate already installed. Returns `422` for Load Balancers managed by Kubernetes and for child Load Balancers. Max 1000 rules per Load Balancer.",
         "security": [
           {
             "API Key": []
@@ -14173,19 +14675,23 @@
                 "properties": {
                   "frontend_protocol": {
                     "type": "string",
-                    "description": "The protocol on the Load Balancer to forward to the backend.\n\n* HTTP\n* HTTPS\n* TCP\n* UDP"
+                    "description": "The protocol on the Load Balancer to forward to the backend.\n\n* http\n* https\n* tcp\n* udp"
                   },
                   "frontend_port": {
                     "type": "integer",
-                    "description": "The port number on the Load Balancer to forward to the backend."
+                    "minimum": 1,
+                    "maximum": 65535,
+                    "description": "The port number on the Load Balancer to forward to the backend. 65300-65310 are reserved."
                   },
                   "backend_protocol": {
                     "type": "string",
-                    "description": "The protocol destination on the backend server.\n\n* HTTP\n* HTTPS\n* TCP\n* UDP"
+                    "description": "The protocol destination on the backend server.\n\n* http\n* https\n* tcp\n* udp"
                   },
                   "backend_port": {
                     "type": "integer",
-                    "description": "The port number destination on the backend server."
+                    "minimum": 1,
+                    "maximum": 65535,
+                    "description": "The port number destination on the backend server. 65300-65310 are reserved."
                   }
                 },
                 "required": [
@@ -14196,7 +14702,7 @@
                 ]
               },
               "examples": {
-                "response": {
+                "request": {
                   "value": {
                     "frontend_protocol": "http",
                     "frontend_port": 8080,
@@ -14260,7 +14766,7 @@
                   "response": {
                     "value": {
                       "forwarding_rule": {
-                        "id": "cb676a46-66fd-4dfb-b839-443f2e6c0b60",
+                        "id": "73d85156c2c3129d",
                         "frontend_protocol": "http",
                         "frontend_port": 8080,
                         "backend_protocol": "http",
@@ -14362,18 +14868,43 @@
                   "type": "object",
                   "properties": {
                     "ipv4": {
-                      "type": "string"
+                      "type": "array",
+                      "description": "The reverse DNS entry for each of the Load Balancer's IPv4 addresses. An address with no entry set shows its default, `<ip>.vultrusercontent.com`.",
+                      "items": {
+                        "type": "string"
+                      }
                     },
                     "ipv6": {
-                      "type": "array"
+                      "type": "array",
+                      "description": "The reverse DNS entries set in the Load Balancer's IPv6 subnet, empty when none are set. Only present when the Load Balancer has an IPv6 address.",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "ip": {
+                            "type": "string",
+                            "description": "The IPv6 address, in compressed form."
+                          },
+                          "domain": {
+                            "type": "string",
+                            "description": "The domain set for that address."
+                          }
+                        }
+                      }
                     }
                   }
                 },
                 "examples": {
                   "response": {
                     "value": {
-                      "ipv4": "172.17.11.98.vultrusercontent.com",
-                      "ipv6": []
+                      "ipv4": [
+                        "172.17.11.98.vultrusercontent.com"
+                      ],
+                      "ipv6": [
+                        {
+                          "ip": "2001:db8::34f4:0:0:f3dd",
+                          "domain": "test.com"
+                        }
+                      ]
                     }
                   }
                 }
@@ -14400,7 +14931,206 @@
             "API Key": []
           }
         ]
-      },
+      }
+    },
+    "/load-balancers/{load-balancer-id}/reverse-dns/ipv4": {
+      "parameters": [
+        {
+          "schema": {
+            "type": "string"
+          },
+          "name": "load-balancer-id",
+          "in": "path",
+          "required": true,
+          "description": "The [Load Balancer id](#operation/list-load-balancers)."
+        }
+      ],
+      "put": {
+        "summary": "Update Reverse DNS IPV4",
+        "tags": [
+          "load-balancer"
+        ],
+        "x-codeSamples": [
+          {
+            "lang": "Curl",
+            "source": "curl \"https://api.vultr.com/v2/load-balancers/{load-balancer-id}/reverse-dns/ipv4\" \\\n  -X PUT \\\n  -H \"Authorization: Bearer ${VULTR_API_KEY}\" \\\n  -H \"Content-Type: application/json\" \\\n  --data '{\n    \"v4\": \"test.com\"\n  }'"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Unprocessable Entity"
+          }
+        },
+        "operationId": "create-load-balancer-reverse-dns-ipv4",
+        "description": "Update (ipv4) Reverse DNS for a Load Balancer. To reset it, set it back to the default `<ip>.vultrusercontent.com`.",
+        "security": [
+          {
+            "API Key": []
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "v4"
+                ],
+                "properties": {
+                  "v4": {
+                    "type": "string",
+                    "description": "The Domain for the Reverse DNS Entry. If one exists it will be updated. It can't be empty."
+                  }
+                }
+              },
+              "examples": {
+                "request": {
+                  "value": {
+                    "v4": "test.com"
+                  }
+                }
+              }
+            }
+          },
+          "description": "Include a JSON object in the request body with a content type of **application/json**."
+        }
+      }
+    },
+    "/load-balancers/{load-balancer-id}/reverse-dns/ipv6": {
+      "parameters": [
+        {
+          "schema": {
+            "type": "string"
+          },
+          "name": "load-balancer-id",
+          "in": "path",
+          "required": true,
+          "description": "The [Load Balancer id](#operation/list-load-balancers)."
+        }
+      ],
+      "post": {
+        "summary": "Create Reverse DNS IPV6",
+        "tags": [
+          "load-balancer"
+        ],
+        "x-codeSamples": [
+          {
+            "lang": "Curl",
+            "source": "curl \"https://api.vultr.com/v2/load-balancers/{load-balancer-id}/reverse-dns/ipv6\" \\\n  -X POST \\\n  -H \"Authorization: Bearer ${VULTR_API_KEY}\" \\\n  -H \"Content-Type: application/json\" \\\n  --data '{\n    \"v6\": [\n      {\n        \"ip\": \"2001:0db8:0000:0000:34f4:0000:0000:f3dd\",\n        \"domain\": \"test.com\"\n      }\n    ]\n  }'"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Unprocessable Entity"
+          }
+        },
+        "operationId": "create-load-balancer-reverse-dns-ipv6",
+        "description": "Create Reverse DNS (ipv6) for a Load Balancer. Each `ip` must be in the Load Balancer's IPv6 subnet. An existing entry for the same address is updated. Does nothing if the Load Balancer has no IPv6 address.",
+        "security": [
+          {
+            "API Key": []
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "v6"
+                ],
+                "properties": {
+                  "v6": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "ip",
+                        "domain"
+                      ],
+                      "properties": {
+                        "domain": {
+                          "type": "string",
+                          "description": "The Domain for the Reverse DNS Entry."
+                        },
+                        "ip": {
+                          "type": "string",
+                          "description": "The IPV6 IP for the Reverse DNS Entry."
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "examples": {
+                "request": {
+                  "value": {
+                    "v6": [
+                      {
+                        "ip": "2001:0db8:0000:0000:34f4:0000:0000:f3dd",
+                        "domain": "test.com"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "description": "Include a JSON object in the request body with a content type of **application/json**."
+        }
+      }
+    },
+    "/load-balancers/{load-balancer-id}/reverse-dns/ipv6/{ipv6}": {
+      "parameters": [
+        {
+          "schema": {
+            "type": "string"
+          },
+          "name": "load-balancer-id",
+          "in": "path",
+          "required": true,
+          "description": "The [Load Balancer id](#operation/list-load-balancers)."
+        },
+        {
+          "schema": {
+            "type": "string"
+          },
+          "name": "ipv6",
+          "in": "path",
+          "required": true,
+          "description": "The IPv6 address of the reverse DNS entry."
+        }
+      ],
       "delete": {
         "summary": "Delete Reverse DNS",
         "tags": [
@@ -14436,147 +15166,6 @@
             "API Key": []
           }
         ]
-      },
-      "post": {
-        "summary": "Create Reverse DNS IPV6",
-        "tags": [
-          "load-balancer"
-        ],
-        "x-codeSamples": [
-          {
-            "lang": "Curl",
-            "source": "curl \"https://api.vultr.com/v2/load-balancers/{load-balancer-id}/reverse-dns/ipv6\" \\\n  -X POST \\\n  -H \"Authorization: Bearer ${VULTR_API_KEY}\" \\\n  -H \"Content-Type: application/json\" \\\n  --data '{\n    \"v6\": [\n      {\n        \"ip\": \"2001:0db8:0000:0000:34f4:0000:0000:f3dd\",\n        \"domain\": \"test.com\"\n      }\n    ]\n  }'"
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "No Content"
-          },
-          "400": {
-            "description": "Bad Request"
-          },
-          "401": {
-            "description": "Unauthorized"
-          },
-          "403": {
-            "description": "Forbidden"
-          },
-          "404": {
-            "description": "Not Found"
-          },
-          "422": {
-            "description": "Unprocessable Entity"
-          }
-        },
-        "operationId": "create-load-balancer-reverse-dns-ipv6",
-        "description": "Create Reverse DNS (ipv6) for a Load Balancer.",
-        "security": [
-          {
-            "API Key": []
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "v6": {
-                    "type": "array",
-                    "items": {
-                      "type": "object",
-                      "properties": {
-                        "domain": {
-                          "type": "string",
-                          "description": "The Domain for the Reverse DNS Entry."
-                        },
-                        "ip": {
-                          "type": "string",
-                          "description": "The IPV6 IP for the Reverse DNS Entry."
-                        }
-                      }
-                    }
-                  }
-                }
-              },
-              "examples": {
-                "request": {
-                  "value": {
-                    "v6": [
-                      {
-                        "ip": "2001:0db8:0000:0000:34f4:0000:0000:f3dd",
-                        "domain": "test.com"
-                      }
-                    ]
-                  }
-                }
-              }
-            }
-          },
-          "description": "Include a JSON object in the request body with a content type of **application/json**."
-        }
-      },
-      "put": {
-        "summary": "Update Reverse DNS IPV4",
-        "tags": [
-          "load-balancer"
-        ],
-        "x-codeSamples": [
-          {
-            "lang": "Curl",
-            "source": "curl \"https://api.vultr.com/v2/load-balancers/{load-balancer-id}/reverse-dns/ipv4\" \\\n  -X PUT \\\n  -H \"Authorization: Bearer ${VULTR_API_KEY}\" \\\n  -H \"Content-Type: application/json\" \\\n  --data '{\n    \"v4\": \"test.com\"\n  }'"
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "No Content"
-          },
-          "400": {
-            "description": "Bad Request"
-          },
-          "401": {
-            "description": "Unauthorized"
-          },
-          "403": {
-            "description": "Forbidden"
-          },
-          "404": {
-            "description": "Not Found"
-          },
-          "422": {
-            "description": "Unprocessable Entity"
-          }
-        },
-        "operationId": "create-load-balancer-reverse-dns-ipv4",
-        "description": "Update (ipv4) Reverse DNS for a Load Balancer.",
-        "security": [
-          {
-            "API Key": []
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "v4": {
-                    "type": "string",
-                    "description": "The Domain for the Reverse DNS Entry. If one exists it will be updated."
-                  }
-                }
-              },
-              "examples": {
-                "request": {
-                  "value": {
-                    "v4": "test.com"
-                  }
-                }
-              }
-            }
-          },
-          "description": "Include a JSON object in the request body with a content type of **application/json**."
-        }
       }
     },
     "/logs": {
@@ -15226,6 +15815,8 @@
                             "another"
                           ],
                           "user_scheme": "root",
+                          "hostname": "server01.example.com",
+                          "vserial": "442115ef-ec63-4864-a9dd-55a8030aeeeb@par1.vserial.vultr.com",
                           "mdisk_mode": "raid1"
                         }
                       ],
@@ -15592,7 +16183,9 @@
                           "a tag",
                           "another"
                         ],
-                        "user_scheme": "root"
+                        "user_scheme": "root",
+                        "hostname": "server01.example.com",
+                        "vserial": "442115ef-ec63-4864-a9dd-55a8030aeeeb@par1.vserial.vultr.com"
                       }
                     }
                   }
@@ -16199,6 +16792,73 @@
         "tags": [
           "baremetal"
         ]
+      },
+      "get": {
+        "summary": "List Baremetal Reverse IPv6",
+        "operationId": "list-baremetal-reverse-ipv6",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "reverse_ipv6s": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "reverse": {
+                            "type": "string",
+                            "description": "The IPv6 reverse entry."
+                          },
+                          "ip": {
+                            "type": "string",
+                            "description": "The IPv6 address."
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "examples": {
+                  "response": {
+                    "value": {
+                      "reverse_ipv6s": [
+                        {
+                          "ip": "2001:0db8:5:6bb:5400:2ff:fee5:1",
+                          "reverse": "foo.example.com"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        },
+        "tags": [
+          "baremetal"
+        ],
+        "x-codeSamples": [
+          {
+            "lang": "Curl",
+            "source": "curl \"https://api.vultr.com/v2/bare-metals/{baremetal-id}/ipv6/reverse\" \\\n  -X GET \\\n  -H \"Authorization: Bearer ***}\""
+          }
+        ],
+        "description": "List the reverse IPv6 information for a Bare Metal Instance.",
+        "security": [
+          {
+            "API Key": []
+          }
+        ]
       }
     },
     "/bare-metals/{baremetal-id}/ipv6/reverse/{ipv6}": {
@@ -16426,6 +17086,9 @@
           },
           "404": {
             "description": "Not Found"
+          },
+          "409": {
+            "description": "Conflict"
           }
         },
         "operationId": "reinstall-baremetal",
@@ -16923,6 +17586,7 @@
                               "subnet": "10.1.128.3"
                             }
                           ],
+                          "enable_memorybacking": "none",
                           "kvm": "https://console.vultr.com/subs/vps/novnc/api.php?data=00example11223344",
                           "hostname": "my_hostname",
                           "os_id": 215,
@@ -16940,6 +17604,7 @@
                             "another"
                           ],
                           "user_scheme": "root",
+                          "vke_cluster_id": "97940dc9-1f8f-4404-8556-9fe0a181d5ea",
                           "pending_charges": 5.42
                         }
                       ],
@@ -17391,6 +18056,7 @@
                             "subnet": "10.1.128.3"
                           }
                         ],
+                        "enable_memorybacking": "none",
                         "kvm": "https://console.vultr.com/subs/vps/novnc/api.php?data=00example11223344",
                         "hostname": "my_hostname",
                         "os_id": 215,
@@ -17407,6 +18073,7 @@
                           "a tag",
                           "another"
                         ],
+                        "vke_cluster_id": "97940dc9-1f8f-4404-8556-9fe0a181d5ea",
                         "user_scheme": "root",
                         "pending_charges": 5.42
                       }
@@ -17486,6 +18153,7 @@
                         "label": "Example Instance",
                         "internal_ip": "",
                         "vpc_only": false,
+                        "enable_memorybacking": "none",
                         "kvm": "https://console.vultr.com/subs/vps/novnc/api.php?data=00example11223344",
                         "hostname": "my_hostname",
                         "os_id": 215,
@@ -17564,6 +18232,10 @@
                     "type": "string",
                     "description": "The user-supplied, base64 encoded [user data](https://docs.vultr.com/manage-instance-user-data-with-the-vultr-metadata-api/) to attach to this instance."
                   },
+                  "label": {
+                    "type": "string",
+                    "description": "The user-supplied label."
+                  },
                   "tag": {
                     "type": "string",
                     "description": "Use `tags` instead. The user-supplied tag.",
@@ -17615,6 +18287,14 @@
                   "enable_vpc": {
                     "type": "boolean",
                     "description": "If `true`, VPC support will be added to the new server.\n\nThis parameter attaches a single VPC. When no VPC exists in the region, it will be automatically created.\n\nIf there are multiple VPCs in the instance's region, use `attach_vpc` instead to specify a VPC."
+                  },
+                  "enable_memorybacking": {
+                    "type": "string",
+                    "description": "The memory backing used for the instance. Shared memory backing is required to attach Vultr File System (VFS) shares. Changing this value will reboot your instance.",
+                    "enum": [
+                      "none",
+                      "shared"
+                    ]
                   },
                   "tags": {
                     "type": "array",
@@ -17987,7 +18667,7 @@
         "x-codeSamples": [
           {
             "lang": "Curl",
-            "source": "curl \"https://api.vultr.com/v2/instances/{instance-id}/reinstall\" \\\n  -X POST \\\n  -H \"Authorization: Bearer ${VULTR_API_KEY}\" \\\n  -H \"Content-Type: application/json\" \\\n  --data '{\n    \"hostname\" : \"my_new_hostname\"\n  }'"
+            "source": "curl \"https://api.vultr.com/v2/instances/{instance-id}/reinstall\" \\\n  -X POST \\\n  -H \"Authorization: Bearer ${VULTR_API_KEY}\" \\\n  -H \"Content-Type: application/json\" \\\n  --data '{\n    \"hostname\" : \"my_new_hostname\",\n    \"ssh_keys\" : [\n      \"cb676a46-66fd-4dfb-b839-443f2e6c0b60\"\n    ]\n  }'"
           }
         ],
         "responses": {
@@ -18056,6 +18736,9 @@
           },
           "404": {
             "description": "Not Found"
+          },
+          "409": {
+            "description": "Conflict"
           }
         },
         "operationId": "reinstall-instance",
@@ -18069,13 +18752,23 @@
                   "hostname": {
                     "type": "string",
                     "description": "The hostname to use when reinstalling this instance."
+                  },
+                  "ssh_keys": {
+                    "type": "array",
+                    "description": "Array of [SSH Key ids](#operation/list-ssh-keys) to install on the instance during reinstallation. If an empty array is provided, all SSH keys will be removed from the instance. If omitted, the instance retains its currently assigned keys.",
+                    "items": {
+                      "type": "string"
+                    }
                   }
                 }
               },
               "examples": {
                 "request": {
                   "value": {
-                    "hostname": "my_new_hostname"
+                    "hostname": "my_new_hostname",
+                    "ssh_keys": [
+                      "cb676a46-66fd-4dfb-b839-443f2e6c0b60"
+                    ]
                   }
                 }
               }
@@ -20781,15 +21474,16 @@
         "description": "List the VPC networks for a Bare Metal Instance."
       }
     },
-    "/load-balancers/{loadbalancer-id}/firewall-rules": {
+    "/load-balancers/{load-balancer-id}/firewall-rules": {
       "parameters": [
         {
           "schema": {
             "type": "string"
           },
-          "name": "loadbalancer-id",
+          "name": "load-balancer-id",
           "in": "path",
-          "required": true
+          "required": true,
+          "description": "The [Load Balancer id](#operation/list-load-balancers)."
         }
       ],
       "get": {
@@ -20809,7 +21503,18 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/loadbalancer-firewall-rule"
+                  "type": "object",
+                  "properties": {
+                    "firewall_rules": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/loadbalancer-firewall-rule"
+                      }
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/meta"
+                    }
+                  }
                 },
                 "examples": {
                   "Response": {
@@ -20843,6 +21548,9 @@
           },
           "404": {
             "description": "Not Found"
+          },
+          "422": {
+            "description": "Unprocessable Entity"
           }
         },
         "operationId": "list-loadbalancer-firewall-rules",
@@ -20850,24 +21558,6 @@
         "security": [
           {
             "API Key": []
-          }
-        ],
-        "parameters": [
-          {
-            "schema": {
-              "type": "string"
-            },
-            "in": "query",
-            "name": "per_page",
-            "description": "Number of items requested per page. Default is 100 and Max is 500."
-          },
-          {
-            "schema": {
-              "type": "string"
-            },
-            "in": "query",
-            "name": "cursor",
-            "description": "Cursor for paging. See [Meta and Pagination](#section/Introduction/Meta-and-Pagination)."
           }
         ]
       },
@@ -20894,6 +21584,9 @@
           },
           "404": {
             "description": "Not Found"
+          },
+          "422": {
+            "description": "Unprocessable Entity"
           }
         },
         "operationId": "create-loadbalancer-firewall-rules",
@@ -20953,15 +21646,16 @@
         }
       }
     },
-    "/load-balancers/{loadbalancer-id}/firewall-rules/{firewall-rule-id}": {
+    "/load-balancers/{load-balancer-id}/firewall-rules/{firewall-rule-id}": {
       "parameters": [
         {
           "schema": {
             "type": "string"
           },
-          "name": "loadbalancer-id",
+          "name": "load-balancer-id",
           "in": "path",
-          "required": true
+          "required": true,
+          "description": "The [Load Balancer id](#operation/list-load-balancers)."
         },
         {
           "schema": {
@@ -20989,7 +21683,12 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/loadbalancer-firewall-rule"
+                  "type": "object",
+                  "properties": {
+                    "firewall_rule": {
+                      "$ref": "#/components/schemas/loadbalancer-firewall-rule"
+                    }
+                  }
                 },
                 "examples": {
                   "Example": {
@@ -21014,6 +21713,9 @@
           },
           "404": {
             "description": "Not Found"
+          },
+          "422": {
+            "description": "Unprocessable Entity"
           }
         },
         "operationId": "get-loadbalancer-firewall-rule",
@@ -21047,6 +21749,9 @@
           },
           "404": {
             "description": "Not Found"
+          },
+          "422": {
+            "description": "Unprocessable Entity"
           }
         },
         "operationId": "delete-loadbalancer-firewall-rule",
@@ -22074,6 +22779,439 @@
           },
           "description": "Request Body"
         },
+        "security": [
+          {
+            "API Key": []
+          }
+        ]
+      }
+    },
+    "/kubernetes/applications": {
+      "get": {
+        "summary": "List Available Kubernetes Applications",
+        "tags": [
+          "kubernetes"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "apps": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/vke-app"
+                      }
+                    }
+                  }
+                },
+                "examples": {
+                  "example response": {
+                    "value": {
+                      "apps": [
+                        {
+                          "id": "8cf93f5f-875e-4aea-8a84-ec2dd592b5ae",
+                          "name": "Bitnami NGINX",
+                          "description": "Bitnami NGINX",
+                          "url": "https://example.com/nginx",
+                          "icon_url": "https://www.vultr.com/marketplace-assets-dev/default-icon.png",
+                          "version": "18.1.5",
+                          "date_created": "2024-05-07T12:07:58+00:00",
+                          "date_updated": "2026-07-16T13:21:16+00:00"
+                        },
+                        {
+                          "id": "c2750a77-0261-11ef-a8cb-ac1f6b643f32",
+                          "name": "Kubernetes Dashboard",
+                          "description": "Kubernetes Dashboard",
+                          "url": "https://example.com/kubernetes-dashboard",
+                          "icon_url": "https://www.vultr.com/marketplace-assets-dev/default-icon.png",
+                          "version": "7.5.0",
+                          "date_created": "2024-04-08T11:00:29+00:00",
+                          "date_updated": "2024-07-16T15:02:00+00:00"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        },
+        "operationId": "list-kubernetes-applications",
+        "description": "Returns the catalog of VKE applications available for deployment.",
+        "security": [
+          {
+            "API Key": []
+          }
+        ]
+      }
+    },
+    "/kubernetes/clusters/{vke-id}/applications": {
+      "post": {
+        "summary": "Create Kubernetes Application",
+        "tags": [
+          "kubernetes"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "name": "vke-id",
+            "in": "path",
+            "required": true,
+            "description": "The VKE ID."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "app_deployment": {
+                      "$ref": "#/components/schemas/app-deployment"
+                    }
+                  }
+                },
+                "examples": {
+                  "example response": {
+                    "value": {
+                      "app_deployment": {
+                        "id": "9a8ca6e2-e77f-4b07-8fd7-aefc6c41cecc",
+                        "app_id": "8cf93f5f-875e-4aea-8a84-ec2dd592b5ae",
+                        "app_name": "Bitnami NGINX",
+                        "version": "18.1.5",
+                        "status": "pending_install",
+                        "timeout": "60m",
+                        "config": "replicaCount: 2",
+                        "date_created": "2026-09-14T16:00:00+00:00",
+                        "date_updated": "2026-09-14T16:00:00+00:00"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        },
+        "operationId": "create-kubernetes-cluster-application",
+        "description": "Creates an application deployment on the specified VKE cluster from a catalog VKE application.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "description": "UUID of the catalog VKE application to deploy to the cluster."
+                  },
+                  "timeout": {
+                    "type": "string",
+                    "description": "Timeout for application deployment operations."
+                  },
+                  "config": {
+                    "type": "string",
+                    "description": "Custom Helm values for this deployment."
+                  }
+                },
+                "required": [
+                  "id"
+                ]
+              },
+              "examples": {
+                "example request": {
+                  "value": {
+                    "id": "8cf93f5f-875e-4aea-8a84-ec2dd592b5ae",
+                    "timeout": "60m",
+                    "config": "replicaCount: 2"
+                  }
+                }
+              }
+            }
+          },
+          "description": "Request Body"
+        },
+        "security": [
+          {
+            "API Key": []
+          }
+        ]
+      },
+      "get": {
+        "summary": "List Kubernetes Applications for Cluster",
+        "tags": [
+          "kubernetes"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "name": "vke-id",
+            "in": "path",
+            "required": true,
+            "description": "The VKE ID."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "app_deployments": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/app-deployment"
+                      }
+                    }
+                  }
+                },
+                "examples": {
+                  "example response": {
+                    "value": {
+                      "app_deployments": [
+                        {
+                          "id": "9a8ca6e2-e77f-4b07-8fd7-aefc6c41cecc",
+                          "app_id": "8cf93f5f-875e-4aea-8a84-ec2dd592b5ae",
+                          "app_name": "Bitnami NGINX",
+                          "version": "18.1.5",
+                          "status": "active",
+                          "timeout": "60m",
+                          "config": "replicaCount: 2",
+                          "date_created": "2026-09-10T14:00:00+00:00",
+                          "date_updated": "2026-09-10T14:00:00+00:00"
+                        },
+                        {
+                          "id": "7a083d30-f984-427e-a684-41a1997368c1",
+                          "app_id": "c2750a77-0261-11ef-a8cb-ac1f6b643f32",
+                          "app_name": "Kubernetes Dashboard",
+                          "version": "7.5.0",
+                          "status": "active",
+                          "timeout": "60m",
+                          "config": "",
+                          "date_created": "2026-09-11T15:00:00+00:00",
+                          "date_updated": "2026-09-11T15:00:00+00:00"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        },
+        "operationId": "list-kubernetes-cluster-applications",
+        "description": "Returns the application deployments associated with the specified VKE cluster.",
+        "security": [
+          {
+            "API Key": []
+          }
+        ]
+      }
+    },
+    "/kubernetes/clusters/{vke-id}/applications/{application-id}": {
+      "get": {
+        "summary": "Get Kubernetes Application for Cluster",
+        "tags": [
+          "kubernetes"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "name": "vke-id",
+            "in": "path",
+            "required": true,
+            "description": "The VKE ID."
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "name": "application-id",
+            "in": "path",
+            "required": true,
+            "description": "The AppDeployment ID."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "app_deployment": {
+                      "$ref": "#/components/schemas/app-deployment"
+                    }
+                  }
+                },
+                "examples": {
+                  "example response": {
+                    "value": {
+                      "app_deployment": {
+                        "id": "9a8ca6e2-e77f-4b07-8fd7-aefc6c41cecc",
+                        "app_id": "8cf93f5f-875e-4aea-8a84-ec2dd592b5ae",
+                        "app_name": "Bitnami NGINX",
+                        "version": "18.1.5",
+                        "status": "active",
+                        "timeout": "60m",
+                        "config": "replicaCount: 2",
+                        "created_at": "2026-09-10T14:00:00+00:00",
+                        "updated_at": "2026-09-10T14:00:00+00:00"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        },
+        "operationId": "get-kubernetes-cluster-application",
+        "description": "Returns a specific application deployment for the specified VKE cluster.",
+        "security": [
+          {
+            "API Key": []
+          }
+        ]
+      },
+      "delete": {
+        "summary": "Delete Kubernetes Application from Cluster",
+        "tags": [
+          "kubernetes"
+        ],
+        "parameters": [
+          {
+            "schema": null,
+            "type": "string",
+            "name": "vke-id",
+            "in": "path",
+            "required": true,
+            "description": "The VKE ID."
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "name": "application-id",
+            "in": "path",
+            "required": true,
+            "description": "The AppDeployment ID."
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        },
+        "operationId": "delete-kubernetes-cluster-application",
+        "description": "Starts the uninstall flow for an application deployment on the specified VKE cluster.",
+        "security": [
+          {
+            "API Key": []
+          }
+        ]
+      }
+    },
+    "/kubernetes/clusters/{vke-id}/applications/{application-id}/upgrade": {
+      "post": {
+        "summary": "Upgrade Kubernetes Application for Cluster",
+        "tags": [
+          "kubernetes"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "name": "vke-id",
+            "in": "path",
+            "required": true,
+            "description": "The VKE ID."
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "name": "application-id",
+            "in": "path",
+            "required": true,
+            "description": "The AppDeployment ID."
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        },
+        "operationId": "upgrade-kubernetes-cluster-application",
+        "description": "Starts an upgrade of the application deployment to the latest version defined by its catalog VKE application.",
         "security": [
           {
             "API Key": []
@@ -29066,6 +30204,196 @@
         "description": "Updates an advanced configuration option for the Managed Database (MySQL, PostgreSQL, and Kafka engine types only)."
       }
     },
+    "/databases/{database-id}/advanced-options/pgbouncer": {
+      "parameters": [
+        {
+          "schema": {
+            "type": "string"
+          },
+          "name": "database-id",
+          "in": "path",
+          "required": true,
+          "description": "The [Managed Database ID](#operation/list-databases)."
+        }
+      ],
+      "get": {
+        "summary": "List PostgreSQL PGBouncer Advanced Options",
+        "tags": [
+          "managed-databases"
+        ],
+        "x-codeSamples": [
+          {
+            "lang": "Curl",
+            "source": "curl \"https://api.vultr.com/v2/databases/{database-id}/advanced-options/pgbouncer\" \\\n  -X GET \\\n  -H \"Authorization: Bearer ${VULTR_API_KEY}\""
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "configured_options": {
+                      "type": "object"
+                    },
+                    "available_options": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/dbaas-available-options"
+                      }
+                    }
+                  }
+                },
+                "examples": {
+                  "advanced_options": {
+                    "value": {
+                      "configured_options": {
+                        "autodb_idle_timeout": 3600,
+                        "max_prepared_statements": 100
+                      },
+                      "available_options": [
+                        {
+                          "name": "server_reset_query_always",
+                          "type": "bool"
+                        },
+                        {
+                          "name": "server_login_retry",
+                          "type": "int",
+                          "min_value": 1,
+                          "max_value": 86400,
+                          "unit": "seconds"
+                        },
+                        "..."
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        },
+        "operationId": "list-advanced-options-pgbouncer",
+        "description": "List all configured and available PostgreSQL PGBouncer advanced options for the Managed Database.",
+        "security": [
+          {
+            "API Key": []
+          }
+        ]
+      },
+      "put": {
+        "summary": "Update PostgreSQL PGBouncer Advanced Options",
+        "tags": [
+          "managed-databases"
+        ],
+        "x-codeSamples": [
+          {
+            "lang": "Curl",
+            "source": "curl \"https://api.vultr.com/v2/databases/{database-id}/advanced-options/pgbouncer\" \\\n  -X PUT \\\n  -H \"Authorization: Bearer ${VULTR_API_KEY}\" \\\n  -H \"Content-Type: application/json\" \\\n  --data '{\n    \"autodb_idle_timeout\" : \"3600\",\n    \"max_prepared_statements\" : \"100\"\n  }'"
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "configured_options": {
+                      "type": "object"
+                    },
+                    "available_options": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/dbaas-available-options"
+                      }
+                    }
+                  }
+                },
+                "examples": {
+                  "advanced_options": {
+                    "value": {
+                      "configured_options": {
+                        "autodb_idle_timeout": "3600",
+                        "max_prepared_statements": "100"
+                      },
+                      "available_options": [
+                        {
+                          "name": "server_reset_query_always",
+                          "type": "bool"
+                        },
+                        {
+                          "name": "server_idle_timeout",
+                          "type": "int",
+                          "min_value": 0,
+                          "max_value": 86400,
+                          "unit": "seconds"
+                        },
+                        "..."
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error"
+          }
+        },
+        "operationId": "update-advanced-options-pgbouncer",
+        "security": [
+          {
+            "API Key": []
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/pgbouncer-advanced-options"
+              },
+              "examples": {
+                "request": {
+                  "value": {
+                    "autodb_idle_timeout": "3600",
+                    "max_prepared_statements": "100"
+                  }
+                }
+              }
+            }
+          },
+          "description": "Include a JSON object in the request body with a content type of **application/json**."
+        },
+        "description": "Updates a PostgreSQL PGBouncer advanced configuration option for the Managed Database."
+      }
+    },
     "/databases/{database-id}/advanced-options/kafka-rest": {
       "parameters": [
         {
@@ -32704,6 +34032,24 @@
         ],
         "description": "List All Container Registry Subscriptions for this account",
         "operationId": "list-registries",
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "per_page",
+            "description": "Number of items requested per page. Default is 10 and Max is 500.\n"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "cursor",
+            "description": "Cursor for paging. See [Meta and Pagination](#section/Introduction/Meta-and-Pagination)."
+          }
+        ],
         "security": [
           {
             "API Key": []
@@ -33001,6 +34347,22 @@
         "parameters": [
           {
             "$ref": "#/components/parameters/registry-id"
+          },
+          {
+            "schema": {
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "per_page",
+            "description": "Number of items requested per page. Default is 10 and Max is 100.\n"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "cursor",
+            "description": "Cursor for paging. See [Meta and Pagination](#section/Introduction/Meta-and-Pagination)."
           }
         ],
         "responses": {
@@ -33720,6 +35082,22 @@
         "parameters": [
           {
             "$ref": "#/components/parameters/registry-id"
+          },
+          {
+            "schema": {
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "per_page",
+            "description": "Number of items requested per page. Default is 10 and Max is 100.\n"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "cursor",
+            "description": "Cursor for paging. See [Meta and Pagination](#section/Introduction/Meta-and-Pagination)."
           }
         ],
         "responses": {
@@ -34136,6 +35514,22 @@
         "parameters": [
           {
             "$ref": "#/components/parameters/registry-id"
+          },
+          {
+            "schema": {
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "per_page",
+            "description": "Number of items requested per page. Default is 10 and Max is 100.\n"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "cursor",
+            "description": "Cursor for paging. See [Meta and Pagination](#section/Introduction/Meta-and-Pagination)."
           }
         ],
         "responses": {
@@ -34380,6 +35774,22 @@
           },
           {
             "$ref": "#/components/parameters/repository-image"
+          },
+          {
+            "schema": {
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "per_page",
+            "description": "Number of items requested per page. Default is 10 and Max is 100.\n"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "cursor",
+            "description": "Cursor for paging. See [Meta and Pagination](#section/Introduction/Meta-and-Pagination)."
           }
         ],
         "responses": {
@@ -34712,6 +36122,48 @@
         "security": [
           {
             "API Key": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "subject",
+            "description": "Filter by ticket subject. Performs an exact match search."
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "sub_uuid",
+            "description": "Filter by associated subscription's UUID."
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "sub_status",
+            "description": "Filter by associated subscription's status.\n\n| Value | Description |\n| - | ----------- |\n| pending | Pending subscription |\n| active | Active subscription |\n| suspended | Suspended subscription |\n| closed | Closed subscription |"
+          },
+          {
+            "schema": {
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "per_page",
+            "description": "Number of items requested per page. Default is 100 and Max is 500."
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "cursor",
+            "description": "Cursor for paging. See [Meta and Pagination](#section/Introduction/Meta-and-Pagination)."
           }
         ]
       },
@@ -35371,6 +36823,22 @@
             "in": "path",
             "required": true,
             "description": "The [reference](#operation/list-tickets)."
+          },
+          {
+            "schema": {
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "per_page",
+            "description": "Number of items requested per page. Default is 100 and Max is 500."
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "cursor",
+            "description": "Cursor for paging. See [Meta and Pagination](#section/Introduction/Meta-and-Pagination)."
           }
         ],
         "responses": {
@@ -35386,6 +36854,9 @@
                       "items": {
                         "$ref": "#/components/schemas/reply"
                       }
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/meta"
                     }
                   }
                 },
@@ -35414,7 +36885,14 @@
                           "review_rating": 10,
                           "reviewable": 0
                         }
-                      ]
+                      ],
+                      "meta": {
+                        "total": 1,
+                        "links": {
+                          "next": "",
+                          "prev": ""
+                        }
+                      }
                     }
                   }
                 }
@@ -43798,6 +45276,7 @@
                           "date_created": "2026-01-15T10:30:00+00:00",
                           "cluster_type": "fabric",
                           "type": "cluster",
+                          "instance_template_id": "98765432-10ab-cdef-1234-567890abcdef",
                           "head_node_instance_template_id": "98765432-10ab-cdef-1234-567890abcdef",
                           "instances": [
                             {
@@ -43906,7 +45385,8 @@
                         "state": "provisioning",
                         "date_created": "2026-01-15T10:30:00+00:00",
                         "cluster_type": "fabric",
-                        "type": "cluster"
+                        "type": "cluster",
+                        "instance_template_id": "98765432-10ab-cdef-1234-567890abcdef"
                       }
                     }
                   }
@@ -44374,7 +45854,16 @@
                             "date_created": "2026-01-15T10:32:00+00:00",
                             "status": "active",
                             "ip_address": "192.0.2.10",
-                            "hostname": "my-cluster-1"
+                            "hostname": "my-cluster-1",
+                            "block_storage": [
+                              {
+                                "id": "1e3d0b8a-9c2f-4a7b-8d5e-6f0a1b2c3d4e",
+                                "label": "node-data-vol",
+                                "status": "active",
+                                "size_gb": 100,
+                                "bootable": false
+                              }
+                            ]
                           },
                           {
                             "id": "dc787b57-77fe-5ecc-c940-554f3f7d1c71",
@@ -44383,7 +45872,8 @@
                             "status": "active",
                             "ip_address": "192.0.2.11",
                             "hostname": "my-cluster-2",
-                            "is_head_node": true
+                            "is_head_node": true,
+                            "block_storage": []
                           }
                         ],
                         "vpc_networks": [
@@ -45731,6 +47221,42 @@
       }
     },
     "schemas": {
+      "software-license": {
+        "title": "software-license",
+        "type": "object",
+        "x-tags": [
+          "instances",
+          "baremetal"
+        ],
+        "description": "Software license information attached to an Instance or Bare Metal instance.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "A unique ID for the software license."
+          },
+          "license": {
+            "type": "string",
+            "description": "The name of the software license."
+          },
+          "price": {
+            "type": "number",
+            "format": "float",
+            "description": "The monthly price of the software license in USD."
+          },
+          "tier_current": {
+            "type": "string",
+            "description": "The current usage tier for the license (e.g. \"1 Account\") if applicable. Otherwise blank."
+          },
+          "tier_maximum": {
+            "type": "string",
+            "description": "The maximum usage tier for the license this billing period (e.g. \"100 Accounts\") if applicable. Otherwise blank."
+          },
+          "instance_id": {
+            "type": "string",
+            "description": "The [Compute Instance id](#operation/list-instances) or [Bare Metal Instance id](#operation/list-baremetals) this software license is attached to."
+          }
+        }
+      },
       "iam-policy": {
         "type": "object",
         "properties": {
@@ -47205,6 +48731,119 @@
           "balance": {
             "type": "number",
             "description": "Account balance amount in dollars"
+          }
+        }
+      },
+      "vke-app": {
+        "title": "vke-app",
+        "type": "object",
+        "x-tags": [
+          "kubernetes"
+        ],
+        "description": "VKE application available for deployment.",
+        "x-examples": {
+          "example vke application": {
+            "id": "8cf93f5f-875e-4aea-8a84-ec2dd592b5ae",
+            "name": "Bitnami NGINX",
+            "description": "Bitnami NGINX",
+            "url": "https://example.com/nginx",
+            "icon_url": "http://local.www.vultr.com/marketplace-assets-dev/default-icon.png",
+            "version": "18.1.5",
+            "date_created": "2024-05-07T12:07:58+00:00",
+            "date_updated": "2026-07-16T13:21:16+00:00"
+          }
+        },
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "UUID of the catalog VKE application."
+          },
+          "name": {
+            "type": "string",
+            "description": "Name of the catalog VKE application."
+          },
+          "description": {
+            "type": "string",
+            "description": "Description of the catalog VKE application."
+          },
+          "url": {
+            "type": "string",
+            "description": "Homepage URL for the VKE application."
+          },
+          "icon_url": {
+            "type": "string",
+            "description": "URL for the VKE application icon. Uses the marketplace default icon when no custom icon is configured."
+          },
+          "version": {
+            "type": "string",
+            "description": "Current Helm chart version defined for the catalog VKE application."
+          },
+          "date_created": {
+            "type": "string",
+            "description": "Date and time the catalog VKE application was created."
+          },
+          "date_updated": {
+            "type": "string",
+            "description": "Date and time the catalog VKE application was last updated."
+          }
+        }
+      },
+      "app-deployment": {
+        "title": "app-deployment",
+        "type": "object",
+        "x-tags": [
+          "kubernetes"
+        ],
+        "description": "VKE application deployment on a Kubernetes cluster.",
+        "x-examples": {
+          "example application deployment": {
+            "id": "9a8ca6e2-e77f-4b07-8fd7-aefc6c41cecc",
+            "app_id": "8cf93f5f-875e-4aea-8a84-ec2dd592b5ae",
+            "app_name": "Bitnami NGINX",
+            "version": "18.1.5",
+            "status": "active",
+            "timeout": "60m",
+            "config": "toolkit: \n enabled: false\ndriver:\n enabled: false\noperator: \n defaultRuntime: containerd\nplatform:\n openshift: false\nnfd: \n enabled: true\nmigManager: \n enabled: true",
+            "date_created": "2026-08-20T15:30:00+00:00",
+            "date_updated": "2026-09-01T12:00:00+00:00"
+          }
+        },
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "UUID of this application deployment on the VKE cluster."
+          },
+          "app_id": {
+            "type": "string",
+            "description": "UUID of the catalog VKE application linked to this deployment."
+          },
+          "app_name": {
+            "type": "string",
+            "description": "Name of the catalog VKE application linked to this deployment."
+          },
+          "version": {
+            "type": "string",
+            "description": "Helm chart version tracked for this application deployment."
+          },
+          "status": {
+            "type": "string",
+            "description": "Current lifecycle status of the application deployment.\n\n* pending_install\n* deploying_install\n* active\n* pending_upgrade\n* deploying_upgrade\n* pending_uninstall\n* deploying_uninstall\n* inactive"
+          },
+          "timeout": {
+            "type": "string",
+            "description": "Timeout configured for operations on this application deployment."
+          },
+          "config": {
+            "type": "string",
+            "description": "Helm values used by this application deployment. Custom config is stored here when provided; otherwise the catalog application defaults are used."
+          },
+          "date_created": {
+            "type": "string",
+            "description": "Date and time the application deployment was created."
+          },
+          "date_updated": {
+            "type": "string",
+            "description": "Date and time the application deployment was last updated."
           }
         }
       },
@@ -48815,6 +50454,7 @@
               "attached_to_instance": "742c9913-d088-4d67-bc61-5a10e922fbd1",
               "attached_to_instance_ip": "",
               "attached_to_instance_label": "",
+              "attached_to_instance_as_bd": false,
               "label": "Example Block Storage",
               "mount_id": "ewr-example112233",
               "block_type": "high_perf",
@@ -48844,7 +50484,7 @@
           },
           "status": {
             "type": "string",
-            "description": "The current status of this Block Storage.\n\n* active"
+            "description": "The current status of this Block Storage.\n* `active`"
           },
           "size_gb": {
             "type": "integer",
@@ -48865,6 +50505,10 @@
           "attached_to_instance_label": {
             "type": "string",
             "description": "The attached instance label."
+          },
+          "attached_to_instance_as_bd": {
+            "type": "boolean",
+            "description": "Indicates whether the block storage is configured as the boot device for the attached instance."
           },
           "label": {
             "type": "string",
@@ -48921,9 +50565,13 @@
             "type": "string",
             "description": "The ID of its source Block Storage subscription."
           },
+          "description": {
+            "type": "string",
+            "description": "Descriptive label for the snapshot."
+          },
           "state": {
             "type": "string",
-            "description": "The current state of the Block Storage Snapshot.\n\n* COMPLETE\n* PENDING\n* FAILED"
+            "description": "The current state of the Block Storage Snapshot.\n* `COMPLETE`\n* `PENDING`\n* `FAILED`"
           },
           "added_at": {
             "type": "string",
@@ -48933,17 +50581,25 @@
             "type": "string",
             "description": "The date this Block Storage Snapshot was updated."
           },
+          "size": {
+            "type": "integer",
+            "description": "Size of the Block Storage Snapshot in Bytes."
+          },
           "next_invoice_date": {
             "type": "string",
             "description": "The date of the next billing invoice."
           },
           "next_invoice_price": {
             "type": "string",
-            "description": "The cost of the next billing invoice"
+            "description": "The cost of the next billing invoice."
           },
-          "size": {
-            "type": "integer",
-            "description": "Size of the Block Storage Snapshot in Bytes."
+          "region": {
+            "type": "string",
+            "description": "The [Region id](#operation/list-regions) where the Block Storage is located."
+          },
+          "block_type": {
+            "type": "string",
+            "description": "The subscription tier of the block storage volume.\n* `high_perf` from 10GB to 10,000GB\n* `storage_opt` from 40GB to 40,000GB"
           }
         }
       },
@@ -49153,7 +50809,6 @@
         "tags": [
           "storage-gateways"
         ],
-        "x-examples": "TODO",
         "description": "Storage Gateway information",
         "properties": {
           "id": {
@@ -49195,13 +50850,6 @@
           "health": {
             "type": "string",
             "description": "Quick reference variable to ensure your gateway is running."
-          },
-          "network_config": {
-            "$ref": "#/components/schemas/storage-gateway-network"
-          },
-          "export_config": {
-            "type": "array",
-            "$ref": "#/components/schemas/storage-gateway-export"
           }
         }
       },
@@ -49217,21 +50865,39 @@
               "vpc": {
                 "type": "object",
                 "properties": {
-                  "vpc_ip_address": {
-                    "type": "string",
-                    "description": "VPC IP address assigned to the Storage Gateway."
-                  },
                   "vpc_uuid": {
                     "type": "string",
-                    "description": "Optional uuid of vfs to provision address from"
-                  },
-                  "vpc_description": {
-                    "type": "string",
-                    "description": "Assigned VPC's description."
+                    "description": "VPC to use with this Storage Gateway"
                   }
                 }
               }
             }
+          }
+        }
+      },
+      "storage-gateway-network-config": {
+        "type": "object",
+        "tags": [
+          "storage-gateways"
+        ],
+        "properties": {
+          "public_ips": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "vpc_ip_address": {
+            "type": "string",
+            "description": "VPC IP address assigned to the Storage Gateway."
+          },
+          "vpc_uuid": {
+            "type": "string",
+            "description": "Assigned VPC's uuid"
+          },
+          "vpc_description": {
+            "type": "string",
+            "description": "Assigned VPC's description."
           }
         }
       },
@@ -49243,15 +50909,46 @@
         "properties": {
           "label": {
             "type": "string",
-            "description": "A meaningful name for this export"
-          },
-          "vfs_uuid": {
-            "type": "string",
-            "description": "Associated VFS uuid"
+            "description": "A meaningful name for this export."
           },
           "pseudo_root_path": {
             "type": "string",
-            "description": "Pseudo root path"
+            "description": "Pseudo root path."
+          },
+          "vfs_uuid": {
+            "type": "string",
+            "description": "Associated VFS uuid."
+          },
+          "allowed_ips": {
+            "type": "array",
+            "description": "List of IP addresses or IP address subnets with CIDR notation that should\nhave access to this Storage Gateway. For details on CIDR notation see\n[https://www.vultr.com/resources/subnet-calculator/](https://www.vultr.com/resources/subnet-calculator/).",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "storage-gateway-export-config": {
+        "type": "object",
+        "tags": [
+          "storage-gateways"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "ID of the export."
+          },
+          "name": {
+            "type": "string",
+            "description": "A meaningful name for this export."
+          },
+          "pseudo_root_path": {
+            "type": "string",
+            "description": "Pseudo root path."
+          },
+          "vfs_uuid": {
+            "type": "string",
+            "description": "Associated VFS uuid."
           },
           "allowed_ips": {
             "type": "array",
@@ -49779,7 +51476,7 @@
             "ipv6": "2001:0db8:6374:dc29:ffff:ffff:ffff:ffff",
             "generic_info": {
               "balancing_algorithm": "roundrobin",
-              "ssl_redirect": true,
+              "ssl_redirect": false,
               "sticky_sessions": {
                 "cookie_name": "example-cookie"
               },
@@ -49799,12 +51496,12 @@
             },
             "has_ssl": true,
             "nodes": 1,
-            "forward_rules": [
+            "forwarding_rules": [
               {
                 "id": "73d85156c2c3129d",
                 "frontend_protocol": "http",
                 "frontend_port": 80,
-                "backend_portocol": "http",
+                "backend_protocol": "http",
                 "backend_port": 80
               }
             ],
@@ -49840,7 +51537,7 @@
           },
           "status": {
             "type": "string",
-            "description": "The current status.\n\n* active"
+            "description": "The current status.\n\n* pending\n* active\n* suspended"
           },
           "ipv4": {
             "type": "string",
@@ -49860,11 +51557,11 @@
               },
               "ssl_redirect": {
                 "type": "boolean",
-                "description": "If `true`, this will redirect all HTTP traffic to HTTPS. You must have an HTTPS rule and SSL certificate installed on the load balancer to enable this option.\n\n* true\n* false"
+                "description": "If `true`, this will redirect all HTTP traffic to HTTPS. You must have an HTTPS rule and SSL certificate installed on the load balancer to enable this option. Removing the last HTTPS forwarding rule or the certificate turns it back off.\n\n* true\n* false"
               },
               "sticky_sessions": {
                 "type": "object",
-                "description": "Array of sticky session cookies.",
+                "description": "The sticky session settings. Empty `cookie_name` means sticky sessions are off.",
                 "properties": {
                   "cookie_name": {
                     "type": "string",
@@ -49882,7 +51579,7 @@
               },
               "private_network": {
                 "type": "string",
-                "description": "Use `vpc` instead. ID of the private network you wish to use. If private_network is omitted it will default to the public network.",
+                "description": "Use `vpc` instead. Always the same value as `vpc`.",
                 "deprecated": true
               },
               "vpc": {
@@ -49897,7 +51594,7 @@
             "properties": {
               "protocol": {
                 "type": "string",
-                "description": "The protocol to use for health checks.\n\n* HTTPS\n* HTTP\n* TCP"
+                "description": "The protocol to use for health checks.\n\n* https\n* http\n* tcp"
               },
               "port": {
                 "type": "integer",
@@ -49905,7 +51602,7 @@
               },
               "path": {
                 "type": "string",
-                "description": "HTTP Path to check. Only applies if Protocol is HTTP or HTTPS."
+                "description": "HTTP Path to check. Only applies if protocol is `http` or `https`."
               },
               "check_interval": {
                 "type": "integer",
@@ -49917,7 +51614,7 @@
               },
               "unhealthy_threshold": {
                 "type": "integer",
-                "description": "Number times a check must fail before becoming unhealthy."
+                "description": "Number of times a check must fail before becoming unhealthy."
               },
               "healthy_threshold": {
                 "type": "integer",
@@ -49941,7 +51638,7 @@
             "type": "integer",
             "description": "The number of nodes to add to the load balancer (1-99), must be an odd number. This defaults to 1."
           },
-          "forward_rules": {
+          "forwarding_rules": {
             "type": "array",
             "description": "An array of forwarding rule objects.",
             "items": {
@@ -49954,15 +51651,15 @@
                 },
                 "frontend_protocol": {
                   "type": "string",
-                  "description": "The protocol on the Load Balancer to forward to the backend.\n\n* HTTP\n* HTTPS\n* TCP\n* UDP"
+                  "description": "The protocol on the Load Balancer to forward to the backend.\n\n* http\n* https\n* tcp\n* udp"
                 },
                 "frontend_port": {
                   "type": "integer",
                   "description": "The port number on the Load Balancer to forward to the backend."
                 },
-                "backend_portocol": {
+                "backend_protocol": {
                   "type": "string",
-                  "description": "The protocol destination on the backend server.\n\n* HTTP\n* HTTPS\n* TCP\n* UDP"
+                  "description": "The protocol destination on the backend server.\n\n* http\n* https\n* tcp\n* udp"
                 },
                 "backend_port": {
                   "type": "integer",
@@ -50082,8 +51779,12 @@
             "description": "Base64 encoded ssl certificate, private key, and chain"
           },
           "pending_charges": {
-            "type": "integer",
+            "type": "number",
             "description": "Pending charges for the current billing period"
+          },
+          "is_vke": {
+            "type": "boolean",
+            "description": "`true` if this Load Balancer is managed by a [Kubernetes cluster](#tag/kubernetes). Make changes through the cluster. Updating it, removing its SSL or Auto SSL, and adding or deleting forwarding or firewall rules return `422`."
           },
           "cname": {
             "type": "string",
@@ -50766,7 +52467,7 @@
           },
           "v6_network": {
             "type": "string",
-            "description": "The IPv6 network size in bits."
+            "description": "The IPv6 subnet."
           },
           "v6_main_ip": {
             "type": "string",
@@ -50774,7 +52475,7 @@
           },
           "v6_network_size": {
             "type": "integer",
-            "description": "The IPv6 subnet."
+            "description": "The IPv6 network size in bits."
           },
           "mac_address": {
             "type": "integer",
@@ -50790,6 +52491,14 @@
           "user_scheme": {
             "type": "string",
             "description": "The user scheme.\n\n* root\n* limited"
+          },
+          "hostname": {
+            "type": "string",
+            "description": "The hostname for this Bare Metal instance."
+          },
+          "vserial": {
+            "type": "string",
+            "description": "The vSerial SSH destination (user@host) for accessing the bare metal server's serial console remotely. Use with `ssh -i {private-key} {vserial}`."
           }
         }
       },
@@ -50895,7 +52604,7 @@
           },
           "v6_network": {
             "type": "string",
-            "description": "The IPv6 network size in bits."
+            "description": "The IPv6 subnet."
           },
           "v6_main_ip": {
             "type": "string",
@@ -50903,7 +52612,7 @@
           },
           "v6_network_size": {
             "type": "integer",
-            "description": "The IPv6 subnet."
+            "description": "The IPv6 network size in bits."
           },
           "mac_address": {
             "type": "integer",
@@ -50919,6 +52628,14 @@
           "user_scheme": {
             "type": "string",
             "description": "The user scheme.\n\n* root\n* limited"
+          },
+          "hostname": {
+            "type": "string",
+            "description": "The hostname for this Bare Metal instance."
+          },
+          "vserial": {
+            "type": "string",
+            "description": "The vSerial SSH destination (user@host) for accessing the bare metal server's serial console remotely. Use with `ssh -i {private-key} {vserial}`."
           }
         }
       },
@@ -51080,27 +52797,17 @@
             "type": "string",
             "description": "The gateway IP address."
           },
-          "v6_networks": {
-            "type": "array",
-            "description": "An array of IPv6 objects.",
-            "items": {
-              "type": "object",
-              "description": "An IPv6 object.",
-              "properties": {
-                "network": {
-                  "type": "string",
-                  "description": "The IPv6 subnet."
-                },
-                "main_ip": {
-                  "type": "string",
-                  "description": "The main IPv6 network address."
-                },
-                "network_size": {
-                  "description": "The IPv6 network size in bits.",
-                  "type": "integer"
-                }
-              }
-            }
+          "v6_network": {
+            "type": "string",
+            "description": "The IPv6 subnet."
+          },
+          "v6_main_ip": {
+            "type": "string",
+            "description": "The main IPv6 network address."
+          },
+          "v6_network_size": {
+            "type": "integer",
+            "description": "The IPv6 network size in bits."
           },
           "hostname": {
             "type": "string",
@@ -51168,6 +52875,10 @@
           "user_scheme": {
             "type": "string",
             "description": "The user scheme.\n\n* root\n* limited"
+          },
+          "vke_cluster_id": {
+            "type": "string",
+            "description": "The [VKE Cluster id](#operation/get-kubernetes-clusters) this instance belongs to. Empty string if the instance is not part of a VKE cluster."
           }
         }
       },
@@ -51240,27 +52951,17 @@
             "type": "string",
             "description": "The gateway IP address."
           },
-          "v6_networks": {
-            "type": "array",
-            "description": "An array of IPv6 objects.",
-            "items": {
-              "type": "object",
-              "description": "An IPv6 object.",
-              "properties": {
-                "network": {
-                  "type": "string",
-                  "description": "The IPv6 subnet."
-                },
-                "main_ip": {
-                  "type": "string",
-                  "description": "The main IPv6 network address."
-                },
-                "network_size": {
-                  "description": "The IPv6 network size in bits.",
-                  "type": "integer"
-                }
-              }
-            }
+          "v6_network": {
+            "type": "string",
+            "description": "The IPv6 subnet."
+          },
+          "v6_main_ip": {
+            "type": "string",
+            "description": "The main IPv6 network address."
+          },
+          "v6_network_size": {
+            "type": "integer",
+            "description": "The IPv6 network size in bits."
           },
           "hostname": {
             "type": "string",
@@ -51289,6 +52990,14 @@
             "items": {
               "$ref": "#/components/schemas/attached-vpcs"
             }
+          },
+          "enable_memorybacking": {
+            "type": "string",
+            "description": "The memory backing used for the instance. Shared memory backing is required to attach Vultr File System (VFS) shares.",
+            "enum": [
+              "none",
+              "shared"
+            ]
           },
           "kvm": {
             "type": "string",
@@ -51335,6 +53044,10 @@
           "user_scheme": {
             "type": "string",
             "description": "The user scheme.\n\n* root\n* limited"
+          },
+          "vke_cluster_id": {
+            "type": "string",
+            "description": "The [VKE Cluster id](#operation/get-kubernetes-clusters) this instance belongs to. Empty string if the instance is not part of a VKE cluster."
           }
         }
       },
@@ -52471,6 +54184,65 @@
           "wal_writer_delay": {
             "type": "integer",
             "description": "Accepted values: 10 - 200"
+          }
+        }
+      },
+      "pgbouncer-advanced-options": {
+        "title": "pgbouncer-advanced-options",
+        "type": "object",
+        "x-tags": [
+          "database-pgbouncer-advanced-options"
+        ],
+        "description": "Managed Database PostgreSQL PGBouncer Advanced Options",
+        "x-examples": {},
+        "properties": {
+          "autodb_idle_timeout": {
+            "type": "integer",
+            "description": "Accepted values: 0 - 86400"
+          },
+          "autodb_max_db_connections": {
+            "type": "integer",
+            "description": "Accepted values: 0 - 2147483647"
+          },
+          "autodb_pool_mode": {
+            "type": "string",
+            "description": "PGBouncer pool mode"
+          },
+          "autodb_pool_size": {
+            "type": "integer",
+            "description": "Accepted values: 0 - 10000"
+          },
+          "ignore_startup_parameters": {
+            "type": "array",
+            "description": "List of parameters to ignore when given in startup packet"
+          },
+          "max_prepared_statements": {
+            "type": "integer",
+            "description": "Accepted values: 0 - 3000"
+          },
+          "min_pool_size": {
+            "type": "integer",
+            "description": "Accepted values: 0 - 10000"
+          },
+          "server_connect_timeout": {
+            "type": "integer",
+            "description": "Accepted values: 1 - 86400"
+          },
+          "server_idle_timeout": {
+            "type": "integer",
+            "description": "Accepted values: 0 - 86400"
+          },
+          "server_lifetime": {
+            "type": "integer",
+            "description": "Accepted values: 60 - 86400"
+          },
+          "server_login_retry": {
+            "type": "integer",
+            "description": "Accepted values: 1 - 86400"
+          },
+          "server_reset_query_always": {
+            "type": "bool",
+            "description": "Run server_reset_query (DISCARD ALL) in all pooling modes"
           }
         }
       },
@@ -53736,7 +55508,7 @@
         "description": "Forwarding Rule information.",
         "x-examples": {
           "forwarding rules": {
-            "id": "cb676a46-66fd-4dfb-b839-443f2e6c0b60",
+            "id": "73d85156c2c3129d",
             "frontend_protocol": "http",
             "frontend_port": 80,
             "backend_protocol": "http",
@@ -53750,7 +55522,7 @@
           },
           "frontend_protocol": {
             "type": "string",
-            "description": "The protocol on the Load Balancer to forward to the backend.\n\n* HTTP\n* HTTPS\n* TCP\n* UDP"
+            "description": "The protocol on the Load Balancer to forward to the backend.\n\n* http\n* https\n* tcp\n* udp"
           },
           "frontend_port": {
             "type": "integer",
@@ -53758,7 +55530,7 @@
           },
           "backend_protocol": {
             "type": "string",
-            "description": "The protocol destination on the backend server.\n\n* HTTP\n* HTTPS\n* TCP\n* UDP"
+            "description": "The protocol destination on the backend server.\n\n* http\n* https\n* tcp\n* udp"
           },
           "backend_port": {
             "type": "integer",
@@ -53851,7 +55623,7 @@
           },
           "name": {
             "type": "string",
-            "description": "The globally unique name to reference this registry"
+            "description": "The globally unique name to reference this registry. Must be lowercase alphanumeric characters only."
           },
           "urn": {
             "type": "string",
@@ -54774,6 +56546,10 @@
             "type": "string",
             "description": "Current operational state of the cluster."
           },
+          "instance_template_id": {
+            "type": "string",
+            "description": "UUID of the instance template backing the cluster's compute nodes. Returned by List, Create, and Update responses; [Get Cluster](#operation/get-cluster) replaces it with the full `instance_template` object."
+          },
           "instance_template": {
             "$ref": "#/components/schemas/instance-template"
           },
@@ -54871,6 +56647,35 @@
           "is_head_node": {
             "type": "boolean",
             "description": "Present and `true` when the instance is the cluster's head node."
+          },
+          "block_storage": {
+            "type": "array",
+            "description": "Block storage volumes attached to the instance. Only returned by [Get Cluster](#operation/get-cluster); omitted on list and update responses.\n\nIncludes boot volumes; excludes detached volumes. Empty when the instance has no attached volumes. Always empty for bare metal instances, which cannot attach block storage.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "description": "UUID of the block storage volume."
+                },
+                "label": {
+                  "type": "string",
+                  "description": "Label of the block storage volume."
+                },
+                "status": {
+                  "type": "string",
+                  "description": "Subscription status of the block storage volume (e.g. `active`, `suspended`)."
+                },
+                "size_gb": {
+                  "type": "integer",
+                  "description": "Size of the volume in GB."
+                },
+                "bootable": {
+                  "type": "boolean",
+                  "description": "Whether the volume is bootable."
+                }
+              }
+            }
           }
         }
       },
@@ -55645,6 +57450,11 @@
       "name": "serverless-inference",
       "x-displayName": "Serverless Inference",
       "description": "[Vultr Serverless Inference](https://www.vultr.com/products/cloud-inference/) intelligently deploys and serves GenAI models without the complexity of infrastructure management.\n"
+    },
+    {
+      "name": "software-licenses",
+      "x-displayName": "Software Licenses",
+      "description": "View software licenses attached to instances on your account.\n"
     },
     {
       "name": "tickets",

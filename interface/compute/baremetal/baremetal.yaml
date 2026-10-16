@@ -1,17 +1,11 @@
 product_area: baremetal
 family: compute
 
-# The baremetal area is split across this directory; every file here declares
-# the same product_area, and interface.yaml lists them together. The split
-# mirrors compute/instances/, because the two products answer the same shapes
-# of question.
+# One file of the baremetal area, which interface.yaml lists across this directory.
 
 # The server itself.
 
-# Its user data and VNC console are excluded here rather than in a file of
-# their own: they were the whole of configuration.yaml, and an area file
-# cannot be empty. Each returns something that grants access rather than
-# describes the server.
+# User data and the VNC console are excluded: each grants access rather than describing the server.
 
 excluded:
   get-bare-metal-vnc:
@@ -66,8 +60,7 @@ tools:
           type: string
           description: Vultr region ID, such as ewr.
 
-        # The API cannot filter on these, so the server does, which makes the
-        # call scan the account instead of fetching one page.
+        # Filtered here, which scans the account instead of fetching one page.
         label_contains:
           type: string
           description: >-
@@ -112,8 +105,7 @@ tools:
 
     output:
       from_openapi: true
-      # default_password is absent deliberately. Everything the agent can filter
-      # on is present, so it can see what it selected by.
+      # default_password is withheld.
       include:
         - id
         - label
@@ -176,11 +168,7 @@ tools:
 
     output:
       from_openapi: true
-      # A single server is cheap to return in full, so this keeps the network
-      # and image detail the list drops -- everything except default_password.
-      # Note the IPv6 fields here are the flat ones the API actually sends;
-      # the instance schema documents a v6_networks array instead and never
-      # sends it, which is a spec bug on that side rather than this one.
+      # Everything except default_password.
       include:
         - id
         - label

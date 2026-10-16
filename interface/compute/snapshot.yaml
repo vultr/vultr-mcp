@@ -1,15 +1,7 @@
 product_area: snapshot
 family: compute
 
-# Snapshots here are point-in-time images of an instance's own disk, taken on
-# demand. They live in the compute family deliberately: the other thing Vultr
-# calls a snapshot is a snapshot of a block storage volume, which is
-# vultr_storage_block_snapshots_* in block.yaml. One prefix apart, and each
-# description names the other.
-#
-# The neighbouring distinction is backups: those are the automatic ones Vultr
-# takes on a schedule, in backup.yaml. A snapshot is something a person asked
-# for; a backup is something that happened on a cadence.
+# On-demand images of an instance's disk; not block storage snapshots or scheduled backups.
 
 tools:
   - name: vultr_compute_snapshots_list

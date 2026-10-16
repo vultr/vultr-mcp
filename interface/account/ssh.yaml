@@ -1,10 +1,7 @@
 product_area: ssh
 family: account
 
-# `ssh_key` is the public half of the pair and is kept. Vultr never holds the
-# private key, so there is nothing here to withhold -- worth stating explicitly,
-# because "SSH key" reads like a credential and the reflex in this codebase is
-# to shape those out. The reflex is wrong in this one case.
+# `ssh_key` is the public half and is kept; Vultr never holds the private key.
 
 tools:
   - name: vultr_account_ssh_keys_list

@@ -1,9 +1,6 @@
 name: CI
 
-# The spec is the thing most likely to move under this repo, and it moves
-# because someone else shipped. Everything here is arranged so a spec update
-# produces a readable answer to "what changed and does it still work" rather
-# than a wall of failures.
+# Arranged so a spec update answers "what changed, and does it still work".
 on:
   push:
     branches: [main]
@@ -27,30 +24,20 @@ jobs:
       - name: Install dependencies
         run: uv sync --frozen
 
-      # Catches the big one: a spec whose defects stop FastMCP parsing it at
-      # all. The 2026-08-28 update did exactly that, via `"type": "int"`.
+      # Catches a spec FastMCP cannot parse at all.
       - name: Tests
         run: uv run pytest -q
 
-      # Fails when a definition references something the spec no longer has.
-      # Disabled tools report as warnings and do not fail.
+      # Fails when a definition references something the spec no longer has; disabled tools only warn.
       - name: Validate the interface layer
         run: uv run python -m vultr_mcp.interface
 
-      # Informational: what the spec grew that nobody has reviewed. A new
-      # endpoint upstream is news, not a build failure -- this exits non-zero
-      # only for a stale reference, which is breakage on our side.
+      # Informational: new operations nobody has reviewed; fails only on a stale reference.
       - name: Interface drift
         run: uv run python -m vultr_mcp.interface --drift
 
-  # Calls every compiled tool against a real API. This is the only check that
-  # can catch the spec being wrong about what the API returns, which is where
-  # every error found on 2026-08-28 came from -- a documented field that never
-  # arrives, an undocumented one that does.
-  #
-  # Skipped unless VULTR_API_KEY is configured, so forks and PRs from outside
-  # the org do not fail on a missing secret. Read-only: compiled tools carry an
-  # access the validator cross-checks against the HTTP method.
+  # Calls every compiled (read-only) tool against the real API, catching where the spec is wrong about responses.
+  # Skipped without VULTR_API_KEY, so forks do not fail on a missing secret.
   smoke:
     runs-on: ubuntu-latest
     needs: test

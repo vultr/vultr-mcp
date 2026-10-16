@@ -1,11 +1,9 @@
 product_area: kubernetes
 family: kubernetes
 
-# The kubernetes area is split across this directory; every file here declares
-# the same product_area, and interface.yaml lists them together.
+# One file of the kubernetes area, which interface.yaml lists across this directory.
 
-# The VKE cluster itself, its available upgrades, and the load balancers and
-# block storage it has created.
+# VKE clusters, their upgrades, and the load balancers and block storage they created.
 
 excluded:
   get-kubernetes-clusters-config:
@@ -46,9 +44,7 @@ tools:
     input:
       type: object
       properties:
-        # GET /kubernetes/clusters declares no parameters at all -- not even
-        # paging, which its siblings take -- so every search below is applied
-        # here against the fetched rows.
+        # Applied here, since GET /kubernetes/clusters takes no parameters.
         label:
           type: string
           description: Case-insensitive text contained in the cluster label.
@@ -189,8 +185,7 @@ tools:
             vultr_kubernetes_clusters_list.
           maps_to: vke-id
 
-    # No `output` block: available_upgrades is a bare array of version strings,
-    # so there are no item fields to allowlist against.
+    # No `output` block: a bare array of version strings.
 
   - name: vultr_kubernetes_clusters_resources_get
     access: read
