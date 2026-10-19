@@ -1,0 +1,57 @@
+product_area: software_licenses
+family: account
+
+# Paid licenses (such as Windows or cPanel) attached to instances and bare metal servers; `license` is the product name, not a key.
+
+tools:
+  - name: vultr_account_software_licenses_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the paid software licenses in the active Vultr organization, each
+      with the license name, its monthly price in USD, its current and maximum
+      usage tier, and the instance or bare metal server it is attached to.
+
+      Use this tool to report what software licensing costs, or which licenses
+      one server carries.
+
+      Do not use this tool for the operating system or application a server
+      runs, which vultr_compute_instances_get and vultr_compute_baremetal_get
+      return, or for the account's other charges, which
+      vultr_account_pending_charges_list returns.
+
+    operation: list-software-licenses
+
+    input:
+      type: object
+      properties:
+        instance_id:
+          type: string
+          description: >-
+            ID of an instance or bare metal server, to list only the licenses
+            attached to it.
+          maps_to: instance-id
+
+        page_size:
+          type: integer
+          description: Maximum number of results to return.
+          default: 100
+          minimum: 1
+          maximum: 500
+          maps_to: per_page
+
+        cursor:
+          type: string
+          description: Cursor returned by a previous request for the next page.
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - license
+        - price
+        - tier_current
+        - tier_maximum
+        - instance_id
+        - meta

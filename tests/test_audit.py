@@ -17,6 +17,12 @@ from fastmcp import Client, FastMCP
 from vultr_mcp.audit import AuditMiddleware, audit_enabled
 
 
+@pytest.fixture(autouse=True)
+def http_transport(monkeypatch):
+    """Records reach stdout only over HTTP; STDIO has its own test below."""
+    monkeypatch.setenv("VULTR_MCP_TRANSPORT", "http")
+
+
 @pytest.fixture
 def server():
     mcp = FastMCP("audit-test")
@@ -200,3 +206,27 @@ def test_no_directory_configured_means_stdout_only(tmp_path, monkeypatch, capsys
 
     assert list(tmp_path.iterdir()) == []
     assert '"vultr_account_get"' in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("transport", [None, "stdio", "STDIO"])
+async def test_stdio_writes_nothing_to_stdout(server, capsys, monkeypatch, tmp_path, transport):
+    """Over STDIO stdout is the JSON-RPC channel, so records go to stderr and the file is unchanged."""
+    if transport is None:
+        monkeypatch.delenv("VULTR_MCP_TRANSPORT", raising=False)
+    else:
+        monkeypatch.setenv("VULTR_MCP_TRANSPORT", transport)
+    _reset_writers()
+    monkeypatch.setenv("VULTR_MCP_AUDIT_DIR", str(tmp_path))
+    capsys.readouterr()
+
+    async with Client(server) as client:
+        await client.call_tool("echo", {"label": "web-01"})
+        with pytest.raises(Exception):
+            await client.call_tool("explode", {"instance_id": "i-1"})
+    _reset_writers()
+
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    records = [json.loads(ln) for ln in captured.err.splitlines() if ln.startswith("{")]
+    assert [r["event"] for r in records] == ["mcp.tool_call", "mcp.tool_call"]
+    assert len((tmp_path / "mcp_tool_call.log").read_text(encoding="utf-8").splitlines()) == 2

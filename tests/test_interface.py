@@ -1366,6 +1366,27 @@ def test_log_metadata_carrying_request_bodies_is_withheld(compiled):
     assert shaped["logs"][0]["message"] == "Instance created"
 
 
+def test_vke_application_config_carrying_chart_values_is_withheld(compiled):
+    """A deployment's config is its Helm values, which commonly hold chart passwords."""
+    tool = next(t for t in compiled.tools if t.name == "vultr_kubernetes_clusters_applications_get")
+    payload = {"app_deployment": {"id": "d-1", "app_name": "Bitnami NGINX", "status": "active", "config": "auth: {password: HELM-SECRET}"}}
+
+    shaped = runtime.shape_response(copy.deepcopy(payload), tool, {"vke_id": "c-1", "application_id": "d-1"})
+
+    assert "HELM-SECRET" not in json.dumps(shaped)
+    assert shaped["app_deployment"]["status"] == "active"
+
+
+def test_the_bare_metal_reverse_ipv6_read_the_api_refuses_is_excluded(compiled):
+    """The spec documents a GET on a POST-only path, so its generated tool always answered 405."""
+    excluded = {entry.operation_id: entry for entry in compiled.excluded}
+
+    assert (excluded["list-baremetal-reverse-ipv6"].method, excluded["list-baremetal-reverse-ipv6"].path_template) == (
+        "GET",
+        "/bare-metals/{baremetal-id}/ipv4/reverse/default",
+    )
+
+
 def test_nested_credentials_are_dropped_with_their_parent(compiled):
     """include allowlists the top level; a nested object comes through whole.
 
@@ -1781,7 +1802,8 @@ async def test_a_refused_argument_is_the_callers_fault_in_the_audit_record(capsy
             "vultr_kubernetes_clusters_resources_get", {"cluster_id": "8534d058"}, raise_on_error=False
         )
     assert result.is_error
-    records = [_json.loads(l) for l in capsys.readouterr().out.splitlines() if '"mcp.tool_call"' in l]
+    # STDIO by default, so the record is on stderr: stdout is the protocol.
+    records = [_json.loads(l) for l in capsys.readouterr().err.splitlines() if '"mcp.tool_call"' in l]
     assert records[-1]["fault"] == "caller"
     assert "ArgumentError" in records[-1]["error_chain"]
 

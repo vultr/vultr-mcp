@@ -154,3 +154,46 @@ tools:
         - enumerals
         - alt_values
         - configured_options
+
+  - name: vultr_database_pgbouncer_options_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the PgBouncer connection pooler options for one Vultr Managed
+      Database for PostgreSQL: every option that can be set, with its type,
+      permitted range or values and units, alongside the options currently
+      configured.
+
+      Use this tool to see how a PostgreSQL database's PgBouncer is tuned, or
+      what a pooler setting may be changed to.
+
+      Do not use this tool for the PostgreSQL engine's own options, which
+      vultr_database_advanced_options_list returns, or for the connection pools
+      themselves, which vultr_database_connection_pools_list returns.
+
+    operation: list-advanced-options-pgbouncer
+
+    input:
+      type: object
+      required:
+        - database_id
+      properties:
+        database_id:
+          type: string
+          description: >-
+            ID of the PostgreSQL managed database, as returned in the id field by
+            vultr_database_clusters_list.
+          maps_to: database-id
+
+    output:
+      from_openapi: true
+      include:
+        - name
+        - type
+        - units
+        - min_value
+        - max_value
+        - enumerals
+        - alt_values
+        - configured_options

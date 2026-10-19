@@ -1,0 +1,136 @@
+product_area: kubernetes
+family: kubernetes
+
+# One file of the kubernetes area, which interface.yaml lists across this directory.
+
+# VKE applications: the Helm-based catalog and what each cluster has deployed from it.
+# A deployment's `config` is withheld: it is the chart's values, which commonly hold passwords and tokens.
+
+tools:
+  - name: vultr_kubernetes_applications_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the applications Vultr Kubernetes Engine can deploy into a cluster,
+      each with its name, description, chart version and project URL.
+
+      Use this tool to see what VKE offers as one-click cluster add-ons, or to
+      find an application's id before checking where it is deployed.
+
+      Do not use this tool for what one cluster has deployed, which
+      vultr_kubernetes_clusters_applications_list returns, or for the
+      applications that can be deployed on an instance, which
+      vultr_catalog_applications_list returns.
+
+    operation: list-kubernetes-applications
+
+    input:
+      type: object
+      properties: {}
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - name
+        - description
+        - version
+        - url
+        - date_created
+        - date_updated
+
+  - name: vultr_kubernetes_clusters_applications_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the VKE applications deployed into one Vultr Kubernetes Engine
+      cluster, each with the application, its chart version, its lifecycle
+      status and when it last changed.
+
+      Use this tool to see what add-ons a cluster runs, or whether an install,
+      upgrade or uninstall is still in progress.
+
+      The deployment's configuration values are not returned: they are the
+      chart's values, which commonly hold credentials. Read them in the Vultr
+      console.
+
+      Do not use this tool for the catalog of applications VKE can deploy,
+      which vultr_kubernetes_applications_list returns, or for workloads
+      deployed with kubectl or Helm directly, which VKE does not track.
+
+    operation: list-kubernetes-cluster-applications
+
+    input:
+      type: object
+      required:
+        - vke_id
+      properties:
+        vke_id:
+          type: string
+          description: >-
+            ID of the VKE cluster, as returned in the id field by
+            vultr_kubernetes_clusters_list.
+          maps_to: vke-id
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - app_id
+        - app_name
+        - version
+        - status
+        - timeout
+        - date_created
+        - date_updated
+
+  - name: vultr_kubernetes_clusters_applications_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets one VKE application deployment in a Vultr Kubernetes Engine
+      cluster: the application, its chart version, its lifecycle status and
+      when it last changed.
+
+      Use this tool when the deployment's id is already known. To find it, use
+      vultr_kubernetes_clusters_applications_list first.
+
+      The deployment's configuration values are not returned: they are the
+      chart's values, which commonly hold credentials. Read them in the Vultr
+      console.
+
+    operation: get-kubernetes-cluster-application
+
+    input:
+      type: object
+      required:
+        - vke_id
+        - application_id
+      properties:
+        vke_id:
+          type: string
+          description: >-
+            ID of the VKE cluster, as returned in the id field by
+            vultr_kubernetes_clusters_list.
+          maps_to: vke-id
+        application_id:
+          type: string
+          description: >-
+            ID of the application deployment, as returned in the id field by
+            vultr_kubernetes_clusters_applications_list.
+          maps_to: application-id
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - app_id
+        - app_name
+        - version
+        - status
+        - timeout
+        - date_created
+        - date_updated

@@ -30,12 +30,12 @@ def audit_enabled() -> bool:
 
 
 def audit_dir() -> str:
-    """Directory for a file copy of the records for a log shipper to tail, or "" for stdout only."""
+    """Directory for a file copy of the records for a log shipper to tail, or "" for the console only."""
     return os.environ.get("VULTR_MCP_AUDIT_DIR", "").strip()
 
 
 def audit_file_max_bytes() -> int:
-    """Size past which a file is abandoned for stdout only, so an undrained file cannot fill its volume."""
+    """Size past which a file is abandoned for the console only, so an undrained file cannot fill its volume."""
     try:
         return max(1, int(os.environ.get("VULTR_MCP_AUDIT_FILE_MAX_MB", "256"))) * 1024 * 1024
     except ValueError:
@@ -141,8 +141,15 @@ def error_types(exc: BaseException, limit: int = 4) -> list[str]:
     return names
 
 
+def _console():
+    """stdout over HTTP, stderr otherwise, since a STDIO server's stdout is the MCP protocol channel."""
+    if os.environ.get("VULTR_MCP_TRANSPORT", "stdio").lower() == "http":
+        return sys.stdout
+    return sys.stderr
+
+
 def emit(record: dict[str, Any]) -> None:
-    """Write one record as a JSON line to stdout (flushed), and to a file when configured; neither failure affects the other."""
+    """Write one record as a JSON line to the console (flushed), and to a file when configured; neither failure affects the other."""
     if POD and "pod" not in record:
         record = {**record, "pod": POD}
 
@@ -152,8 +159,9 @@ def emit(record: dict[str, Any]) -> None:
         return
 
     try:
-        sys.stdout.write(line + "\n")
-        sys.stdout.flush()
+        console = _console()
+        console.write(line + "\n")
+        console.flush()
     except Exception:  # noqa: BLE001
         pass
 

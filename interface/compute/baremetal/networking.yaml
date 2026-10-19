@@ -5,6 +5,14 @@ family: compute
 
 # Addressing and network attachment for a bare metal server.
 
+excluded:
+  list-baremetal-reverse-ipv6:
+    reason: >-
+      The spec documents this as a GET on /bare-metals/{baremetal-id}/ipv4/reverse/default
+      returning reverse IPv6 entries, but that path accepts only POST and the API
+      answers 405, so the generated tool always fails. A server's IPv6 reverse
+      entries are not otherwise readable.
+
 tools:
   - name: vultr_compute_baremetal_ipv4_list
     access: read

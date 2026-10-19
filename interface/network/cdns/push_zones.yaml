@@ -232,3 +232,33 @@ tools:
       from_openapi: true
       include:
         - deployment_status
+
+  - name: vultr_network_cdn_push_zone_ips_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the global Vultr CDN edge IP addresses that serve one CDN push
+      zone. Vultr refreshes the list every few minutes.
+
+      Use this tool to allowlist the CDN at a firewall, or to check which addresses traffic for the zone comes from.
+
+      Do not use this tool for the zone's own settings or URL, which
+      vultr_network_cdn_push_zones_get returns, or for a pull zone, which
+      has its own tool.
+
+    operation: get-pushzone-metadata
+
+    input:
+      type: object
+      required:
+        - pushzone_id
+      properties:
+        pushzone_id:
+          type: string
+          description: >-
+            ID of the push zone, as returned in the id field by
+            vultr_network_cdn_push_zones_list.
+          maps_to: cdn-uuid
+
+    # No `output` block: a bare array of IP address strings.
