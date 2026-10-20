@@ -1,3 +1,18 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: redis-data
+  labels:
+    app: redis
+spec:
+  accessModes:
+    - ReadWriteOnce
+  # 10Gi is the class's practical floor; Redis itself needs far less.
+  storageClassName: vultr-block-storage
+  resources:
+    requests:
+      storage: 10Gi
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -6,6 +21,10 @@ metadata:
     app: redis
 spec:
   replicas: 1
+  # The volume attaches to one node at a time, so the old pod must stop before the new one starts.
+  strategy:
+    type: Recreate
+    rollingUpdate: null
   selector:
     matchLabels:
       app: redis
@@ -14,19 +33,48 @@ spec:
       labels:
         app: redis
     spec:
+      securityContext:
+        # The image's redis user, so it can write the mounted volume.
+        fsGroup: 999
       containers:
         - name: redis
           image: redis:7-alpine
-          args: ["--save", "", "--appendonly", "no"]
+          # Every sign-in lives here: the append-only file survives a restart, and a full Redis refuses writes instead of evicting sessions.
+          args:
+            - --appendonly
+            - "yes"
+            - --appendfsync
+            - everysec
+            - --save
+            - ""
+            - --dir
+            - /data
+            - --maxmemory
+            - 256mb
+            - --maxmemory-policy
+            - noeviction
           ports:
             - containerPort: 6379
           resources:
             requests:
               cpu: 50m
-              memory: 64Mi
-            limits:
-              cpu: 250m
               memory: 128Mi
+            # Twice maxmemory, for the fork that rewrites the append-only file.
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          readinessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            periodSeconds: 10
+            timeoutSeconds: 3
+          volumeMounts:
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: redis-data
 ---
 apiVersion: v1
 kind: Service

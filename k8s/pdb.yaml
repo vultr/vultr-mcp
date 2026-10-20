@@ -1,0 +1,12 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: vultr-mcp
+  labels:
+    app: vultr-mcp
+spec:
+  # Node drains and upgrades take at most one replica down at a time.
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: vultr-mcp

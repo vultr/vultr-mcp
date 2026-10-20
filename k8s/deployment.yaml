@@ -5,7 +5,7 @@ metadata:
   labels:
     app: vultr-mcp
 spec:
-  replicas: 2
+  replicas: 3
   selector:
     matchLabels:
       app: vultr-mcp
@@ -18,6 +18,18 @@ spec:
         runAsNonRoot: true
         runAsUser: 1000
         fsGroup: 1000
+      # One replica per node, so losing a node takes a third of capacity rather than all of it.
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: DoNotSchedule
+          # A dead node is tainted; honouring that lets its replica reschedule onto a live one.
+          nodeTaintsPolicy: Honor
+          # Old and new pods are counted apart during a rollout, so the surge pod always fits.
+          matchLabelKeys: ["pod-template-hash"]
+          labelSelector:
+            matchLabels:
+              app: vultr-mcp
       # A read:packages token for the private ghcr.io package.
       imagePullSecrets:
         - name: ghcr-creds
