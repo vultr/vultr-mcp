@@ -14,7 +14,7 @@ import html
 import pytest
 from starlette.responses import RedirectResponse
 
-from vultr_mcp.loopback_handoff import completion_page, is_loopback_target
+from vultr_mcp.loopback_handoff import app_return_page, completion_page, is_app_link, is_loopback_target
 
 CODE_URL = "http://127.0.0.1:8989/oauth/callback?code=vd-abc123&state=s1"
 
@@ -173,6 +173,65 @@ async def test_remote_redirect_is_untouched():
 async def test_oauth_errors_keep_their_redirect():
     """An error has no code to show; the client must see the OAuth error."""
     url = "http://127.0.0.1:8989/oauth/callback?error=access_denied&state=s1"
+    resp = await _run_override(url)
+    assert resp.status_code == 302
+    assert resp.headers["location"] == url
+
+
+# -- desktop app links ----------------------------------------------------------
+
+# What Claude Desktop registers: a 302 to it opens the app but leaves the tab on the consent page's spinner.
+APP_URL = "claude://claude.ai/mcp-auth-callback/sdk?code=vd-abc123&state=s1"
+
+
+@pytest.mark.parametrize("url", [APP_URL, "cursor://anysphere.cursor-retrieval/oauth?code=x"])
+def test_app_links_are_detected(url):
+    assert is_app_link(url) is True
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://claude.ai/api/mcp/auth_callback?code=x",
+        "http://127.0.0.1:8989/cb?code=x",
+        "javascript:alert(1)//?code=x",
+        "data:text/html,hi?code=x",
+        "",
+        "not a url at all",
+    ],
+)
+def test_web_and_unsafe_targets_are_not_app_links(url):
+    assert is_app_link(url) is False
+
+
+def test_app_page_hands_the_script_the_exact_target():
+    """HTML entities are not decoded in a script, so &amp; there would corrupt the state parameter."""
+    body = app_return_page(APP_URL).body.decode()
+    assert 'window.location.replace("claude://claude.ai/mcp-auth-callback/sdk?code=vd-abc123&state=s1")' in body
+    assert f'href="{html.escape(APP_URL, quote=True)}"' in body
+
+
+def test_app_page_cannot_be_broken_out_of():
+    body = app_return_page('claude://x/cb?code="</script><script>alert(1)</script>').body.decode()
+    assert "<script>alert(1)</script>" not in body
+
+
+def test_app_page_is_never_cached():
+    page = app_return_page(APP_URL)
+    assert "no-store" in page.headers["cache-control"]
+    assert page.headers["referrer-policy"] == "no-referrer"
+
+
+@pytest.mark.anyio
+async def test_app_link_success_gets_the_signed_in_page():
+    resp = await _run_override(APP_URL)
+    assert resp.status_code == 200
+    assert "signed in" in resp.body.decode().lower()
+
+
+@pytest.mark.anyio
+async def test_app_link_errors_keep_their_redirect():
+    url = "claude://claude.ai/mcp-auth-callback/sdk?error=access_denied&state=s1"
     resp = await _run_override(url)
     assert resp.status_code == 302
     assert resp.headers["location"] == url

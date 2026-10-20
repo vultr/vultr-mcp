@@ -272,7 +272,8 @@ async def test_a_gzipped_streamed_error_records_its_message():
     message = b'{"error":"Unauthorized IP address: 203.0.113.9","status":403}'
     response, record = await _streamed_error(403, gzip.compress(message), "gzip")
 
-    assert record["upstream_error"] == message.decode()
+    # Decoded and readable, with the caller's own IP scrubbed out.
+    assert record["upstream_error"] == '{"error":"Unauthorized IP address: {ip}","status":403}'
     assert record["response_encoding"] == "gzip"
     # The caller's view is untouched: httpx still decodes the body for it.
     assert response.json()["status"] == 403
@@ -309,3 +310,48 @@ async def test_an_encoding_it_cannot_undo_is_named_not_stored_as_noise():
 async def test_a_plain_streamed_error_is_unchanged():
     _, record = await _streamed_error(404, b'{"error":"Invalid resource ID","status":404}', None)
     assert record["upstream_error"] == '{"error":"Invalid resource ID","status":404}'
+
+
+# -- audit records keep what went wrong, not whose resource it was --------------
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        # Real Vultr errors from the audit data: nothing to remove, so nothing may change.
+        '{"error":"Invalid subscription ID","status":400}',
+        "Invalid NAT Gateway ID.",
+        "VKE Cluster not found.",
+        "IPv6 is currently available for this server, but a subnet has not yet been assigned.",
+        "Unable to retrieve VPCs",
+    ],
+)
+def test_scrubbing_leaves_generic_messages_alone(message):
+    assert diagnostics.scrub_identifiers(message) == message
+
+
+@pytest.mark.parametrize(
+    ("message", "leaked", "placeholder"),
+    [
+        ("Domain shop.example.com not found", "shop.example.com", "{domain}"),
+        ("Instance 33806614-5603-47d4-9e38-b104a22d5a56 is locked", "33806614", "{id}"),
+        ("Reserved IP 216.128.152.243 is attached", "216.128.152.243", "{ip}"),
+        ("Subnet 2001:19f0:5c01:1234::/64 in use", "2001:19f0", "{ip}"),
+        ("Contact jane.doe@example.com is invalid", "jane.doe", "{email}"),
+        ("Bucket https://ewr1.vultrobjects.com/backups/db.tar missing", "backups", "{url}"),
+        ("Account 6716887 is suspended", "6716887", "{number}"),
+        ("Token 0123456789abcdef0123456789abcdef rejected", "0123456789abcdef", "{id}"),
+    ],
+)
+def test_scrubbing_removes_what_names_a_customer_resource(message, leaked, placeholder):
+    scrubbed = diagnostics.scrub_identifiers(message)
+    assert leaked not in scrubbed
+    assert placeholder in scrubbed
+
+
+def test_error_snippet_scrubs_before_truncating():
+    """A long message cut first could leave half an address behind the cut."""
+    body = (b"x" * 190) + b" host db-primary.example.com unreachable"
+    snippet = diagnostics.error_snippet(body)
+    assert "example" not in snippet
+    assert len(snippet) <= diagnostics.MAX_UPSTREAM_ERROR_CHARS

@@ -29,13 +29,14 @@ from starlette.responses import JSONResponse, RedirectResponse
 from starlette.routing import Route
 
 from vultr_mcp.audit import emit_auth
+from vultr_mcp.diagnostics import scrub_identifiers
 from vultr_mcp.device_flow import (
     DEVICE_GRANT_TYPE,
     DeviceFlowHandlers,
     device_flow_enabled,
     device_routes,
 )
-from vultr_mcp.loopback_handoff import completion_page, is_loopback_target
+from vultr_mcp.loopback_handoff import app_return_page, completion_page, is_app_link, is_loopback_target
 from vultr_mcp.refresh_coalescer import (
     CoalescedUpstreamClient,
     UPSTREAM_RESOLUTION,
@@ -70,9 +71,9 @@ def _error_fields(exc: BaseException) -> dict[str, Any]:
     """The OAuth error code and description the client was told."""
     fields: dict[str, Any] = {"error": _error_code(exc)}
     if isinstance(exc, TokenError) and exc.error_description:
-        fields["error_description"] = exc.error_description[:300]
+        fields["error_description"] = scrub_identifiers(exc.error_description)[:300]
     elif str(exc):
-        fields["error_description"] = str(exc)[:300]
+        fields["error_description"] = scrub_identifiers(str(exc))[:300]
     return fields
 
 
@@ -410,6 +411,8 @@ class VultrOAuthProxy(OAuthProxy):
         # Errors keep the base class's redirect so the client sees the OAuth error.
         if target and "code=" in target and is_loopback_target(target):
             return completion_page(target)
+        if target and "code=" in target and is_app_link(target):
+            return app_return_page(target)
         return response
 
     async def _submit_consent(self, request: Request) -> Any:

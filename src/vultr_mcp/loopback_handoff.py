@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import html
 import ipaddress
+import json
 from urllib.parse import parse_qs, urlparse
 
 from starlette.responses import HTMLResponse
@@ -32,6 +33,19 @@ def is_loopback_target(url: str) -> bool:
         return ipaddress.ip_address(host).is_loopback
     except ValueError:
         return False
+
+
+# Schemes a browser must never be sent to from a page we render, whatever a client registered.
+_UNSAFE_SCHEMES = {"javascript", "data", "vbscript", "file", "blob", "about"}
+
+
+def is_app_link(url: str) -> bool:
+    """True for a desktop app's own scheme (claude://...), where a 302 leaves the tab on the page before it."""
+    try:
+        scheme = (urlparse(url).scheme or "").lower()
+    except ValueError:
+        return False
+    return bool(scheme) and scheme not in ("http", "https") and scheme not in _UNSAFE_SCHEMES
 
 
 def _param(url: str, name: str) -> str:
@@ -77,6 +91,33 @@ details{margin-top:18px;border-top:1px solid var(--line);padding-top:14px}
 details summary{cursor:pointer;font-weight:600;font-size:14px;margin-bottom:12px}
 details[open] summary{margin-bottom:14px}
 """
+
+
+def app_return_page(target: str) -> HTMLResponse:
+    """Open the app and tell the person they are done, since the browser keeps no page of its own for an app link."""
+    safe_target = html.escape(target, quote=True)
+    # Entities are not decoded inside <script>, so the script gets JSON with "<" escaped instead.
+    script_target = json.dumps(target).replace("<", "\\u003c")
+    return HTMLResponse(
+        f"""<!doctype html><meta charset=utf-8>
+<meta name=viewport content="width=device-width,initial-scale=1">
+<title>Signed in</title><style>{_CSS}</style>
+<div class="card">
+  <div class="ok">&#10003;</div>
+  <h1>You're signed in to Vultr</h1>
+  <p>Returning you to your app. You can close this tab once it opens.</p>
+  <p><a class="btn" href="{safe_target}">Open the app</a></p>
+  <p><small>If nothing happened, use the button; your browser may ask before opening the app.</small></p>
+</div>
+<script>window.location.replace({script_target});</script>""",
+        headers={
+            # The page carries an authorization code: it must not be cached by
+            # the browser or anything between us and it.
+            "Cache-Control": "no-store, no-cache, must-revalidate",
+            "Pragma": "no-cache",
+            "Referrer-Policy": "no-referrer",
+        },
+    )
 
 
 def completion_page(target: str) -> HTMLResponse:

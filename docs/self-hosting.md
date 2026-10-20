@@ -22,4 +22,4 @@ The ingress controller is Traefik, installed with Helm rather than `kubectl appl
 
 ## Audit records (optional)
 
-The server writes an audit record for every tool call and sign-in as JSON, to stdout over HTTP and to stderr over STDIO, where stdout carries the protocol. Set `VULTR_MCP_AUDIT_DIR` to also write them as files there, one per event type, for a log shipper to tail; `VULTR_MCP_AUDIT_FILE_MAX_MB` (default 256) stops writing a file that has grown that large.
+The server writes an audit record for every tool call and sign-in as one JSON line, to stdout over HTTP and to stderr over STDIO, where stdout carries the protocol. Each line has an `event` field (`mcp.tool_call`, `mcp.upstream_call` or `mcp.auth`), so whatever already collects your container logs can pick them out.

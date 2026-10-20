@@ -271,8 +271,6 @@ Self-hosted servers are read-only too; there is no setting that turns on tools t
 | `VULTR_OIDC_PROVIDER_ID` / `VULTR_OAUTH_CLIENT_ID` / `VULTR_OAUTH_CLIENT_SECRET` | the approved OAuth app's credentials |
 | `REDIS_HOST` / `REDIS_PORT` | shared OAuth state, required when running more than one replica |
 | `VULTR_MCP_AUDIT_LOG` | one audit record per tool call (default `true`), to stdout over HTTP and to stderr over STDIO, where stdout is the protocol |
-| `VULTR_MCP_AUDIT_DIR` | also write audit records to files here, for a log shipper |
-
 ## Development
 
 ```bash

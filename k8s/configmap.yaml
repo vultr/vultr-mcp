@@ -21,10 +21,6 @@ data:
   # aud defaults to VULTR_OAUTH_CLIENT_ID; override only if Vultr changes it.
   # VULTR_OIDC_AUDIENCE: ""
 
-  # ---- Audit records ----
-  # Records always go to stdout. Set this to also write them as files, one per event type, for a log shipper.
-  # VULTR_MCP_AUDIT_DIR: "/var/log/vultr-mcp"
-
   # ---- Tool surface ----
   # Always read-only; there is no write switch.
   # Identity categories excluded by default; empty string disables exclusions.

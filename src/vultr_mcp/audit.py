@@ -29,52 +29,8 @@ def audit_enabled() -> bool:
     return os.environ.get("VULTR_MCP_AUDIT_LOG", "true").lower() not in ("0", "false", "no")
 
 
-def audit_dir() -> str:
-    """Directory for a file copy of the records for a log shipper to tail, or "" for the console only."""
-    return os.environ.get("VULTR_MCP_AUDIT_DIR", "").strip()
-
-
-def audit_file_max_bytes() -> int:
-    """Size past which a file is abandoned for the console only, so an undrained file cannot fill its volume."""
-    try:
-        return max(1, int(os.environ.get("VULTR_MCP_AUDIT_FILE_MAX_MB", "256"))) * 1024 * 1024
-    except ValueError:
-        return 256 * 1024 * 1024
-
-
 # Which replica wrote a record; HOSTNAME is the pod name in k8s.
 POD = os.environ.get("HOSTNAME") or None
-
-# One file per event type, since the record shapes share almost no fields; None where opening failed.
-_writers: dict[str, int | None] = {}
-
-
-def _writer(event: str) -> int | None:
-    """An O_APPEND descriptor for one event type, opened once; None if unconfigured or unopenable.
-
-    Not a logging handler: rotating handlers seek and rename under a tailer, while one whole-line
-    write on an O_APPEND descriptor never seeks and always lands at the current end.
-    """
-    directory = audit_dir()
-    if not directory:
-        return None
-    if event in _writers:
-        return _writers[event]
-
-    fd: int | None = None
-    try:
-        os.makedirs(directory, exist_ok=True)
-        fd = os.open(
-            os.path.join(directory, f"{event.replace('.', '_')}.log"),
-            os.O_WRONLY | os.O_APPEND | os.O_CREAT,
-            # Group-writable, for a tailer that shares the pod's fsGroup and truncates what it shipped.
-            0o660,
-        )
-    except Exception:  # noqa: BLE001
-        fd = None
-
-    _writers[event] = fd
-    return fd
 
 
 def _identity() -> dict[str, Any]:
@@ -149,7 +105,7 @@ def _console():
 
 
 def emit(record: dict[str, Any]) -> None:
-    """Write one record as a JSON line to the console (flushed), and to a file when configured; neither failure affects the other."""
+    """Write one record as a JSON line to the console, flushed, for whatever collects the container's output."""
     if POD and "pod" not in record:
         record = {**record, "pod": POD}
 
@@ -165,14 +121,6 @@ def emit(record: dict[str, Any]) -> None:
     except Exception:  # noqa: BLE001
         pass
 
-    try:
-        fd = _writer(str(record.get("event", "record")))
-        if fd is not None and os.fstat(fd).st_size < audit_file_max_bytes():
-            # One write per whole line, so concurrent lines never interleave.
-            os.write(fd, (line + "\n").encode("utf-8"))
-    except Exception:  # noqa: BLE001
-        pass
-
 
 def upstream_detail_enabled() -> bool:
     """Per-upstream-call records, on by default; VULTR_MCP_AUDIT_UPSTREAM=false turns off the higher-volume half."""
@@ -181,14 +129,6 @@ def upstream_detail_enabled() -> bool:
 
 class AuditMiddleware(Middleware):
     """Emit one ``mcp.tool_call`` record per tool invocation."""
-
-    def __init__(self) -> None:
-        super().__init__()
-        # Created empty at boot: a tailer that finds a file already holding lines starts from its end.
-        _writer("mcp.tool_call")
-        if upstream_detail_enabled():
-            _writer("mcp.upstream_call")
-        _writer(AUTH_EVENT)
 
     async def on_call_tool(self, context, call_next):
         started = time.perf_counter()

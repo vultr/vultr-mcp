@@ -67,10 +67,30 @@ def redact_unknown(segments: list[str]) -> str:
 MAX_UPSTREAM_ERROR_CHARS = 200
 
 
+# What a customer's resource can be named by, replaced in order: whole URLs and emails before the hosts inside them.
+_IDENTIFIERS = (
+    (re.compile(r"\b[a-z][a-z0-9+.-]*://[^\s\"'<>]+", re.I), "{url}"),
+    (re.compile(r"\b[\w.%+-]+@[\w-]+(?:\.[\w-]+)+\b"), "{email}"),
+    (re.compile(r"\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b", re.I), "{id}"),
+    (re.compile(r"(?<![\w:])(?:[0-9a-f]{0,4}:){2,7}[0-9a-f]{0,4}(?:/\d{1,3})?(?![\w:])", re.I), "{ip}"),
+    (re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}(?:/\d{1,2})?\b"), "{ip}"),
+    (re.compile(r"\b(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}\b", re.I), "{domain}"),
+    (re.compile(r"\b[0-9a-f]{16,}\b", re.I), "{id}"),
+    (re.compile(r"\b\d{5,}\b"), "{number}"),
+)
+
+
+def scrub_identifiers(text: str) -> str:
+    """Keep what went wrong, drop which customer resource it was about: ids, addresses, names and numbers."""
+    for pattern, placeholder in _IDENTIFIERS:
+        text = pattern.sub(placeholder, text)
+    return text
+
+
 def error_snippet(body: bytes) -> str:
-    """The upstream's own error message on a non-2xx, truncated."""
+    """The upstream's own error message on a non-2xx, scrubbed of identifiers and truncated."""
     text = body[: MAX_UPSTREAM_ERROR_CHARS * 4].decode("utf-8", "replace").strip()
-    return text[:MAX_UPSTREAM_ERROR_CHARS]
+    return scrub_identifiers(text)[:MAX_UPSTREAM_ERROR_CHARS]
 
 
 def decode_error_body(body: bytes, encoding: str | None) -> bytes | None:
