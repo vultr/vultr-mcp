@@ -39,7 +39,7 @@ Then run `/mcp` inside Claude Code, choose **vultr** and sign in. Setup for othe
 
 Sign in with your Vultr account through OAuth. Add the server with no credentials, and your client opens a browser window where you sign in to Vultr and approve access. There is nothing to create, copy or rotate, and the server keeps no credentials of its own: every call goes to `api.vultr.com` as you.
 
-- Access renews every hour on its own. You sign in again only after 30 days without use, or if access is revoked.
+- Access renews on its own; a client that never renews stays signed in for a day. You sign in again only after 30 days without use, or if access is revoked.
 - Most MCP clients support this, including Claude, Cursor, VS Code, Codex CLI and OpenClaw.
 
 ### One organization per sign-in

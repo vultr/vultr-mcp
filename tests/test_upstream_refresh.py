@@ -256,7 +256,8 @@ async def test_a_transparent_refresh_is_audited(proxy, vultr, auth_records):
 
     assert await proxy.load_access_token(access) is not None
 
-    assert [(r["action"], r["outcome"]) for r in auth_records][-1] == ("transparent_refresh", "ok")
+    last = auth_records[-1]
+    assert (last["action"], last["outcome"], last["resolved_by"]) == ("transparent_refresh", "ok", "upstream")
 
 
 # --- clients that never refresh ----------------------------------------------

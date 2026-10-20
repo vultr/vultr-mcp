@@ -13,6 +13,7 @@ import json
 import os
 import time
 import uuid
+from contextvars import ContextVar
 from typing import Any, Awaitable, Callable, Protocol
 
 import anyio
@@ -39,6 +40,16 @@ UPSTREAM_RETRY_DELAYS_S = (1.0, 3.0)
 TRANSIENT_STATUSES = frozenset({502, 503, 504})
 # The owner bound to an upstream result: only this proxy ever holds an upstream refresh token.
 _UPSTREAM_OWNER = "upstream"
+
+
+# How each upstream refresh in this request resolved, for the audit record of the refresh that asked for it.
+UPSTREAM_RESOLUTION: ContextVar[list[str] | None] = ContextVar("vultr_upstream_resolution", default=None)
+
+
+def _resolved(how: str) -> None:
+    seen = UPSTREAM_RESOLUTION.get()
+    if seen is not None:
+        seen.append(how)
 
 
 class UpstreamUnavailable(Exception):
@@ -257,6 +268,7 @@ class RefreshCoalescer:
         entry = await self._result(upstream_key, _UPSTREAM_OWNER)
         if entry is not None:
             logger.info("refresh coalescer: served an upstream refresh another path just made")
+            _resolved("shared_finished")
             return entry["response"]
 
         owner = json.dumps({"owner": uuid.uuid4().hex, "client_id": _UPSTREAM_OWNER}).encode()
@@ -265,9 +277,11 @@ class RefreshCoalescer:
             acquired = await self._backend.acquire(lock_key, owner, LOCK_TTL_MS)
         except Exception as exc:  # noqa: BLE001
             logger.warning("refresh coalescer unavailable (%s); refreshing upstream directly", type(exc).__name__)
+            _resolved("direct")
             return await call()
 
         if acquired:
+            _resolved("upstream")
             try:
                 response = await call()
                 await self._store(upstream_key, {"client_id": _UPSTREAM_OWNER, "response": response}, RESULT_TTL_S)
@@ -284,9 +298,11 @@ class RefreshCoalescer:
             entry = await self._result(upstream_key, _UPSTREAM_OWNER)
             if entry is not None:
                 logger.info("refresh coalescer: served a concurrent upstream refresh")
+                _resolved("shared_inflight")
                 return entry["response"]
             if await self._lock(upstream_key) is None:
                 break
+        _resolved("direct")
         return await call()
 
 

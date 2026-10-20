@@ -19,6 +19,7 @@ from fastmcp.server.dependencies import get_http_headers
 from fastmcp.server.providers.openapi import MCPType, RouteMap
 
 from vultr_mcp.audit import AuditMiddleware, audit_enabled
+from vultr_mcp.branding import server_icons
 from vultr_mcp.diagnostics import InstrumentedTransport, PathTemplates
 from vultr_mcp.interface.compiler import CompiledInterface, compile_interface
 from vultr_mcp.interface.tools import InterfaceTool
@@ -455,6 +456,8 @@ def create_server(
         # Otherwise `initialize` reports FastMCP's own version.
         version=package_version(),
         instructions=server_instructions(only_categories),
+        # Clients that support serverInfo icons show the Vultr logo instead of a generated letter.
+        icons=server_icons(),
         route_maps=_build_route_maps(exclude_tags, suppressed),
         mcp_component_fn=None if _output_schemas_enabled() else _strip_output_schema,
         auth=auth,

@@ -15,6 +15,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.routing import Mount, Route
 
+from vultr_mcp.branding import icon_routes
 from vultr_mcp.server import (
     DEFAULT_EXCLUDED_CATEGORIES,
     all_categories,
@@ -155,7 +156,7 @@ def create_http_app(spec: dict | None = None):
         )
 
     # First match wins, so every mount precedes any shorter prefix of it.
-    routes = [Route("/healthz", healthz, methods=["GET"])]
+    routes = [Route("/healthz", healthz, methods=["GET"])] + icon_routes()
     # dict() drops the repeat where a group shares its name with a category (kubernetes).
     mcp_paths = dict(group_apps + alias_apps)
     routes += [Mount(f"/mcp/{name}", app=sub_app) for name, sub_app in mcp_paths.items()]

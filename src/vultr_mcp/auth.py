@@ -38,6 +38,7 @@ from vultr_mcp.device_flow import (
 from vultr_mcp.loopback_handoff import completion_page, is_loopback_target
 from vultr_mcp.refresh_coalescer import (
     CoalescedUpstreamClient,
+    UPSTREAM_RESOLUTION,
     UpstreamUnavailable,
     build_refresh_coalescer,
     token_key,
@@ -162,12 +163,18 @@ class VultrOAuthProxy(OAuthProxy):
     async def _try_transparent_refresh(self, upstream_token_set: Any) -> Any:
         """FastMCP's refresh inside a request whose upstream token lapsed, which clients never see unless it fails."""
         started = time.perf_counter()
+        resolved: list[str] = []
+        reset = UPSTREAM_RESOLUTION.set(resolved)
         try:
             refreshed = await super()._try_transparent_refresh(upstream_token_set)
         except Exception as exc:
-            emit_auth("transparent_refresh", "error", upstream_token_set.client_id, started, **_error_fields(exc))
+            emit_auth("transparent_refresh", "error", upstream_token_set.client_id, started,
+                      resolved_by=resolved[0] if resolved else None, **_error_fields(exc))
             raise
-        emit_auth("transparent_refresh", "ok", upstream_token_set.client_id, started)
+        finally:
+            UPSTREAM_RESOLUTION.reset(reset)
+        emit_auth("transparent_refresh", "ok", upstream_token_set.client_id, started,
+                  resolved_by=resolved[0] if resolved else None)
         return refreshed
 
     # One cookie per pending sign-in: FastMCP's single shared cookie loses entries when sign-ins overlap.
