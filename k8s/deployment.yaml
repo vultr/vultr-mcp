@@ -35,7 +35,7 @@ spec:
         - name: ghcr-creds
       containers:
         - name: vultr-mcp
-          image: ghcr.io/vultr/vultr-mcp:2.1.24
+          image: ghcr.io/vultr/vultr-mcp:2.1.25
           imagePullPolicy: Always
           ports:
             - containerPort: 8080
