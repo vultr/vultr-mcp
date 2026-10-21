@@ -25435,6 +25435,10 @@
                       "type": "string"
                     }
                   },
+                  "mysql_binlog_retention_period": {
+                    "type": "integer",
+                    "description": "The minimum amount of time in seconds to keep binlog entries before deletion (MySQL engine types only)."
+                  },
                   "mysql_sql_modes": {
                     "type": "array",
                     "description": "A list of SQL modes to enable on the Managed Database (MySQL engine types only).\n* `ALLOW_INVALID_DATES`\n* `ANSI` (Combination Mode)\n* `ANSI_QUOTES`\n* `ERROR_FOR_DIVISION_BY_ZERO`\n* `HIGH_NOT_PRECEDENCE`\n* `IGNORE_SPACE`\n* `NO_AUTO_VALUE_ON_ZERO`\n* `NO_DIR_IN_CREATE`\n* `NO_ENGINE_SUBSTITUTION`\n* `NO_UNSIGNED_SUBTRACTION`\n* `NO_ZERO_DATE`\n* `NO_ZERO_IN_DATE`\n* `ONLY_FULL_GROUP_BY`\n* `PIPES_AS_CONCAT`\n* `REAL_AS_FLOAT`\n* `STRICT_ALL_TABLES`\n* `STRICT_TRANS_TABLES`\n* `TIME_TRUNCATE_FRACTIONAL`\n* `TRADITIONAL` (Combination Mode)",
@@ -25775,6 +25779,10 @@
                     "items": {
                       "type": "string"
                     }
+                  },
+                  "mysql_binlog_retention_period": {
+                    "type": "integer",
+                    "description": "The minimum amount of time in seconds to keep binlog entries before deletion (MySQL engine types only)."
                   },
                   "mysql_sql_modes": {
                     "type": "array",
@@ -45275,6 +45283,7 @@
                           "state": "running",
                           "date_created": "2026-01-15T10:30:00+00:00",
                           "cluster_type": "fabric",
+                          "auto_provision": false,
                           "type": "cluster",
                           "instance_template_id": "98765432-10ab-cdef-1234-567890abcdef",
                           "head_node_instance_template_id": "98765432-10ab-cdef-1234-567890abcdef",
@@ -45385,6 +45394,7 @@
                         "state": "provisioning",
                         "date_created": "2026-01-15T10:30:00+00:00",
                         "cluster_type": "fabric",
+                        "auto_provision": false,
                         "type": "cluster",
                         "instance_template_id": "98765432-10ab-cdef-1234-567890abcdef"
                       }
@@ -45839,6 +45849,7 @@
                         "state": "running",
                         "date_created": "2026-01-15T10:30:00+00:00",
                         "cluster_type": "fabric",
+                        "auto_provision": false,
                         "type": "fabric",
                         "head_node_instance_template_id": "98765432-10ab-cdef-1234-567890abcdef",
                         "instance_template": {
@@ -45978,6 +45989,10 @@
                   "desired_pool_count": {
                     "type": "integer",
                     "description": "Desired number of instances in the cluster's pool."
+                  },
+                  "auto_provision": {
+                    "type": "boolean",
+                    "description": "Whether the cluster automatically provisions its compute pool.\n\nCannot be enabled on `fabric` clusters — such requests are rejected with a 406 response. Omit the key to leave the current value unchanged."
                   },
                   "vpc_ids": {
                     "type": "array",
@@ -46133,6 +46148,17 @@
         },
         "operationId": "delete-cluster",
         "description": "Delete a cluster.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "boolean",
+              "default": false
+            },
+            "in": "query",
+            "name": "force",
+            "description": "Set to `true` to detach and destroy every instance in the cluster, then delete the cluster. Default `false`.\nInstance destruction is asynchronous: a 204 means every instance is detached and queued for destruction, not that it is gone.\n"
+          }
+        ],
         "security": [
           {
             "API Key": []
@@ -53242,6 +53268,10 @@
             "type": "string",
             "description": "The CA certificate for Managed Databases on this account."
           },
+          "mysql_binlog_retention_period": {
+            "type": "integer",
+            "description": "The minimum amount of time in seconds to keep binlog entries before deletion (MySQL engine types only)."
+          },
           "mysql_sql_modes": {
             "type": "array",
             "description": "A list names of enabled SQL Modes (MySQL engine types only).",
@@ -56390,7 +56420,14 @@
           },
           "status": {
             "type": "string",
-            "description": "Current ticket status."
+            "description": "Current ticket status.\n\n* `open` - The ticket is open and is in progress.\n* `feedback` - The ticket is awaiting feedback from the customer.\n* `resolved` - The ticket has been resolved but can be reopened with reply.\n* `rca` - Root Cause Analysis (RCA) is in progress.\n* `closed` - The ticket is closed.",
+            "enum": [
+              "open",
+              "feedback",
+              "resolved",
+              "rca",
+              "closed"
+            ]
           },
           "severity": {
             "type": "string",
@@ -56506,6 +56543,7 @@
             "state": "running",
             "date_created": "2026-01-15T10:30:00+00:00",
             "cluster_type": "fabric",
+            "auto_provision": false,
             "type": "cluster"
           }
         },
@@ -56533,6 +56571,10 @@
           "desired_pool_count": {
             "type": "integer",
             "description": "Desired number of instances in the cluster's pool."
+          },
+          "auto_provision": {
+            "type": "boolean",
+            "description": "Whether the cluster automatically provisions its compute pool. Cannot be enabled on `fabric` clusters."
           },
           "hostname": {
             "type": "string",

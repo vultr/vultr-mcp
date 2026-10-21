@@ -1697,6 +1697,8 @@ def test_missing_path_parameter_is_an_error_not_a_templated_url(compiled):
     with pytest.raises(ValueError) as caught:
         runtime.build_request(tool, {"cluster_id": "8534d058-8bd9-45dc-96df-c79b46a3e543"})
 
+    # Audit counts an ArgumentError as the caller's fault; a plain ValueError was counted as the server's.
+    assert isinstance(caught.value, runtime.ArgumentError)
     message = str(caught.value)
     assert tool.name in message
     # The message has to name the argument, or it cannot be acted on.

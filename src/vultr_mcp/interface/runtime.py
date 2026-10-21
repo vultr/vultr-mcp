@@ -221,8 +221,9 @@ def build_request(
         value = arguments.get(plan.agent_name, plan.default)
         if value is None:
             # A query parameter may be absent; a path segment may not, or the API 404s on the placeholder.
+            # The caller left out a required ID; ArgumentError so audit counts it as their mistake, not ours.
             if plan.location == "path":
-                raise ValueError(
+                raise ArgumentError(
                     f"{tool.name} requires {plan.agent_name!r}, which was not supplied"
                 )
             continue

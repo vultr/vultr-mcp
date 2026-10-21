@@ -1,0 +1,91 @@
+name: OpenAPI sync
+
+# Checks vultr.com/api for a new spec and keeps one pull request open with it; merging stays a person's step.
+on:
+  schedule:
+    - cron: "17 13 * * 1-5"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  # To start ci.yml on the branch: a pull request opened with GITHUB_TOKEN triggers no workflows itself.
+  actions: write
+
+concurrency:
+  group: openapi-sync
+  cancel-in-progress: false
+
+env:
+  BRANCH: openapi-sync
+
+jobs:
+  sync:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.3.0
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      # Continue an open sync pull request, keeping any interface fixes pushed to it; otherwise start fresh from main.
+      - name: Pick the branch
+        id: branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp openapi.json "$RUNNER_TEMP/main-openapi.json"
+          open=$(gh pr list --head "$BRANCH" --state open --json number --jq '.[0].number // empty')
+          echo "pr=$open" >> "$GITHUB_OUTPUT"
+          if [ -n "$open" ]; then
+            git fetch origin "$BRANCH"
+            git switch --track "origin/$BRANCH"
+          else
+            git switch -c "$BRANCH"
+          fi
+
+      # The summary always compares against main, so the pull request body describes the whole change.
+      - name: Fetch the published spec
+        id: sync
+        run: uv run python scripts/sync_openapi.py --base "$RUNNER_TEMP/main-openapi.json" --summary "$RUNNER_TEMP/summary.md"
+
+      - name: Commit and push
+        id: push
+        if: steps.sync.outputs.changed == 'true'
+        run: |
+          if git diff --quiet -- openapi.json; then
+            echo "pushed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add openapi.json
+          git commit -m "openapi.json as published on $(date -u +%F)"
+          if [ -n "${{ steps.branch.outputs.pr }}" ]; then
+            git push origin "$BRANCH"
+          else
+            git push --force origin "$BRANCH"
+          fi
+          echo "pushed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Open or update the pull request
+        if: steps.sync.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ -n "${{ steps.branch.outputs.pr }}" ]; then
+            gh pr edit "$BRANCH" --body-file "$RUNNER_TEMP/summary.md"
+          else
+            gh pr create --base main --head "$BRANCH" --title "openapi.json: changes published on vultr.com/api" --body-file "$RUNNER_TEMP/summary.md"
+          fi
+
+      - name: Run CI on the branch
+        if: steps.push.outputs.pushed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run ci.yml --ref "$BRANCH"

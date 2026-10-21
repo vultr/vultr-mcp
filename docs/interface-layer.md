@@ -120,7 +120,9 @@ Because these tools filter client-side, a filtered search pages through the coll
 
 ### Keeping up with the spec
 
-`openapi.json` moves because someone else shipped, so CI answers "what changed, and does it still work" on every push:
+`openapi.json` moves because someone else shipped. Each weekday `openapi-sync.yml` reads the spec embedded in [vultr.com/api](https://www.vultr.com/api/) and, when it differs, keeps one `openapi-sync` pull request open whose description lists the changed operations and schemas, the reviewed tools they touch, and the validation and drift results; it starts CI on that branch itself. The same script runs locally with `uv run python scripts/sync_openapi.py`.
+
+CI answers "what changed, and does it still work" on every push:
 
 | Check | Catches |
 |---|---|

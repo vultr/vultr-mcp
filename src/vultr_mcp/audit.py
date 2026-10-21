@@ -192,8 +192,9 @@ def _finish(record: dict[str, Any], started: float, upstream: list[dict[str, Any
             record["overhead_ms"] = round(record["duration_ms"] - upstream_ms, 1)
 
         blame = diagnostics.fault(record.get("outcome", "error"), upstream)
-        # An unknown argument fails before any upstream call, but it is the caller's fault, not ours.
-        if "ArgumentError" in record.get("error_chain", ()):
+        # An unknown argument or tool name fails before any upstream call, but it is the caller's fault, not ours.
+        chain = record.get("error_chain", ())
+        if "ArgumentError" in chain or chain[:1] == ["NotFoundError"]:
             blame = "caller"
         if blame is not None:
             record["fault"] = blame

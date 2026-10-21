@@ -95,6 +95,18 @@ async def test_error_chain_survives_the_toolerror_wrapper(server, capsys):
     assert "RuntimeError" in rec["error_chain"]
 
 
+async def test_unknown_tool_is_the_callers_fault(server, capsys):
+    """A client calling a tool this server never had is not a server error."""
+    rec = await _call(server, capsys, "no_such_tool", {}, expect_error=True)
+    assert rec["error_chain"][0] == "NotFoundError"
+    assert rec["fault"] == "caller"
+
+
+async def test_a_tool_crash_stays_our_fault(server, capsys):
+    rec = await _call(server, capsys, "explode", {"instance_id": "i-1"}, expect_error=True)
+    assert rec["fault"] == "mcp"
+
+
 async def test_error_messages_are_not_recorded(server, capsys):
     """Upstream errors quote API responses, which can carry credentials."""
     rec = await _call(server, capsys, "explode", {"instance_id": "i-1"}, expect_error=True)
