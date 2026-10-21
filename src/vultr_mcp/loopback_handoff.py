@@ -59,28 +59,28 @@ def _param(url: str, name: str) -> str:
 
 # The content beside brand_page's navy panel; the palette variables come from brand_page.
 _CSS = """
-.card{width:100%;min-width:0;max-width:480px}
-h1{margin:0 0 12px;font-size:28px;font-weight:400;color:var(--fg)}
-p{margin:0 0 20px;color:var(--muted)}
-a{color:var(--blue)}
+.card{width:100%;min-width:0}
+h1{margin:0 0 12px;font-size:1.5rem;line-height:2rem;font-weight:400;color:var(--vx-fg)}
+p{margin:0 0 20px;color:var(--vx-muted)}
+a{color:var(--vx-blue)}
 .code{display:flex;gap:8px;align-items:stretch;margin:0 0 16px}
 .code input{flex:1;min-width:0;padding:11px 13px;font-size:13px;
-  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;border:1px solid var(--line);
-  border-radius:6px;background:var(--field);color:var(--fg)}
-.code button,.btn{border:0;border-radius:6px;background:var(--blue);color:#fff;
-  font-weight:600;font-size:15px;cursor:pointer;transition:background .15s}
-.code button{padding:11px 16px;font-size:14px;white-space:nowrap}
-.btn{display:block;width:100%;padding:13px 18px;text-align:center;text-decoration:none;margin:0 0 18px}
-.code button:hover,.btn:hover{background:var(--blue-hover)}
-.ok{width:52px;height:52px;border-radius:50%;background:rgba(0,123,252,.1);color:var(--blue);
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;border:1px solid var(--vx-border);
+  border-radius:6px;background:var(--vx-field);color:var(--vx-fg)}
+.code button,.btn{border:0;border-radius:6px;background:var(--vx-blue);color:#fff;
+  font-weight:500;font-size:.875rem;cursor:pointer;transition:background .15s}
+.code button{padding:8px 16px;white-space:nowrap}
+.btn{display:flex;align-items:center;justify-content:center;width:100%;height:40px;padding:8px 16px;text-decoration:none;margin:0 0 18px}
+.code button:hover,.btn:hover{background:var(--vx-blue-600)}
+.ok{width:52px;height:52px;border-radius:50%;background:rgba(0,123,252,.1);color:var(--vx-blue);
   display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:700;margin-bottom:18px}
-.spin{width:24px;height:24px;border:3px solid var(--line);border-top-color:var(--blue);
+.spin{width:24px;height:24px;border:3px solid var(--vx-border);border-top-color:var(--vx-blue);
   border-radius:50%;animation:s .8s linear infinite;margin-bottom:16px}
 @keyframes s{to{transform:rotate(360deg)}}
 [hidden]{display:none!important}
-small{color:var(--muted);font-size:13px}
-details{margin-top:20px;border-top:1px solid var(--line);padding-top:16px}
-details summary{cursor:pointer;font-weight:600;font-size:14px;color:var(--navy);margin-bottom:12px}
+small{color:var(--vx-muted);font-size:13px}
+details{margin-top:20px;border-top:1px solid var(--vx-border);padding-top:16px}
+details summary{cursor:pointer;font-weight:600;font-size:14px;color:var(--vx-fg);margin-bottom:12px}
 details[open] summary{margin-bottom:14px}
 """
 
