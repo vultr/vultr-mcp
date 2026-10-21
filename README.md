@@ -41,6 +41,25 @@ Sign in with your Vultr account through OAuth. Add the server with no credential
 
 - Access renews on its own; a client that never renews stays signed in for a day. You sign in again only after 30 days without use, or if access is revoked.
 - Most MCP clients support this, including Claude, Cursor, VS Code, Codex CLI and OpenClaw.
+- If an administrator removes your MCP access, or turns MCP off for your organization, your connection stays open but every tool answers with the reason. Restore access within a day and it carries on with no sign-in; after that, you sign in again.
+
+### Turn MCP on for your organization first
+
+MCP is off for every organization until an administrator turns it on. In the Vultr console, open your organization's settings, choose **MCP Server**, and click **Enable MCP Server**. That takes the root user, or a user allowed `iam.organization.Update`.
+
+Turning it on creates a **Use MCP** permission policy in the organization:
+
+- The root user can connect straight away.
+- Every other user needs **Use MCP** attached, directly or through a group or role.
+- Whoever connects, the server can only do what that user can. Each call is checked against their own permissions.
+
+If signing in or a tool call is refused, the message says why:
+
+| Message | What to do |
+|---|---|
+| MCP access is not enabled for your organization | An administrator turns MCP on, as above |
+| MCP access is not currently granted to your Vultr user | An administrator attaches **Use MCP** to your user, group or role |
+| Permission denied. Your Vultr user does not have permission for this action | Your user lacks that permission; the MCP can't do more than you can |
 
 ### One organization per sign-in
 
@@ -50,18 +69,18 @@ To work with two organizations at once, add the server twice under different nam
 
 ## Endpoints
 
-`https://mcp.vultr.com/mcp` serves all 186 tools. Some clients struggle with that many, and a model picks the right tool more often from a shorter list. Each product area also has its own endpoint serving only its tools. Add the area to the end of `/mcp`:
+`https://mcp.vultr.com/mcp` serves all 185 tools. Some clients struggle with that many, and a model picks the right tool more often from a shorter list. Each product area also has its own endpoint serving only its tools. Add the area to the end of `/mcp`:
 
 | Endpoint | Tools | Covers |
 |---|---:|---|
-| `/mcp/compute` | 33 | Cloud Compute instances, Bare Metal, snapshots, backups, startup scripts, instance templates and Compute Clusters |
+| `/mcp/compute` | 31 | Cloud Compute instances, Bare Metal, snapshots, backups, startup scripts, instance templates and Compute Clusters |
 | `/mcp/network` | 38 | DNS, firewalls, load balancers, VPCs and NAT gateways, reserved IPs, CDN, and legacy private networks |
-| `/mcp/databases` | 29 | Managed Databases: clusters, users, databases, pools, topics, connectors, maintenance and alerts |
+| `/mcp/databases` | 30 | Managed Databases: clusters, users, databases, pools, topics, connectors, maintenance and alerts |
 | `/mcp/account` | 23 | Account details, billing and invoices, activity logs, SSH keys, sub-accounts and support tickets |
-| `/mcp/catalog` | 19 | What you can deploy and where: plans, regions, operating systems, ISOs, One-Click apps and Marketplace |
+| `/mcp/catalog` | 18 | What you can deploy and where: plans, regions, operating systems, ISOs, One-Click apps and Marketplace |
 | `/mcp/storage` | 16 | Block Storage, Object Storage, Vultr File System and storage gateways |
-| `/mcp/registry` | 14 | Container registries, repositories, artifacts, robots and replication |
-| `/mcp/kubernetes` | 11 | Vultr Kubernetes Engine clusters, node pools, versions and upgrades |
+| `/mcp/registry` | 12 | Container registries, repositories, artifacts, robots and replication |
+| `/mcp/kubernetes` | 14 | Vultr Kubernetes Engine clusters, node pools, versions and upgrades |
 | `/mcp/inference` | 3 | Serverless Inference subscriptions and usage |
 
 Each endpoint's name matches its tools: `/mcp/compute` serves the `vultr_compute_*` tools, and so on. Kubernetes is kept apart from compute on purpose, because VKE clusters and Compute Clusters are easy to confuse.
@@ -271,6 +290,7 @@ Self-hosted servers are read-only too; there is no setting that turns on tools t
 | `VULTR_OIDC_PROVIDER_ID` / `VULTR_OAUTH_CLIENT_ID` / `VULTR_OAUTH_CLIENT_SECRET` | the approved OAuth app's credentials |
 | `REDIS_HOST` / `REDIS_PORT` | shared OAuth state, required when running more than one replica |
 | `VULTR_MCP_AUDIT_LOG` | one audit record per tool call (default `true`), to stdout over HTTP and to stderr over STDIO, where stdout is the protocol |
+
 ## Development
 
 ```bash
