@@ -15,6 +15,8 @@ from urllib.parse import parse_qs, urlparse
 
 from starlette.responses import HTMLResponse
 
+from vultr_mcp import brand_page
+
 # Hostnames that mean "this machine" without needing to be parsed as an IP.
 _LOOPBACK_NAMES = {"localhost", "localhost.localdomain", "ip6-localhost"}
 
@@ -55,42 +57,39 @@ def _param(url: str, name: str) -> str:
         return ""
 
 
+# The content beside brand_page's navy panel; the palette variables come from brand_page.
 _CSS = """
-:root {
-  color-scheme: light dark;
-  --bg:#fff; --fg:#10151c; --muted:#5a6572; --card:#f6f8fa;
-  --line:#d7dde5; --accent:#0057d9; --ok:#137a43;
-}
-@media (prefers-color-scheme: dark) {
-  :root { --bg:#0f1419; --fg:#e8edf3; --muted:#97a3b2; --card:#171d25;
-          --line:#2a333e; --accent:#5b9dff; --ok:#3ecf8e; }
-}
-*{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--fg);
-  font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
-  display:flex;align-items:center;justify-content:center;min-height:100vh;padding:24px}
-.card{width:100%;max-width:520px;background:var(--card);border:1px solid var(--line);
-  border-radius:12px;padding:28px}
-h1{margin:0 0 6px;font-size:19px}
-p{margin:0 0 16px;color:var(--muted)}
+.card{width:100%;min-width:0;max-width:480px}
+h1{margin:0 0 12px;font-size:28px;font-weight:400;color:var(--fg)}
+p{margin:0 0 20px;color:var(--muted)}
+a{color:var(--blue)}
 .code{display:flex;gap:8px;align-items:stretch;margin:0 0 16px}
-.code input{flex:1;padding:12px 14px;font-size:14px;
-  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;border:1px solid var(--line);
-  border-radius:8px;background:var(--bg);color:var(--fg)}
-.code button{padding:12px 16px;font-size:14px;font-weight:600;border:0;border-radius:8px;
-  background:var(--accent);color:#fff;cursor:pointer;white-space:nowrap}
-.btn{display:inline-block;padding:12px 18px;font-size:14px;font-weight:600;border-radius:8px;
-  background:var(--accent);color:#fff;text-decoration:none;margin:0 0 18px}
-.ok{font-size:40px;line-height:1;margin-bottom:10px;color:var(--ok)}
-.spin{width:20px;height:20px;border:2px solid var(--line);border-top-color:var(--accent);
-  border-radius:50%;animation:s .8s linear infinite;margin-bottom:14px}
+.code input{flex:1;min-width:0;padding:11px 13px;font-size:13px;
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;border:1px solid var(--line);
+  border-radius:6px;background:var(--field);color:var(--fg)}
+.code button,.btn{border:0;border-radius:6px;background:var(--blue);color:#fff;
+  font-weight:600;font-size:15px;cursor:pointer;transition:background .15s}
+.code button{padding:11px 16px;font-size:14px;white-space:nowrap}
+.btn{display:block;width:100%;padding:13px 18px;text-align:center;text-decoration:none;margin:0 0 18px}
+.code button:hover,.btn:hover{background:var(--blue-hover)}
+.ok{width:52px;height:52px;border-radius:50%;background:rgba(0,123,252,.1);color:var(--blue);
+  display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:700;margin-bottom:18px}
+.spin{width:24px;height:24px;border:3px solid var(--line);border-top-color:var(--blue);
+  border-radius:50%;animation:s .8s linear infinite;margin-bottom:16px}
 @keyframes s{to{transform:rotate(360deg)}}
 [hidden]{display:none!important}
 small{color:var(--muted);font-size:13px}
-details{margin-top:18px;border-top:1px solid var(--line);padding-top:14px}
-details summary{cursor:pointer;font-weight:600;font-size:14px;margin-bottom:12px}
+details{margin-top:20px;border-top:1px solid var(--line);padding-top:16px}
+details summary{cursor:pointer;font-weight:600;font-size:14px;color:var(--navy);margin-bottom:12px}
 details[open] summary{margin-bottom:14px}
 """
+
+# The page carries an authorization code: it must not be cached by the browser or anything between us and it.
+_NO_STORE = {
+    "Cache-Control": "no-store, no-cache, must-revalidate",
+    "Pragma": "no-cache",
+    "Referrer-Policy": "no-referrer",
+}
 
 
 def app_return_page(target: str) -> HTMLResponse:
@@ -98,25 +97,19 @@ def app_return_page(target: str) -> HTMLResponse:
     safe_target = html.escape(target, quote=True)
     # Entities are not decoded inside <script>, so the script gets JSON with "<" escaped instead.
     script_target = json.dumps(target).replace("<", "\\u003c")
-    return HTMLResponse(
-        f"""<!doctype html><meta charset=utf-8>
-<meta name=viewport content="width=device-width,initial-scale=1">
-<title>Signed in</title><style>{_CSS}</style>
-<div class="card">
+    card = f"""<div class="card">
   <div class="ok">&#10003;</div>
   <h1>You're signed in to Vultr</h1>
-  <p>Returning you to your app. You can close this tab once it opens.</p>
-  <p><a class="btn" href="{safe_target}">Open the app</a></p>
-  <p><small>If nothing happened, use the button; your browser may ask before opening the app.</small></p>
-</div>
-<script>window.location.replace({script_target});</script>""",
-        headers={
-            # The page carries an authorization code: it must not be cached by
-            # the browser or anything between us and it.
-            "Cache-Control": "no-store, no-cache, must-revalidate",
-            "Pragma": "no-cache",
-            "Referrer-Policy": "no-referrer",
-        },
+  <p>Your app is connected to the Vultr MCP Server. You can close this tab once the app opens.</p>
+  <a class="btn" href="{safe_target}">Open the app</a>
+  <small>Nothing happened? Use the button above; your browser may ask before it opens the app.</small>
+</div>"""
+    return HTMLResponse(
+        brand_page.page(
+            "Signed in to Vultr", "Signed in", "to Vultr.", card, _CSS,
+            f"<script>window.location.replace({script_target});</script>",
+        ),
+        headers=_NO_STORE,
     )
 
 
@@ -131,11 +124,7 @@ def completion_page(target: str) -> HTMLResponse:
     safe_target = html.escape(target, quote=True)
     safe_code = html.escape(code, quote=True)
 
-    return HTMLResponse(
-        f"""<!doctype html><meta charset=utf-8>
-<meta name=viewport content="width=device-width,initial-scale=1">
-<title>Finish connecting</title><style>{_CSS}</style>
-<div class="card">
+    card = f"""<div class="card">
   <div id="probe">
     <div class="spin"></div>
     <h1>Finishing up</h1>
@@ -175,8 +164,8 @@ def completion_page(target: str) -> HTMLResponse:
        option the second. Both are single use and expire within a few
        minutes.</small></p>
   </details>
-</div>
-<script>
+</div>"""
+    script = f"""<script>
 // Deliver the code to a listener on THIS machine, if there is one. When it
 // works this is the request the client has been waiting for and it completes
 // exactly as it would have after a redirect. no-cors because we never need to
@@ -213,12 +202,8 @@ setTimeout(function () {{ settle("manual"); }}, 4000);
 fetch(target, {{ mode: "no-cors", cache: "no-store" }})
   .then(function () {{ settle("done"); }})
   .catch(function () {{ settle("manual"); }});
-</script>""",
-        headers={
-            # The page carries an authorization code: it must not be cached by
-            # the browser or anything between us and it.
-            "Cache-Control": "no-store, no-cache, must-revalidate",
-            "Pragma": "no-cache",
-            "Referrer-Policy": "no-referrer",
-        },
+</script>"""
+    return HTMLResponse(
+        brand_page.page("Finish connecting", "Finish", "connecting your client.", card, _CSS, script),
+        headers=_NO_STORE,
     )

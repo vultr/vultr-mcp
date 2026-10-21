@@ -36,6 +36,7 @@ from vultr_mcp.device_flow import (
     device_flow_enabled,
     device_routes,
 )
+from vultr_mcp.brand_page import restyle_consent
 from vultr_mcp.loopback_handoff import app_return_page, completion_page, is_app_link, is_loopback_target
 from vultr_mcp.refresh_coalescer import (
     CoalescedUpstreamClient,
@@ -413,6 +414,18 @@ class VultrOAuthProxy(OAuthProxy):
             return completion_page(target)
         if target and "code=" in target and is_app_link(target):
             return app_return_page(target)
+        return response
+
+    async def _show_consent_page(self, request: Request) -> Any:
+        """FastMCP's consent page in Vultr's sign-in layout; its form, cookies and security headers are untouched."""
+        response = await super()._show_consent_page(request)
+        if getattr(response, "status_code", None) != 200 or "text/html" not in response.headers.get("content-type", ""):
+            return response
+        body = response.body.decode("utf-8")
+        styled = restyle_consent(body)
+        if styled != body:
+            response.body = styled.encode("utf-8")
+            response.headers["content-length"] = str(len(response.body))
         return response
 
     async def _submit_consent(self, request: Request) -> Any:
