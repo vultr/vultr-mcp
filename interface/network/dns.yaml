@@ -74,9 +74,9 @@ tools:
     input:
       type: object
       required:
-        - dns_domain
+        - domain
       properties:
-        dns_domain:
+        domain:
           type: string
           description: >-
             The domain name, as returned in the domain field by
@@ -110,9 +110,9 @@ tools:
     input:
       type: object
       required:
-        - dns_domain
+        - domain
       properties:
-        dns_domain:
+        domain:
           type: string
           description: >-
             The domain name, as returned in the domain field by
@@ -181,10 +181,10 @@ tools:
     input:
       type: object
       required:
-        - dns_domain
+        - domain
         - record_id
       properties:
-        dns_domain:
+        domain:
           type: string
           description: >-
             The domain name, as returned in the domain field by
@@ -227,9 +227,9 @@ tools:
     input:
       type: object
       required:
-        - dns_domain
+        - domain
       properties:
-        dns_domain:
+        domain:
           type: string
           description: >-
             The domain name, as returned in the domain field by
@@ -260,9 +260,9 @@ tools:
     input:
       type: object
       required:
-        - dns_domain
+        - domain
       properties:
-        dns_domain:
+        domain:
           type: string
           description: >-
             The domain name, as returned in the domain field by

@@ -115,6 +115,17 @@ tools:
     input:
       type: object
       # No `region` filter: with the declared container missing it would be silently ignored.
-      properties: {}
+      properties:
+        page_size:
+          type: integer
+          description: Maximum number of bare metal plans to return.
+          default: 100
+          minimum: 1
+          maximum: 500
+          maps_to: per_page
+
+        cursor:
+          type: string
+          description: Cursor returned by a previous request for the next page.
 
     # No `output` block: the API sends `plans_metal` where the spec declares `plans`.

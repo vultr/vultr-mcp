@@ -64,6 +64,21 @@ tools:
             field: name
             match: contains_ci
 
+        page_size:
+          type: integer
+          description: >-
+            Maximum number of results to return. When a filter is supplied the
+            server scans the account and returns up to this many matches,
+            reporting in meta.filtered how much it scanned.
+          default: 100
+          minimum: 1
+          maximum: 500
+          maps_to: per_page
+
+        cursor:
+          type: string
+          description: Cursor returned by a previous request for the next page.
+
     output:
       from_openapi: true
       # root_user is withheld whole: it nests `password`, which include cannot drop alone.
@@ -144,6 +159,18 @@ tools:
             ID of the container registry, as returned in the id field by
             vultr_registry_registries_list.
           maps_to: registry-id
+
+        page_size:
+          type: integer
+          description: Maximum number of robot accounts to return.
+          default: 100
+          minimum: 1
+          maximum: 100
+          maps_to: per_page
+
+        cursor:
+          type: string
+          description: Cursor returned by a previous request for the next page.
 
     output:
       from_openapi: true

@@ -147,8 +147,9 @@ tools:
 
     description: |
       Lists snapshots of Vultr Block Storage volumes in the active Vultr
-      organization, each with the volume it came from, its size, state, and
-      next invoice date and price.
+      organization, each with its description (the name given when it was
+      taken), the volume it came from, its region, size, state, and next
+      invoice date and price.
 
       Use this tool to find restore points for a block storage volume, or to
       report what snapshot storage is costing.
@@ -178,6 +179,15 @@ tools:
             field: state
             match: equals
 
+        description_contains:
+          type: string
+          description: >-
+            Case-insensitive text contained in the snapshot description, which
+            is the name it was given when taken.
+          filter:
+            field: description
+            match: contains_ci
+
         page_size:
           type: integer
           description: >-
@@ -197,7 +207,9 @@ tools:
       from_openapi: true
       include:
         - id
+        - description
         - block_id
+        - region
         - size
         - state
         - next_invoice_date
@@ -211,8 +223,9 @@ tools:
     enabled: true
 
     description: |
-      Gets one Vultr Block Storage volume snapshot by its ID, with the volume
-      it came from, its size, state, and next invoice date and price.
+      Gets one Vultr Block Storage volume snapshot by its ID, with its
+      description, the volume it came from, its region, size, state, and next
+      invoice date and price.
 
       Use this tool when a block snapshot ID is already known. To find one, use
       vultr_storage_block_snapshots_list first.
@@ -238,7 +251,9 @@ tools:
       from_openapi: true
       include:
         - id
+        - description
         - block_id
+        - region
         - size
         - state
         - next_invoice_date

@@ -2,7 +2,7 @@
 # One directory per endpoint group (app.py ENDPOINT_GROUPS); a large area lists several files but stays one entry,
 # since drift matches each area's name to an OpenAPI tag.
 
-version: 2026.10.2
+version: 2026.10.3
 
 schema: schema/interface.schema.json
 
