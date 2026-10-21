@@ -1,4 +1,4 @@
-# Vultr MCP Server (Preview)
+# Vultr MCP Server (Public Beta)
 
 [![CI](https://github.com/vultr/vultr-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/vultr/vultr-mcp/actions/workflows/ci.yml)
 
