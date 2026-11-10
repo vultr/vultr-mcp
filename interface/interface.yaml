@@ -2,7 +2,7 @@
 # One directory per endpoint group (app.py ENDPOINT_GROUPS); a large area lists several files but stays one entry,
 # since drift matches each area's name to an OpenAPI tag.
 
-version: 2026.10.3
+version: 2026.11.1
 
 schema: schema/interface.schema.json
 
@@ -59,6 +59,7 @@ product_areas:
     - kubernetes/applications.yaml
     - kubernetes/clusters.yaml
     - kubernetes/node_pools.yaml
+    - kubernetes/nodes.yaml
     - kubernetes/versions.yaml
 
   # -- network -----------------------------------------------------------------
@@ -74,6 +75,7 @@ product_areas:
   vpcs:
     - network/vpcs/vpcs.yaml
     - network/vpcs/nat_gateways.yaml
+    - network/vpcs/nat_gateway_services.yaml
 
   # -- registry ----------------------------------------------------------------
   container_registry:
@@ -84,6 +86,7 @@ product_areas:
 
   # -- storage -----------------------------------------------------------------
   block: storage/block.yaml
+  blocks: storage/block_clones.yaml
   s3: storage/s3.yaml
   storage_gateways: storage/storage_gateways.yaml
   vfs: storage/vfs.yaml

@@ -1,0 +1,158 @@
+product_area: kubernetes
+family: kubernetes
+
+# One file of the kubernetes area, which interface.yaml lists across this directory.
+
+# Worker nodes with their addresses and hardware, beyond the summary each node pool embeds.
+
+tools:
+  - name: vultr_kubernetes_nodes_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists every worker node in one Vultr Kubernetes Engine cluster, across
+      all of its node pools, each with its node pool ID, status, power and
+      server status, public, private and IPv6 addresses, vCPU count, RAM,
+      disk, plan, region, VPCs and firewall group.
+
+      Use this tool when a question needs a node's addresses or hardware, such
+      as which IP a node has or why one is not ready, across the whole
+      cluster.
+
+      The node pools that vultr_kubernetes_clusters_get and
+      vultr_kubernetes_node_pools_list return already embed each node's ID,
+      label and status, so this call is only needed for the detail beyond
+      that.
+
+      Do not use this tool for the nodes of a Vultr Compute Cluster, which is
+      a different product, or for compute instances in general.
+
+    operation: list-kubernetes-nodes
+
+    input:
+      type: object
+      required:
+        - vke_id
+      properties:
+        vke_id:
+          type: string
+          description: >-
+            ID of the VKE cluster, as returned in the id field by
+            vultr_kubernetes_clusters_list.
+          maps_to: vke-id
+
+        page_size:
+          type: integer
+          description: Maximum number of results to return.
+          default: 100
+          minimum: 1
+          maximum: 500
+          maps_to: per_page
+
+        cursor:
+          type: string
+          description: Cursor returned by a previous request for the next page.
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - label
+        - hostname
+        - node_pool_id
+        - status
+        - power_status
+        - server_status
+        - main_ip
+        - internal_ip
+        - v6_main_ip
+        - vcpu_count
+        - ram
+        - disk
+        - plan
+        - region
+        - vpc_only
+        - vpcs
+        - firewall_group_id
+        - tags
+        - date_created
+
+  - name: vultr_kubernetes_node_pools_nodes_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the worker nodes in one node pool of a Vultr Kubernetes Engine
+      cluster, each with its status, power and server status, public, private
+      and IPv6 addresses, vCPU count, RAM, disk, plan, region, VPCs and
+      firewall group.
+
+      Use this tool when a question needs the addresses or hardware of one
+      pool's nodes. For every node in the cluster at once, use
+      vultr_kubernetes_nodes_list.
+
+      The node pool that vultr_kubernetes_node_pools_get returns already
+      embeds each node's ID, label and status, so this call is only needed for
+      the detail beyond that.
+
+      Do not use this tool for the nodes of a Vultr Compute Cluster, which is
+      a different product.
+
+    operation: list-nodepool-nodes
+
+    input:
+      type: object
+      required:
+        - vke_id
+        - nodepool_id
+      properties:
+        vke_id:
+          type: string
+          description: >-
+            ID of the VKE cluster, as returned in the id field by
+            vultr_kubernetes_clusters_list.
+          maps_to: vke-id
+
+        nodepool_id:
+          type: string
+          description: >-
+            ID of the node pool, as returned in the id field by
+            vultr_kubernetes_node_pools_list.
+          maps_to: nodepool-id
+
+        page_size:
+          type: integer
+          description: Maximum number of results to return.
+          default: 100
+          minimum: 1
+          maximum: 500
+          maps_to: per_page
+
+        cursor:
+          type: string
+          description: Cursor returned by a previous request for the next page.
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - label
+        - hostname
+        - node_pool_id
+        - status
+        - power_status
+        - server_status
+        - main_ip
+        - internal_ip
+        - v6_main_ip
+        - vcpu_count
+        - ram
+        - disk
+        - plan
+        - region
+        - vpc_only
+        - vpcs
+        - firewall_group_id
+        - tags
+        - date_created

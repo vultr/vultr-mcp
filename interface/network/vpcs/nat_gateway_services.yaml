@@ -1,0 +1,368 @@
+product_area: vpcs
+family: network
+
+# One file of the vpcs area, which interface.yaml lists across this directory.
+
+# What a NAT gateway serves inside its VPC: virtual IPs that balance internal traffic, and DNS overrides.
+
+tools:
+  - name: vultr_network_nat_gateway_virtual_ips_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the virtual IPs on one Vultr NAT gateway. A virtual IP is a stable
+      internal ip:port inside the VPC that load balances traffic across the
+      backend IPs attached to it. Each comes with its IP, port, routing type,
+      service label, health check settings and backend IPs.
+
+      Use this tool to find how traffic between nodes in a VPC is balanced, or
+      which private addresses sit behind an internal service address.
+
+      Do not use this tool for Vultr load balancers, which are a separate
+      product with their own tools, or for the gateway's port forwarding rules,
+      which bring traffic in from the internet rather than balance it inside
+      the VPC.
+
+    operation: list-nat-gateway-virtual-ips
+
+    input:
+      type: object
+      required:
+        - vpc_id
+        - nat_gateway_id
+      properties:
+        vpc_id:
+          type: string
+          description: >-
+            ID of the VPC, as returned in the id field by
+            vultr_network_vpcs_list.
+          maps_to: vpc-id
+
+        nat_gateway_id:
+          type: string
+          description: >-
+            ID of the NAT gateway, as returned in the id field by
+            vultr_network_nat_gateways_list.
+          maps_to: nat-gateway-id
+
+        page_size:
+          type: integer
+          description: Maximum number of results to return.
+          default: 100
+          minimum: 1
+          maximum: 500
+          maps_to: per_page
+
+        cursor:
+          type: string
+          description: Cursor returned by a previous request for the next page.
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - label
+        - ip
+        - ip_type
+        - port
+        - routing_type
+        - health_check
+        - backend_ips
+        - notes
+        - meta
+
+  - name: vultr_network_nat_gateway_virtual_ips_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets one virtual IP on a Vultr NAT gateway by its ID, with its IP, port,
+      routing type, service label, health check settings and the backend IPs
+      it balances traffic across.
+
+      Use this tool when a virtual IP ID is already known. To list them, use
+      vultr_network_nat_gateway_virtual_ips_list.
+
+      Do not use this tool for Vultr load balancers, which are a separate
+      product, or for reserved IPs, which are public addresses.
+
+    operation: get-nat-gateway-virtual-ip
+
+    input:
+      type: object
+      required:
+        - vpc_id
+        - nat_gateway_id
+        - virtual_ip_id
+      properties:
+        vpc_id:
+          type: string
+          description: >-
+            ID of the VPC, as returned in the id field by
+            vultr_network_vpcs_list.
+          maps_to: vpc-id
+
+        nat_gateway_id:
+          type: string
+          description: >-
+            ID of the NAT gateway, as returned in the id field by
+            vultr_network_nat_gateways_list.
+          maps_to: nat-gateway-id
+
+        virtual_ip_id:
+          type: string
+          description: >-
+            ID of the virtual IP, as returned in the id field by
+            vultr_network_nat_gateway_virtual_ips_list.
+          maps_to: virtual-ip-id
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - label
+        - ip
+        - ip_type
+        - port
+        - routing_type
+        - health_check
+        - backend_ips
+        - notes
+
+  - name: vultr_network_nat_gateway_virtual_ip_backends_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets one backend IP behind a virtual IP on a Vultr NAT gateway, with its
+      private IP, the port that receives traffic, its health check port, MAC
+      address and notes.
+
+      Use this tool when a backend IP ID is already known. The backend IPs of
+      a virtual IP are already embedded in what
+      vultr_network_nat_gateway_virtual_ips_get returns, so a virtual IP
+      response answers this without a further call.
+
+      Do not use this tool for Vultr load balancers, which are a separate
+      product.
+
+    operation: get-nat-gateway-vip-backend-ip
+
+    input:
+      type: object
+      required:
+        - vpc_id
+        - nat_gateway_id
+        - virtual_ip_id
+        - backend_ip_id
+      properties:
+        vpc_id:
+          type: string
+          description: >-
+            ID of the VPC, as returned in the id field by
+            vultr_network_vpcs_list.
+          maps_to: vpc-id
+
+        nat_gateway_id:
+          type: string
+          description: >-
+            ID of the NAT gateway, as returned in the id field by
+            vultr_network_nat_gateways_list.
+          maps_to: nat-gateway-id
+
+        virtual_ip_id:
+          type: string
+          description: >-
+            ID of the virtual IP, as returned in the id field by
+            vultr_network_nat_gateway_virtual_ips_list.
+          maps_to: virtual-ip-id
+
+        backend_ip_id:
+          type: string
+          description: >-
+            ID of the backend IP, as returned in the id field of backend_ips by
+            vultr_network_nat_gateway_virtual_ips_get.
+          maps_to: backend-ip-id
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - ip
+        - ip_type
+        - port
+        - health_check_port
+        - mac_address
+        - notes
+
+  - name: vultr_network_nat_gateway_dns_overrides_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the DNS overrides on one Vultr NAT gateway: custom answers its
+      built-in resolver gives the nodes in the VPC, each a domain with its A,
+      AAAA and CNAME records.
+
+      Use this tool to find why a name resolves differently inside a VPC, or
+      which internal names a VPC's nodes can reach.
+
+      Do not use this tool for Vultr DNS domains, which are public DNS with
+      their own tools.
+
+    operation: list-nat-gateway-dns-overrides
+
+    input:
+      type: object
+      required:
+        - vpc_id
+        - nat_gateway_id
+      properties:
+        vpc_id:
+          type: string
+          description: >-
+            ID of the VPC, as returned in the id field by
+            vultr_network_vpcs_list.
+          maps_to: vpc-id
+
+        nat_gateway_id:
+          type: string
+          description: >-
+            ID of the NAT gateway, as returned in the id field by
+            vultr_network_nat_gateways_list.
+          maps_to: nat-gateway-id
+
+        page_size:
+          type: integer
+          description: Maximum number of results to return.
+          default: 100
+          minimum: 1
+          maximum: 500
+          maps_to: per_page
+
+        cursor:
+          type: string
+          description: Cursor returned by a previous request for the next page.
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - domain
+        - records
+        - meta
+
+  - name: vultr_network_nat_gateway_dns_overrides_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets one DNS override on a Vultr NAT gateway by its ID: the domain the
+      gateway's resolver answers for inside the VPC, with its A, AAAA and
+      CNAME records.
+
+      Use this tool when a DNS override ID is already known. To list them, use
+      vultr_network_nat_gateway_dns_overrides_list.
+
+      Do not use this tool for Vultr DNS domains, which are public DNS with
+      their own tools.
+
+    operation: get-nat-gateway-dns-override
+
+    input:
+      type: object
+      required:
+        - vpc_id
+        - nat_gateway_id
+        - dns_override_id
+      properties:
+        vpc_id:
+          type: string
+          description: >-
+            ID of the VPC, as returned in the id field by
+            vultr_network_vpcs_list.
+          maps_to: vpc-id
+
+        nat_gateway_id:
+          type: string
+          description: >-
+            ID of the NAT gateway, as returned in the id field by
+            vultr_network_nat_gateways_list.
+          maps_to: nat-gateway-id
+
+        dns_override_id:
+          type: string
+          description: >-
+            ID of the DNS override, as returned in the id field by
+            vultr_network_nat_gateway_dns_overrides_list.
+          maps_to: dns-override-id
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - domain
+        - records
+
+  - name: vultr_network_nat_gateway_dns_override_records_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets one record in a DNS override on a Vultr NAT gateway, with its type
+      (A, AAAA or CNAME), its data and notes.
+
+      Use this tool when a record ID is already known. The records of a DNS
+      override are already embedded in what
+      vultr_network_nat_gateway_dns_overrides_get returns, so an override
+      response answers this without a further call.
+
+      Do not use this tool for records in Vultr DNS domains, which are public
+      DNS with their own tools.
+
+    operation: get-nat-gateway-dns-override-record
+
+    input:
+      type: object
+      required:
+        - vpc_id
+        - nat_gateway_id
+        - dns_override_id
+        - record_id
+      properties:
+        vpc_id:
+          type: string
+          description: >-
+            ID of the VPC, as returned in the id field by
+            vultr_network_vpcs_list.
+          maps_to: vpc-id
+
+        nat_gateway_id:
+          type: string
+          description: >-
+            ID of the NAT gateway, as returned in the id field by
+            vultr_network_nat_gateways_list.
+          maps_to: nat-gateway-id
+
+        dns_override_id:
+          type: string
+          description: >-
+            ID of the DNS override, as returned in the id field by
+            vultr_network_nat_gateway_dns_overrides_list.
+          maps_to: dns-override-id
+
+        record_id:
+          type: string
+          description: >-
+            ID of the record, as returned in the id field of records by
+            vultr_network_nat_gateway_dns_overrides_get.
+          maps_to: record-id
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - type
+        - data
+        - notes

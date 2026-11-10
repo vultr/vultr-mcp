@@ -72,6 +72,11 @@ def main(argv: list[str] | None = None) -> int:
         html = args.html.read_text(encoding="utf-8")
     else:
         response = httpx.get(args.url, follow_redirects=True, timeout=60, headers={"User-Agent": "vultr-mcp spec sync"})
+        # Cloudflare's bot challenge answers 403 with this header; only an allow rule on vultr.com's side gets past it.
+        if "cf-mitigated" in response.headers:
+            print(f"{args.url} answered {response.status_code} with a Cloudflare {response.headers['cf-mitigated']}; "
+                  "this client is blocked by vultr.com's bot protection", file=sys.stderr)
+            return 3
         response.raise_for_status()
         html = response.text
 

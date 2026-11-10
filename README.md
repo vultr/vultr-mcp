@@ -69,7 +69,7 @@ To work with two organizations at once, add the server twice under different nam
 
 ## Endpoints
 
-`https://mcp.vultr.com/mcp` serves all 185 tools. Some clients struggle with that many, and a model picks the right tool more often from a shorter list. Each product area also has its own endpoint serving only its tools. Add the area to the end of `/mcp`:
+`https://mcp.vultr.com/mcp` serves all 195 tools. Some clients struggle with that many, and a model picks the right tool more often from a shorter list. Each product area also has its own endpoint serving only its tools. Add the area to the end of `/mcp`:
 
 | Endpoint | Tools | Covers |
 |---|---:|---|

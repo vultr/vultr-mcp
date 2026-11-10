@@ -46,7 +46,7 @@ ENDPOINT_GROUPS: dict[str, tuple[str, ...]] = {
     "databases": ("managed-databases",),
     "account": ("account", "billing", "logs", "ssh", "subaccount", "tickets", "software-licenses"),
     "catalog": ("plans", "region", "os", "iso", "application", "marketplace"),
-    "storage": ("block", "s3", "vfs", "storage-gateways"),
+    "storage": ("block", "blocks", "s3", "vfs", "storage-gateways"),
     "registry": ("container-registry",),
     "kubernetes": ("kubernetes",),
     "inference": ("serverless-inference",),

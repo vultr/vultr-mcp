@@ -1,0 +1,48 @@
+product_area: blocks
+family: storage
+
+# Block storage clone jobs; Vultr tags them "blocks" while every other volume operation is "block".
+
+tools:
+  - name: vultr_storage_block_clones_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets the state of one Vultr Block Storage clone job by its ID: its
+      progress (PENDING, CREATING_SNAPSHOT, TRANSFERRING_SNAPSHOT, COMPLETE or
+      FAILED), how many copies it makes and their size and label, whether it
+      keeps the intermediate snapshot, and the volumes it has created so far.
+
+      Use this tool to follow up on a clone someone started, or to find which
+      volumes a clone produced, including those created before a failure.
+
+      Do not use this tool for block storage snapshots, which
+      vultr_storage_block_snapshots_list returns, or for volumes in general,
+      which vultr_storage_blocks_list returns.
+
+    operation: get-block-storage-clone-status
+
+    input:
+      type: object
+      required:
+        - clone_id
+      properties:
+        clone_id:
+          type: string
+          description: >-
+            UUID of the clone job, as returned when the clone was started.
+          maps_to: clone-id
+
+    output:
+      from_openapi: true
+      include:
+        - id
+        - state
+        - count
+        - size_gb
+        - label
+        - keep_snapshot
+        - blocks
+        - date_created
+        - date_updated

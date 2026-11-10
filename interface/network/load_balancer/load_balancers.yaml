@@ -193,3 +193,40 @@ tools:
           maps_to: load-balancer-id
 
     # No `output` block: ipv4 and ipv6 side by side, with no declared item fields.
+
+  - name: vultr_network_load_balancer_global_regions_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the global regions of one Vultr global load balancer: the child
+      load balancers it runs, each as a region ID and the ID of the VPC it is
+      attached to (empty when it serves the public network).
+
+      Use this tool to find which regions a global load balancer serves
+      traffic from.
+
+      Do not use this tool for a regular load balancer's forwarding rules,
+      which vultr_network_load_balancers_get returns, or for the list of Vultr
+      regions in general.
+
+    operation: list-load-balancer-global-regions
+
+    input:
+      type: object
+      required:
+        - load_balancer_id
+      properties:
+        load_balancer_id:
+          type: string
+          description: >-
+            ID of the global load balancer, as returned in the id field by
+            vultr_network_load_balancers_list.
+          maps_to: load-balancer-id
+
+    output:
+      from_openapi: true
+      include:
+        - region_id
+        - vpc_id
+        - meta

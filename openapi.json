@@ -2413,7 +2413,7 @@
                     "nat_gateways": {
                       "type": "array",
                       "items": {
-                        "$ref": "#/components/schemas/nat-gateway"
+                        "$ref": "#/components/schemas/schemas_nat-gateway"
                       }
                     },
                     "meta": {
@@ -2476,35 +2476,21 @@
         "operationId": "list-nat-gateways",
         "description": "List all NAT Gateways for this VPC Network.",
         "security": [
-          {
-            "API Key": []
-          }
+          [
+            {
+              "API Key": []
+            }
+          ]
         ],
         "parameters": [
           {
-            "schema": {
-              "type": "string"
-            },
-            "name": "vpc-id",
-            "in": "path",
-            "required": true,
-            "description": "The [VPC ID](#operation/list-vpcs)."
+            "$ref": "../shared/parameters.yaml#/vpc-id"
           },
           {
-            "schema": {
-              "type": "integer"
-            },
-            "in": "query",
-            "name": "per_page",
-            "description": "Number of items requested per page. Default is 100 and Max is 500."
+            "$ref": "../shared/parameters.yaml#/per-page"
           },
           {
-            "schema": {
-              "type": "string"
-            },
-            "in": "query",
-            "name": "cursor",
-            "description": "Cursor for paging. See [Meta and Pagination](#section/Introduction/Meta-and-Pagination)."
+            "$ref": "../shared/parameters.yaml#/cursor"
           }
         ]
       },
@@ -2528,7 +2514,7 @@
                   "type": "object",
                   "properties": {
                     "nat_gateway": {
-                      "$ref": "#/components/schemas/nat-gateway"
+                      "$ref": "#/components/schemas/schemas_nat-gateway"
                     }
                   }
                 },
@@ -2580,19 +2566,15 @@
         },
         "operationId": "create-nat-gateway",
         "security": [
-          {
-            "API Key": []
-          }
+          [
+            {
+              "API Key": []
+            }
+          ]
         ],
         "parameters": [
           {
-            "schema": {
-              "type": "string"
-            },
-            "name": "vpc-id",
-            "in": "path",
-            "required": true,
-            "description": "The [VPC ID](#operation/list-vpcs)."
+            "$ref": "../shared/parameters.yaml#/vpc-id"
           }
         ],
         "requestBody": {
@@ -2629,22 +2611,10 @@
     "/vpcs/{vpc-id}/nat-gateway/{nat-gateway-id}": {
       "parameters": [
         {
-          "schema": {
-            "type": "string"
-          },
-          "name": "vpc-id",
-          "in": "path",
-          "required": true,
-          "description": "The [VPC ID](#operation/list-vpcs)."
+          "$ref": "../shared/parameters.yaml#/vpc-id"
         },
         {
-          "schema": {
-            "type": "string"
-          },
-          "name": "nat-gateway-id",
-          "in": "path",
-          "required": true,
-          "description": "The [NAT Gateway ID](#operation/list-nat-gateways)."
+          "$ref": "./parameters.yaml#/nat-gateway-id"
         }
       ],
       "get": {
@@ -2667,7 +2637,7 @@
                   "type": "object",
                   "properties": {
                     "nat_gateway": {
-                      "$ref": "#/components/schemas/nat-gateway"
+                      "$ref": "#/components/schemas/schemas_nat-gateway"
                     }
                   }
                 },
@@ -2717,9 +2687,11 @@
         "operationId": "get-nat-gateway",
         "description": "Get information about a NAT Gateway.",
         "security": [
-          {
-            "API Key": []
-          }
+          [
+            {
+              "API Key": []
+            }
+          ]
         ]
       },
       "put": {
@@ -2742,7 +2714,7 @@
                   "type": "object",
                   "properties": {
                     "nat_gateway": {
-                      "$ref": "#/components/schemas/nat-gateway"
+                      "$ref": "#/components/schemas/schemas_nat-gateway"
                     }
                   }
                 },
@@ -2792,9 +2764,11 @@
         "operationId": "update-nat-gateway",
         "description": "Update information for a NAT Gateway. All attributes are optional. If not set, the attributes will retain their original values.",
         "security": [
-          {
-            "API Key": []
-          }
+          [
+            {
+              "API Key": []
+            }
+          ]
         ],
         "requestBody": {
           "content": {
@@ -2853,9 +2827,11 @@
         "operationId": "delete-nat-gateway",
         "description": "Delete a NAT Gateway.",
         "security": [
-          {
-            "API Key": []
-          }
+          [
+            {
+              "API Key": []
+            }
+          ]
         ]
       }
     },
@@ -2882,7 +2858,7 @@
                     "firewall_rules": {
                       "type": "array",
                       "items": {
-                        "$ref": "#/components/schemas/nat-gateway-firewall-rule"
+                        "$ref": "#/components/schemas/schemas_nat-gateway-firewall-rule"
                       }
                     },
                     "meta": {
@@ -2933,44 +2909,24 @@
         "operationId": "list-nat-gateway-firewall-rules",
         "description": "List all Firewall Rules for this NAT Gateway.",
         "security": [
-          {
-            "API Key": []
-          }
+          [
+            {
+              "API Key": []
+            }
+          ]
         ],
         "parameters": [
           {
-            "schema": {
-              "type": "string"
-            },
-            "name": "vpc-id",
-            "in": "path",
-            "required": true,
-            "description": "The [VPC ID](#operation/list-vpcs)."
+            "$ref": "../shared/parameters.yaml#/vpc-id"
           },
           {
-            "schema": {
-              "type": "string"
-            },
-            "name": "nat-gateway-id",
-            "in": "path",
-            "required": true,
-            "description": "The [NAT Gateway ID](#operation/list-nat-gateways)."
+            "$ref": "./parameters.yaml#/nat-gateway-id"
           },
           {
-            "schema": {
-              "type": "integer"
-            },
-            "in": "query",
-            "name": "per_page",
-            "description": "Number of items requested per page. Default is 100 and Max is 500."
+            "$ref": "../shared/parameters.yaml#/per-page"
           },
           {
-            "schema": {
-              "type": "string"
-            },
-            "in": "query",
-            "name": "cursor",
-            "description": "Cursor for paging. See [Meta and Pagination](#section/Introduction/Meta-and-Pagination)."
+            "$ref": "../shared/parameters.yaml#/cursor"
           }
         ]
       },
@@ -2994,7 +2950,7 @@
                   "type": "object",
                   "properties": {
                     "firewall_rule": {
-                      "$ref": "#/components/schemas/nat-gateway-firewall-rule"
+                      "$ref": "#/components/schemas/schemas_nat-gateway-firewall-rule"
                     }
                   }
                 },
@@ -3034,28 +2990,18 @@
         },
         "operationId": "create-nat-gateway-firewall-rule",
         "security": [
-          {
-            "API Key": []
-          }
+          [
+            {
+              "API Key": []
+            }
+          ]
         ],
         "parameters": [
           {
-            "schema": {
-              "type": "string"
-            },
-            "name": "vpc-id",
-            "in": "path",
-            "required": true,
-            "description": "The [VPC ID](#operation/list-vpcs)."
+            "$ref": "../shared/parameters.yaml#/vpc-id"
           },
           {
-            "schema": {
-              "type": "string"
-            },
-            "name": "nat-gateway-id",
-            "in": "path",
-            "required": true,
-            "description": "The [NAT Gateway ID](#operation/list-nat-gateways)."
+            "$ref": "./parameters.yaml#/nat-gateway-id"
           }
         ],
         "requestBody": {
@@ -3107,31 +3053,13 @@
     "/vpcs/{vpc-id}/nat-gateway/{nat-gateway-id}/global/firewall-rules/{firewall-rule-id}": {
       "parameters": [
         {
-          "schema": {
-            "type": "string"
-          },
-          "name": "vpc-id",
-          "in": "path",
-          "required": true,
-          "description": "The [VPC ID](#operation/list-vpcs)."
+          "$ref": "../shared/parameters.yaml#/vpc-id"
         },
         {
-          "schema": {
-            "type": "string"
-          },
-          "name": "nat-gateway-id",
-          "in": "path",
-          "required": true,
-          "description": "The [NAT Gateway ID](#operation/list-nat-gateways)."
+          "$ref": "./parameters.yaml#/nat-gateway-id"
         },
         {
-          "schema": {
-            "type": "string"
-          },
-          "name": "firewall-rule-id",
-          "in": "path",
-          "required": true,
-          "description": "The [Firewall Rule ID](#operation/list-nat-gateway-firewall-rules)."
+          "$ref": "./parameters.yaml#/nat-gateway-firewall-rule-id"
         }
       ],
       "get": {
@@ -3154,7 +3082,7 @@
                   "type": "object",
                   "properties": {
                     "firewall_rule": {
-                      "$ref": "#/components/schemas/nat-gateway-firewall-rule"
+                      "$ref": "#/components/schemas/schemas_nat-gateway-firewall-rule"
                     }
                   }
                 },
@@ -3192,9 +3120,11 @@
         "operationId": "get-nat-gateway-firewall-rule",
         "description": "Get information about a NAT Gateway Firewall Rule.",
         "security": [
-          {
-            "API Key": []
-          }
+          [
+            {
+              "API Key": []
+            }
+          ]
         ]
       },
       "put": {
@@ -3217,7 +3147,7 @@
                   "type": "object",
                   "properties": {
                     "firewall_rule": {
-                      "$ref": "#/components/schemas/nat-gateway-firewall-rule"
+                      "$ref": "#/components/schemas/schemas_nat-gateway-firewall-rule"
                     }
                   }
                 },
@@ -3255,9 +3185,11 @@
         "operationId": "update-nat-gateway-firewall-rule",
         "description": "Update information for a NAT Gateway Firewall Rule. All attributes are optional. If not set, the attributes will retain their original values.",
         "security": [
-          {
-            "API Key": []
-          }
+          [
+            {
+              "API Key": []
+            }
+          ]
         ],
         "requestBody": {
           "content": {
@@ -3311,9 +3243,11 @@
         "operationId": "delete-nat-gateway-firewall-rule",
         "description": "Delete a NAT Gateway Firewall Rule.",
         "security": [
-          {
-            "API Key": []
-          }
+          [
+            {
+              "API Key": []
+            }
+          ]
         ]
       }
     },
@@ -3340,7 +3274,7 @@
                     "port_forwarding_rules": {
                       "type": "array",
                       "items": {
-                        "$ref": "#/components/schemas/nat-gateway-port-forwarding-rule"
+                        "$ref": "#/components/schemas/schemas_nat-gateway-port-forwarding-rule"
                       }
                     },
                     "meta": {
@@ -3394,44 +3328,24 @@
         "operationId": "list-nat-gateway-port-forwarding-rules",
         "description": "List all Port Forwarding Rules for this NAT Gateway.",
         "security": [
-          {
-            "API Key": []
-          }
+          [
+            {
+              "API Key": []
+            }
+          ]
         ],
         "parameters": [
           {
-            "schema": {
-              "type": "string"
-            },
-            "name": "vpc-id",
-            "in": "path",
-            "required": true,
-            "description": "The [VPC ID](#operation/list-vpcs)."
+            "$ref": "../shared/parameters.yaml#/vpc-id"
           },
           {
-            "schema": {
-              "type": "string"
-            },
-            "name": "nat-gateway-id",
-            "in": "path",
-            "required": true,
-            "description": "The [NAT Gateway ID](#operation/list-nat-gateways)."
+            "$ref": "./parameters.yaml#/nat-gateway-id"
           },
           {
-            "schema": {
-              "type": "integer"
-            },
-            "in": "query",
-            "name": "per_page",
-            "description": "Number of items requested per page. Default is 100 and Max is 500."
+            "$ref": "../shared/parameters.yaml#/per-page"
           },
           {
-            "schema": {
-              "type": "string"
-            },
-            "in": "query",
-            "name": "cursor",
-            "description": "Cursor for paging. See [Meta and Pagination](#section/Introduction/Meta-and-Pagination)."
+            "$ref": "../shared/parameters.yaml#/cursor"
           }
         ]
       },
@@ -3455,7 +3369,7 @@
                   "type": "object",
                   "properties": {
                     "port_forwarding_rule": {
-                      "$ref": "#/components/schemas/nat-gateway-port-forwarding-rule"
+                      "$ref": "#/components/schemas/schemas_nat-gateway-port-forwarding-rule"
                     }
                   }
                 },
@@ -3498,28 +3412,18 @@
         },
         "operationId": "create-nat-gateway-port-forwarding-rule",
         "security": [
-          {
-            "API Key": []
-          }
+          [
+            {
+              "API Key": []
+            }
+          ]
         ],
         "parameters": [
           {
-            "schema": {
-              "type": "string"
-            },
-            "name": "vpc-id",
-            "in": "path",
-            "required": true,
-            "description": "The [VPC ID](#operation/list-vpcs)."
+            "$ref": "../shared/parameters.yaml#/vpc-id"
           },
           {
-            "schema": {
-              "type": "string"
-            },
-            "name": "nat-gateway-id",
-            "in": "path",
-            "required": true,
-            "description": "The [NAT Gateway ID](#operation/list-nat-gateways)."
+            "$ref": "./parameters.yaml#/nat-gateway-id"
           }
         ],
         "requestBody": {
@@ -3581,31 +3485,13 @@
     "/vpcs/{vpc-id}/nat-gateway/{nat-gateway-id}/global/port-forwarding-rules/{port-forwarding-rule-id}": {
       "parameters": [
         {
-          "schema": {
-            "type": "string"
-          },
-          "name": "vpc-id",
-          "in": "path",
-          "required": true,
-          "description": "The [VPC ID](#operation/list-vpcs)."
+          "$ref": "../shared/parameters.yaml#/vpc-id"
         },
         {
-          "schema": {
-            "type": "string"
-          },
-          "name": "nat-gateway-id",
-          "in": "path",
-          "required": true,
-          "description": "The [NAT Gateway ID](#operation/list-nat-gateways)."
+          "$ref": "./parameters.yaml#/nat-gateway-id"
         },
         {
-          "schema": {
-            "type": "string"
-          },
-          "name": "port-forwarding-rule-id",
-          "in": "path",
-          "required": true,
-          "description": "The [Port Forwarding Rule ID](#operation/list-nat-gateway-port-forwarding-rules)."
+          "$ref": "./parameters.yaml#/nat-gateway-port-forwarding-rule-id"
         }
       ],
       "get": {
@@ -3628,7 +3514,7 @@
                   "type": "object",
                   "properties": {
                     "port_forwarding_rule": {
-                      "$ref": "#/components/schemas/nat-gateway-port-forwarding-rule"
+                      "$ref": "#/components/schemas/schemas_nat-gateway-port-forwarding-rule"
                     }
                   }
                 },
@@ -3669,9 +3555,11 @@
         "operationId": "get-nat-gateway-port-forwarding-rule",
         "description": "Get information about a NAT Gateway Port Forwarding Rule.",
         "security": [
-          {
-            "API Key": []
-          }
+          [
+            {
+              "API Key": []
+            }
+          ]
         ]
       },
       "put": {
@@ -3694,7 +3582,7 @@
                   "type": "object",
                   "properties": {
                     "port_forwarding_rule": {
-                      "$ref": "#/components/schemas/nat-gateway-port-forwarding-rule"
+                      "$ref": "#/components/schemas/schemas_nat-gateway-port-forwarding-rule"
                     }
                   }
                 },
@@ -3735,9 +3623,11 @@
         "operationId": "update-nat-gateway-port-forwarding-rule",
         "description": "Update information for a NAT Gateway Port Forwarding Rule. All attributes are optional. If not set, the attributes will retain their original values.",
         "security": [
-          {
-            "API Key": []
-          }
+          [
+            {
+              "API Key": []
+            }
+          ]
         ],
         "requestBody": {
           "content": {
@@ -3820,10 +3710,1222 @@
         },
         "operationId": "delete-nat-gateway-port-forwarding-rule",
         "description": "Delete a NAT Gateway port-forwarding Rule.",
-        "security": [
+        "security": null
+      }
+    },
+    "/vpcs/{vpc-id}/nat-gateway/{nat-gateway-id}/virtual-ip": {
+      "parameters": [
+        {
+          "$ref": "../shared/parameters.yaml#/vpc-id"
+        },
+        {
+          "$ref": "./parameters.yaml#/nat-gateway-id"
+        }
+      ],
+      "get": {
+        "summary": "List NAT Gateway Virtual IPs",
+        "tags": [
+          "VPCs"
+        ],
+        "x-codeSamples": [
           {
-            "API Key": []
+            "lang": "Curl",
+            "source": "curl \"https://api.vultr.com/v2/vpcs/{vpc-id}/nat-gateway/{nat-gateway-id}/virtual-ip\" \\\n  -X GET \\\n  -H \"Authorization: Bearer ${VULTR_API_KEY}\""
           }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "virtual_ips": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/nat-gateway-virtual-ip"
+                      }
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/meta"
+                    }
+                  }
+                },
+                "examples": {
+                  "virtual_ips": {
+                    "value": {
+                      "virtual_ips": [
+                        {
+                          "id": "7af46919-f6b0-4f34-8523-1d03911ebfa1",
+                          "ip": "10.99.0.10",
+                          "ip_type": "v4",
+                          "port": 80,
+                          "routing_type": "direct_routing",
+                          "notes": "sample vip",
+                          "label": "sample-label",
+                          "health_check": {
+                            "interval": 5,
+                            "timeout": 3,
+                            "fall": 3,
+                            "rise": 2
+                          },
+                          "backend_ips": [
+                            {
+                              "id": "7af46919-f6b0-4f34-8523-1d03911ebfa2",
+                              "ip": "10.99.0.11",
+                              "ip_type": "v4",
+                              "port": 80,
+                              "health_check_port": 80,
+                              "mac_address": "00:00:5e:00:53:af",
+                              "notes": "sample backend"
+                            }
+                          ]
+                        }
+                      ],
+                      "meta": {
+                        "total": 1,
+                        "links": {
+                          "next": "",
+                          "prev": ""
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        },
+        "operationId": "list-nat-gateway-virtual-ips",
+        "description": "List all Virtual IPs for this NAT Gateway. A Virtual IP is a stable internal\n`ip:port` that load balances traffic between nodes within the VPC across the\nbackend IPs attached to it, with health checks that automatically stop sending\ntraffic to unhealthy backends. For exposing a service to the internet, use\nVultr Load Balancers — a\nNAT Gateway Virtual IP is for internal VPC traffic only.\n",
+        "security": [
+          [
+            {
+              "API Key": []
+            }
+          ]
+        ],
+        "parameters": [
+          {
+            "$ref": "../shared/parameters.yaml#/per-page"
+          },
+          {
+            "$ref": "../shared/parameters.yaml#/cursor"
+          }
+        ]
+      },
+      "post": {
+        "summary": "Create NAT Gateway Virtual IP",
+        "tags": [
+          "VPCs"
+        ],
+        "x-codeSamples": [
+          {
+            "lang": "Curl",
+            "source": "curl \"https://api.vultr.com/v2/vpcs/{vpc-id}/nat-gateway/{nat-gateway-id}/virtual-ip\" \\\n  -X POST \\\n  -H \"Authorization: Bearer ${VULTR_API_KEY}\" \\\n  -H \"Content-Type: application/json\" \\\n  --data '{\n    \"ip\" : \"10.99.0.10\",\n    \"ip_type\" : \"v4\",\n    \"port\": 80,\n    \"routing_type\": \"direct_routing\",\n    \"notes\" : \"sample vip\",\n    \"label\": \"sample-label\",\n    \"health_check\": {\n      \"interval\": 5,\n      \"timeout\": 3,\n      \"fall\": 3,\n      \"rise\": 2\n    }\n  }'"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "virtual_ip": {
+                      "$ref": "#/components/schemas/nat-gateway-virtual-ip"
+                    }
+                  }
+                },
+                "examples": {
+                  "virtual_ip": {
+                    "value": {
+                      "virtual_ip": {
+                        "id": "7af46919-f6b0-4f34-8523-1d03911ebfa1",
+                        "ip": "10.99.0.10",
+                        "ip_type": "v4",
+                        "port": 80,
+                        "routing_type": "direct_routing",
+                        "notes": "sample vip",
+                        "label": "sample-label",
+                        "health_check": {
+                          "interval": 5,
+                          "timeout": 3,
+                          "fall": 3,
+                          "rise": 2
+                        },
+                        "backend_ips": []
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error"
+          }
+        },
+        "operationId": "create-nat-gateway-virtual-ip",
+        "description": "Create a new Virtual IP for this NAT Gateway.\n\nA Virtual IP (VIP) is a built-in **internal VPC load balancer**: a stable\n`ip:port` address that distributes traffic round-robin across the backend IPs\nyou attach to it, for traffic between nodes within the VPC. Use it to front a\npool of internal nodes — a highly-available web tier, a database cluster, a\nqueue of workers — without running and patching your own load balancer. Attach\nor remove backends at any time; only healthy backends receive traffic.\n\n**This is not an ingress product.** A NAT Gateway Virtual IP only load balances\nprivate traffic inside the VPC. To expose a service to the internet, use\nVultr Load Balancers — that\nis Vultr's ingress product.\n\nBackends are health checked over TCP on `health_check_port` using the `interval`,\n`timeout`, `fall`, and `rise` settings. A backend that misses `fall` consecutive\nchecks stops receiving traffic, and starts again after `rise` consecutive\npasses.\n\nThe `routing_type` controls how traffic reaches your backends:\n\n* `direct_routing` — the client's real source IP is preserved end-to-end, so\n  your backends see true client IPs in their logs. Use this when your backends\n  can answer directly and you need client IP visibility (e.g. rate limiting,\n  geo logic, audit logs).\n* `full_nat` — the gateway proxies the full connection, so backends always see\n  the gateway as the client. Use this when your backends require zero\n  configuration changes or cannot accept traffic on the VIP address directly.\n\nIf you set a `label`, your Virtual IP is published via the gateway's built-in\nservice discovery DNS as an SRV record, so other nodes in the VPC can find it\nby name instead of hardcoding the IP — e.g. a VIP labeled `api` is discoverable\nat `_<label>._tcp.<region>.compute.vultr.internal` with a standard DNS SRV\nquery.\n",
+        "security": [
+          [
+            {
+              "API Key": []
+            }
+          ]
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "ip": {
+                    "type": "string",
+                    "description": "The IP address for this Virtual IP. The `ip_type` is inferred when not supplied."
+                  },
+                  "ip_type": {
+                    "type": "string",
+                    "description": "The IP type for this Virtual IP\n\n* `v4`\n* `v6`"
+                  },
+                  "port": {
+                    "type": "integer",
+                    "description": "The port this Virtual IP listens on."
+                  },
+                  "routing_type": {
+                    "type": "string",
+                    "description": "The routing type for this Virtual IP\n\n* `direct_routing`\n* `full_nat`"
+                  },
+                  "notes": {
+                    "type": "string",
+                    "description": "The user-supplied notes for this Virtual IP."
+                  },
+                  "label": {
+                    "type": "string",
+                    "description": "Optional RFC 1123 service label. When set, the gateway's DNS emits a `_<label>._tcp` SRV record pointing at this Virtual IP."
+                  },
+                  "health_check": {
+                    "type": "object",
+                    "description": "Health check settings for this Virtual IP.",
+                    "properties": {
+                      "interval": {
+                        "type": "integer",
+                        "description": "Seconds between health checks. Default is 5."
+                      },
+                      "timeout": {
+                        "type": "integer",
+                        "description": "Seconds before a health check times out. Default is 3."
+                      },
+                      "fall": {
+                        "type": "integer",
+                        "description": "Number of failed checks before a backend is marked down. Default is 3."
+                      },
+                      "rise": {
+                        "type": "integer",
+                        "description": "Number of passed checks before a backend is marked up. Default is 2."
+                      }
+                    }
+                  }
+                }
+              },
+              "examples": {
+                "request": {
+                  "value": {
+                    "ip": "10.99.0.10",
+                    "ip_type": "v4",
+                    "port": 80,
+                    "routing_type": "direct_routing",
+                    "notes": "sample vip",
+                    "label": "sample-label",
+                    "health_check": {
+                      "interval": 5,
+                      "timeout": 3,
+                      "fall": 3,
+                      "rise": 2
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "description": "Include a JSON object in the request body with a content type of **application/json**."
+        }
+      }
+    },
+    "/vpcs/{vpc-id}/nat-gateway/{nat-gateway-id}/virtual-ip/{virtual-ip-id}": {
+      "parameters": [
+        {
+          "$ref": "../shared/parameters.yaml#/vpc-id"
+        },
+        {
+          "$ref": "./parameters.yaml#/nat-gateway-id"
+        },
+        {
+          "$ref": "./parameters.yaml#/nat-gateway-virtual-ip-id"
+        }
+      ],
+      "get": {
+        "summary": "Get NAT Gateway Virtual IP",
+        "tags": [
+          "VPCs"
+        ],
+        "x-codeSamples": [
+          {
+            "lang": "Curl",
+            "source": "curl \"https://api.vultr.com/v2/vpcs/{vpc-id}/nat-gateway/{nat-gateway-id}/virtual-ip/{virtual-ip-id}\" \\\n  -X GET \\\n  -H \"Authorization: Bearer ${VULTR_API_KEY}\""
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "virtual_ip": {
+                      "$ref": "#/components/schemas/nat-gateway-virtual-ip"
+                    }
+                  }
+                },
+                "examples": {
+                  "virtual_ip": {
+                    "value": {
+                      "virtual_ip": {
+                        "id": "7af46919-f6b0-4f34-8523-1d03911ebfa1",
+                        "ip": "10.99.0.10",
+                        "ip_type": "v4",
+                        "port": 80,
+                        "routing_type": "direct_routing",
+                        "notes": "sample vip",
+                        "label": "sample-label",
+                        "health_check": {
+                          "interval": 5,
+                          "timeout": 3,
+                          "fall": 3,
+                          "rise": 2
+                        },
+                        "backend_ips": [
+                          {
+                            "id": "7af46919-f6b0-4f34-8523-1d03911ebfa2",
+                            "ip": "10.99.0.11",
+                            "ip_type": "v4",
+                            "port": 80,
+                            "health_check_port": 80,
+                            "mac_address": "00:00:5e:00:53:af",
+                            "notes": "sample backend"
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        },
+        "operationId": "get-nat-gateway-virtual-ip",
+        "description": "Get a single Virtual IP for this NAT Gateway.",
+        "security": [
+          [
+            {
+              "API Key": []
+            }
+          ]
+        ]
+      },
+      "delete": {
+        "summary": "Delete NAT Gateway Virtual IP",
+        "tags": [
+          "VPCs"
+        ],
+        "x-codeSamples": [
+          {
+            "lang": "Curl",
+            "source": "curl \"https://api.vultr.com/v2/vpcs/{vpc-id}/nat-gateway/{nat-gateway-id}/virtual-ip/{virtual-ip-id}\" \\\n  -X DELETE \\\n  -H \"Authorization: Bearer ${VULTR_API_KEY}\""
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        },
+        "operationId": "delete-nat-gateway-virtual-ip",
+        "description": "Delete a Virtual IP from this NAT Gateway.",
+        "security": [
+          [
+            {
+              "API Key": []
+            }
+          ]
+        ]
+      }
+    },
+    "/vpcs/{vpc-id}/nat-gateway/{nat-gateway-id}/virtual-ip/{virtual-ip-id}/backend-ip": {
+      "parameters": [
+        {
+          "$ref": "../shared/parameters.yaml#/vpc-id"
+        },
+        {
+          "$ref": "./parameters.yaml#/nat-gateway-id"
+        },
+        {
+          "$ref": "./parameters.yaml#/nat-gateway-virtual-ip-id"
+        }
+      ],
+      "post": {
+        "summary": "Create NAT Gateway VIP Backend IP",
+        "tags": [
+          "VPCs"
+        ],
+        "x-codeSamples": [
+          {
+            "lang": "Curl",
+            "source": "curl \"https://api.vultr.com/v2/vpcs/{vpc-id}/nat-gateway/{nat-gateway-id}/virtual-ip/{virtual-ip-id}/backend-ip\" \\\n  -X POST \\\n  -H \"Authorization: Bearer ${VULTR_API_KEY}\" \\\n  -H \"Content-Type: application/json\" \\\n  --data '{\n    \"ip\" : \"10.99.0.11\",\n    \"ip_type\" : \"v4\",\n    \"port\": 80,\n    \"health_check_port\": 80,\n    \"mac_address\": \"00:00:5e:00:53:af\",\n    \"notes\" : \"sample backend\"\n  }'"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "backend_ip": {
+                      "$ref": "#/components/schemas/nat-gateway-vip-backend-ip"
+                    }
+                  }
+                },
+                "examples": {
+                  "backend_ip": {
+                    "value": {
+                      "backend_ip": {
+                        "id": "7af46919-f6b0-4f34-8523-1d03911ebfa2",
+                        "ip": "10.99.0.11",
+                        "ip_type": "v4",
+                        "port": 80,
+                        "health_check_port": 80,
+                        "mac_address": "00:00:5e:00:53:af",
+                        "notes": "sample backend"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error"
+          }
+        },
+        "operationId": "create-nat-gateway-vip-backend-ip",
+        "description": "Attach a new backend IP to a Virtual IP on this NAT Gateway. Backends receive a\nshare of the Virtual IP's traffic and are health checked on `health_check_port`;\nbackends that fail their checks are pulled from rotation automatically.\n",
+        "security": [
+          [
+            {
+              "API Key": []
+            }
+          ]
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "ip": {
+                    "type": "string",
+                    "description": "The private IP address of this backend."
+                  },
+                  "ip_type": {
+                    "type": "string",
+                    "description": "The IP type of this backend\n\n* `v4`\n* `v6`"
+                  },
+                  "port": {
+                    "type": "integer",
+                    "description": "The port on this backend that receives traffic."
+                  },
+                  "health_check_port": {
+                    "type": "integer",
+                    "description": "The port on this backend used for health checks."
+                  },
+                  "mac_address": {
+                    "type": "string",
+                    "description": "The MAC address of this backend."
+                  },
+                  "notes": {
+                    "type": "string",
+                    "description": "The user-supplied notes for this backend."
+                  }
+                }
+              },
+              "examples": {
+                "request": {
+                  "value": {
+                    "ip": "10.99.0.11",
+                    "ip_type": "v4",
+                    "port": 80,
+                    "health_check_port": 80,
+                    "mac_address": "00:00:5e:00:53:af",
+                    "notes": "sample backend"
+                  }
+                }
+              }
+            }
+          },
+          "description": "Include a JSON object in the request body with a content type of **application/json**."
+        }
+      }
+    },
+    "/vpcs/{vpc-id}/nat-gateway/{nat-gateway-id}/virtual-ip/{virtual-ip-id}/backend-ip/{backend-ip-id}": {
+      "parameters": [
+        {
+          "$ref": "../shared/parameters.yaml#/vpc-id"
+        },
+        {
+          "$ref": "./parameters.yaml#/nat-gateway-id"
+        },
+        {
+          "$ref": "./parameters.yaml#/nat-gateway-virtual-ip-id"
+        },
+        {
+          "$ref": "./parameters.yaml#/nat-gateway-vip-backend-ip-id"
+        }
+      ],
+      "get": {
+        "summary": "Get NAT Gateway VIP Backend IP",
+        "tags": [
+          "VPCs"
+        ],
+        "x-codeSamples": [
+          {
+            "lang": "Curl",
+            "source": "curl \"https://api.vultr.com/v2/vpcs/{vpc-id}/nat-gateway/{nat-gateway-id}/virtual-ip/{virtual-ip-id}/backend-ip/{backend-ip-id}\" \\\n  -X GET \\\n  -H \"Authorization: Bearer ${VULTR_API_KEY}\""
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "backend_ip": {
+                      "$ref": "#/components/schemas/nat-gateway-vip-backend-ip"
+                    }
+                  }
+                },
+                "examples": {
+                  "backend_ip": {
+                    "value": {
+                      "backend_ip": {
+                        "id": "7af46919-f6b0-4f34-8523-1d03911ebfa2",
+                        "ip": "10.99.0.11",
+                        "ip_type": "v4",
+                        "port": 80,
+                        "health_check_port": 80,
+                        "mac_address": "00:00:5e:00:53:af",
+                        "notes": "sample backend"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        },
+        "operationId": "get-nat-gateway-vip-backend-ip",
+        "description": "Get a single backend IP attached to a Virtual IP on this NAT Gateway.",
+        "security": [
+          [
+            {
+              "API Key": []
+            }
+          ]
+        ]
+      },
+      "delete": {
+        "summary": "Delete NAT Gateway VIP Backend IP",
+        "tags": [
+          "VPCs"
+        ],
+        "x-codeSamples": [
+          {
+            "lang": "Curl",
+            "source": "curl \"https://api.vultr.com/v2/vpcs/{vpc-id}/nat-gateway/{nat-gateway-id}/virtual-ip/{virtual-ip-id}/backend-ip/{backend-ip-id}\" \\\n  -X DELETE \\\n  -H \"Authorization: Bearer ${VULTR_API_KEY}\""
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        },
+        "operationId": "delete-nat-gateway-vip-backend-ip",
+        "description": "Detach a backend IP from a Virtual IP on this NAT Gateway.",
+        "security": [
+          [
+            {
+              "API Key": []
+            }
+          ]
+        ]
+      }
+    },
+    "/vpcs/{vpc-id}/nat-gateway/{nat-gateway-id}/dns-override": {
+      "parameters": [
+        {
+          "$ref": "../shared/parameters.yaml#/vpc-id"
+        },
+        {
+          "$ref": "./parameters.yaml#/nat-gateway-id"
+        }
+      ],
+      "get": {
+        "summary": "List NAT Gateway DNS Overrides",
+        "tags": [
+          "VPCs"
+        ],
+        "x-codeSamples": [
+          {
+            "lang": "Curl",
+            "source": "curl \"https://api.vultr.com/v2/vpcs/{vpc-id}/nat-gateway/{nat-gateway-id}/dns-override\" \\\n  -X GET \\\n  -H \"Authorization: Bearer ${VULTR_API_KEY}\""
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "dns_overrides": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/nat-gateway-dns-override"
+                      }
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/meta"
+                    }
+                  }
+                },
+                "examples": {
+                  "dns_overrides": {
+                    "value": {
+                      "dns_overrides": [
+                        {
+                          "id": "7af46919-f6b0-4f34-8523-1d03911ebfb1",
+                          "domain": "example.internal",
+                          "records": [
+                            {
+                              "id": "7af46919-f6b0-4f34-8523-1d03911ebfb2",
+                              "type": "A",
+                              "data": "10.99.0.20",
+                              "notes": "sample record"
+                            }
+                          ]
+                        }
+                      ],
+                      "meta": {
+                        "total": 1,
+                        "links": {
+                          "next": "",
+                          "prev": ""
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        },
+        "operationId": "list-nat-gateway-dns-overrides",
+        "description": "List all DNS Overrides for this NAT Gateway. DNS Overrides are custom DNS\nanswers served by the gateway's built-in resolver to the nodes in your VPC.\n",
+        "security": [
+          [
+            {
+              "API Key": []
+            }
+          ]
+        ],
+        "parameters": [
+          {
+            "$ref": "../shared/parameters.yaml#/per-page"
+          },
+          {
+            "$ref": "../shared/parameters.yaml#/cursor"
+          }
+        ]
+      },
+      "post": {
+        "summary": "Create NAT Gateway DNS Override",
+        "tags": [
+          "VPCs"
+        ],
+        "x-codeSamples": [
+          {
+            "lang": "Curl",
+            "source": "curl \"https://api.vultr.com/v2/vpcs/{vpc-id}/nat-gateway/{nat-gateway-id}/dns-override\" \\\n  -X POST \\\n  -H \"Authorization: Bearer ${VULTR_API_KEY}\" \\\n  -H \"Content-Type: application/json\" \\\n  --data '{\n    \"domain\" : \"example.internal\",\n    \"records\": [\n      {\n        \"type\": \"A\",\n        \"data\": \"10.99.0.20\",\n        \"notes\": \"sample record\"\n      }\n    ]\n  }'"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "dns_override": {
+                      "$ref": "#/components/schemas/nat-gateway-dns-override"
+                    }
+                  }
+                },
+                "examples": {
+                  "dns_override": {
+                    "value": {
+                      "dns_override": {
+                        "id": "7af46919-f6b0-4f34-8523-1d03911ebfb1",
+                        "domain": "example.internal",
+                        "records": [
+                          {
+                            "id": "7af46919-f6b0-4f34-8523-1d03911ebfb2",
+                            "type": "A",
+                            "data": "10.99.0.20",
+                            "notes": "sample record"
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error"
+          }
+        },
+        "operationId": "create-nat-gateway-dns-override",
+        "description": "Create a new DNS Override for this NAT Gateway.\n\nDNS Overrides are custom DNS answers served to the nodes in your VPC by the\nNAT Gateway's built-in DNS resolver. Use them to implement split-horizon DNS:\noverride a public name with a private IP so internal traffic stays on the VPC\n(e.g. point `api.yourapp.com` at one of your Virtual IPs), or define entirely\ninternal-only hostnames for private services.\n\n**Troubleshooting:** if your DNS Overrides do not appear to work, your node's\nDNS is not pointed at the NAT Gateway. This is usually caused by the node's\nresolver configuration being overwritten (typically by `systemd-resolved` or a\ncustom `resolv.conf`) so queries bypass the gateway and its overrides never\napply. Confirm the node is using the gateway as its DNS server.\n\nIn addition to your overrides, the gateway's resolver also announces the VPC's\ninternal services: the NAT Gateway includes an ACME certificate authority for\nyour VPC, so every node can enroll for TLS certificates that every other node\ntrusts. Point any standard ACME client (certbot, step, cert-manager, Traefik,\nCaddy) at the gateway and you get mutual TLS between your nodes with no manual\ncertificate distribution.\n",
+        "security": [
+          [
+            {
+              "API Key": []
+            }
+          ]
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "domain": {
+                    "type": "string",
+                    "description": "The domain this DNS Override applies to."
+                  },
+                  "records": {
+                    "type": "array",
+                    "description": "The DNS records to create within this DNS Override.",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "description": "The record type\n\n* `A`\n* `AAAA`\n* `CNAME`"
+                        },
+                        "data": {
+                          "type": "string",
+                          "description": "The record data (an IP address for `A`/`AAAA`, or a hostname for `CNAME`)."
+                        },
+                        "notes": {
+                          "type": "string",
+                          "description": "The user-supplied notes for this record."
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "examples": {
+                "request": {
+                  "value": {
+                    "domain": "example.internal",
+                    "records": [
+                      {
+                        "type": "A",
+                        "data": "10.99.0.20",
+                        "notes": "sample record"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "description": "Include a JSON object in the request body with a content type of **application/json**."
+        }
+      }
+    },
+    "/vpcs/{vpc-id}/nat-gateway/{nat-gateway-id}/dns-override/{dns-override-id}": {
+      "parameters": [
+        {
+          "$ref": "../shared/parameters.yaml#/vpc-id"
+        },
+        {
+          "$ref": "./parameters.yaml#/nat-gateway-id"
+        },
+        {
+          "$ref": "./parameters.yaml#/nat-gateway-dns-override-id"
+        }
+      ],
+      "get": {
+        "summary": "Get NAT Gateway DNS Override",
+        "tags": [
+          "VPCs"
+        ],
+        "x-codeSamples": [
+          {
+            "lang": "Curl",
+            "source": "curl \"https://api.vultr.com/v2/vpcs/{vpc-id}/nat-gateway/{nat-gateway-id}/dns-override/{dns-override-id}\" \\\n  -X GET \\\n  -H \"Authorization: Bearer ${VULTR_API_KEY}\""
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "dns_override": {
+                      "$ref": "#/components/schemas/nat-gateway-dns-override"
+                    }
+                  }
+                },
+                "examples": {
+                  "dns_override": {
+                    "value": {
+                      "dns_override": {
+                        "id": "7af46919-f6b0-4f34-8523-1d03911ebfb1",
+                        "domain": "example.internal",
+                        "records": [
+                          {
+                            "id": "7af46919-f6b0-4f34-8523-1d03911ebfb2",
+                            "type": "A",
+                            "data": "10.99.0.20",
+                            "notes": "sample record"
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        },
+        "operationId": "get-nat-gateway-dns-override",
+        "description": "Get a single DNS Override for this NAT Gateway.",
+        "security": [
+          [
+            {
+              "API Key": []
+            }
+          ]
+        ]
+      },
+      "delete": {
+        "summary": "Delete NAT Gateway DNS Override",
+        "tags": [
+          "VPCs"
+        ],
+        "x-codeSamples": [
+          {
+            "lang": "Curl",
+            "source": "curl \"https://api.vultr.com/v2/vpcs/{vpc-id}/nat-gateway/{nat-gateway-id}/dns-override/{dns-override-id}\" \\\n  -X DELETE \\\n  -H \"Authorization: Bearer ${VULTR_API_KEY}\""
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        },
+        "operationId": "delete-nat-gateway-dns-override",
+        "description": "Delete a DNS Override from this NAT Gateway.",
+        "security": [
+          [
+            {
+              "API Key": []
+            }
+          ]
+        ]
+      }
+    },
+    "/vpcs/{vpc-id}/nat-gateway/{nat-gateway-id}/dns-override/{dns-override-id}/record": {
+      "parameters": [
+        {
+          "$ref": "../shared/parameters.yaml#/vpc-id"
+        },
+        {
+          "$ref": "./parameters.yaml#/nat-gateway-id"
+        },
+        {
+          "$ref": "./parameters.yaml#/nat-gateway-dns-override-id"
+        }
+      ],
+      "post": {
+        "summary": "Create NAT Gateway DNS Override Record",
+        "tags": [
+          "VPCs"
+        ],
+        "x-codeSamples": [
+          {
+            "lang": "Curl",
+            "source": "curl \"https://api.vultr.com/v2/vpcs/{vpc-id}/nat-gateway/{nat-gateway-id}/dns-override/{dns-override-id}/record\" \\\n  -X POST \\\n  -H \"Authorization: Bearer ${VULTR_API_KEY}\" \\\n  -H \"Content-Type: application/json\" \\\n  --data '{\n    \"type\": \"A\",\n    \"data\": \"10.99.0.20\",\n    \"notes\": \"sample record\"\n  }'"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "dns_override_record": {
+                      "$ref": "#/components/schemas/nat-gateway-dns-override-record"
+                    }
+                  }
+                },
+                "examples": {
+                  "dns_override_record": {
+                    "value": {
+                      "dns_override_record": {
+                        "id": "7af46919-f6b0-4f34-8523-1d03911ebfb2",
+                        "type": "A",
+                        "data": "10.99.0.20",
+                        "notes": "sample record"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error"
+          }
+        },
+        "operationId": "create-nat-gateway-dns-override-record",
+        "description": "Add a new record to a DNS Override on this NAT Gateway. `A` and `AAAA` records\nanswer with an IP address; `CNAME` answers with another hostname. Internal-only\nnames and split-horizon overrides for your VPC are all built from these\nrecords.\n",
+        "security": [
+          [
+            {
+              "API Key": []
+            }
+          ]
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "description": "The record type\n\n* `A`\n* `AAAA`\n* `CNAME`"
+                  },
+                  "data": {
+                    "type": "string",
+                    "description": "The record data (an IP address for `A`/`AAAA`, or a hostname for `CNAME`)."
+                  },
+                  "notes": {
+                    "type": "string",
+                    "description": "The user-supplied notes for this record."
+                  }
+                }
+              },
+              "examples": {
+                "request": {
+                  "value": {
+                    "type": "A",
+                    "data": "10.99.0.20",
+                    "notes": "sample record"
+                  }
+                }
+              }
+            }
+          },
+          "description": "Include a JSON object in the request body with a content type of **application/json**."
+        }
+      }
+    },
+    "/vpcs/{vpc-id}/nat-gateway/{nat-gateway-id}/dns-override/{dns-override-id}/record/{record-id}": {
+      "parameters": [
+        {
+          "$ref": "../shared/parameters.yaml#/vpc-id"
+        },
+        {
+          "$ref": "./parameters.yaml#/nat-gateway-id"
+        },
+        {
+          "$ref": "./parameters.yaml#/nat-gateway-dns-override-id"
+        },
+        {
+          "$ref": "./parameters.yaml#/nat-gateway-dns-override-record-id"
+        }
+      ],
+      "get": {
+        "summary": "Get NAT Gateway DNS Override Record",
+        "tags": [
+          "VPCs"
+        ],
+        "x-codeSamples": [
+          {
+            "lang": "Curl",
+            "source": "curl \"https://api.vultr.com/v2/vpcs/{vpc-id}/nat-gateway/{nat-gateway-id}/dns-override/{dns-override-id}/record/{record-id}\" \\\n  -X GET \\\n  -H \"Authorization: Bearer ${VULTR_API_KEY}\""
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "dns_override_record": {
+                      "$ref": "#/components/schemas/nat-gateway-dns-override-record"
+                    }
+                  }
+                },
+                "examples": {
+                  "dns_override_record": {
+                    "value": {
+                      "dns_override_record": {
+                        "id": "7af46919-f6b0-4f34-8523-1d03911ebfb2",
+                        "type": "A",
+                        "data": "10.99.0.20",
+                        "notes": "sample record"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        },
+        "operationId": "get-nat-gateway-dns-override-record",
+        "description": "Get a single record within a DNS Override on this NAT Gateway.",
+        "security": [
+          [
+            {
+              "API Key": []
+            }
+          ]
+        ]
+      },
+      "delete": {
+        "summary": "Delete NAT Gateway DNS Override Record",
+        "tags": [
+          "VPCs"
+        ],
+        "x-codeSamples": [
+          {
+            "lang": "Curl",
+            "source": "curl \"https://api.vultr.com/v2/vpcs/{vpc-id}/nat-gateway/{nat-gateway-id}/dns-override/{dns-override-id}/record/{record-id}\" \\\n  -X DELETE \\\n  -H \"Authorization: Bearer ${VULTR_API_KEY}\""
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        },
+        "operationId": "delete-nat-gateway-dns-override-record",
+        "description": "Delete a record from a DNS Override on this NAT Gateway.",
+        "security": [
+          [
+            {
+              "API Key": []
+            }
+          ]
         ]
       }
     },
@@ -12054,7 +13156,16 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array"
+                  "type": "object",
+                  "properties": {
+                    "export_uuid": {
+                      "type": "string",
+                      "description": "UUID of the created Storage Gateway export."
+                    }
+                  }
+                },
+                "example": {
+                  "export_uuid": "a632673e-2fd5-4ff1-b251-2e28e7b44504"
                 }
               }
             }
@@ -12210,6 +13321,91 @@
             "API Key": []
           }
         ]
+      }
+    },
+    "/blocks/clone": {
+      "post": {
+        "tags": [
+          "blocks"
+        ],
+        "summary": "Create Block Storage Clone",
+        "description": "Create one or more block storage volumes copied from an existing block storage volume. The operation is asynchronous: a clone job is queued and the API returns immediately. Poll GET /blocks/clone/{clone-id} with the returned id until state is COMPLETE or FAILED.",
+        "operationId": "create-block-storage-clone",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/block-clone"
+              },
+              "examples": {
+                "cross-region": {
+                  "summary": "Clone a volume twice into another region",
+                  "value": {
+                    "block_id": "bf9a2c7e-4d0d-4b9e-8e5e-3f2a1b9c0d4e",
+                    "region": "ewr",
+                    "count": 2,
+                    "label": "web-template"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Clone job queued"
+          },
+          "400": {
+            "description": "Bad Request. A clone job is already in progress for this source volume; wait for it to complete before starting another."
+          },
+          "404": {
+            "description": "Not Found. Source volume does not exist, is not owned by this account, or is not in an active, suspended, or pending state."
+          },
+          "422": {
+            "description": "Unprocessable Entity. block_id missing or not a valid UUID; region missing or invalid; block_type invalid; count outside 1-64; or size_gb smaller than the source volume."
+          }
+        }
+      }
+    },
+    "/blocks/clone/{clone-id}": {
+      "get": {
+        "tags": [
+          "blocks"
+        ],
+        "summary": "Get Block Storage Clone Status",
+        "description": "Get the state of a block storage clone job, including the volumes it created. On FAILED, blocks lists any volumes that were created before the failure.",
+        "operationId": "get-block-storage-clone-status",
+        "parameters": [
+          {
+            "name": "clone-id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "UUID of the clone job, as returned by POST /blocks/clone."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Clone job status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/block-clone-status"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found. Clone job does not exist or is not owned by this account."
+          },
+          "422": {
+            "description": "Unprocessable Entity. clone-id is not a valid UUID."
+          }
+        }
       }
     },
     "/domains": {
@@ -14337,7 +15533,7 @@
                         },
                         "vpc_id": {
                           "type": "string",
-                          "description": "ID of the VPC you wish to use. The VPC must be in the same region as the child Load Balancer. If a VPC ID is omitted it will default to the public network. Only used when the region is added. It doesn't change the VPC of an existing child."
+                          "description": "ID of the VPC you wish to use. The VPC must be in the same region as the child Load Balancer. If a VPC ID is omitted it will default to the public network. Only used when the region is added. Sending a different VPC for an existing child returns an error. Change it by updating the child Load Balancer instead."
                         }
                       },
                       "required": [
@@ -15168,6 +16364,217 @@
         ]
       }
     },
+    "/load-balancers/{load-balancer-id}/global-regions": {
+      "parameters": [
+        {
+          "schema": {
+            "type": "string"
+          },
+          "name": "load-balancer-id",
+          "in": "path",
+          "required": true,
+          "description": "The [Load Balancer id](#operation/list-load-balancers)."
+        }
+      ],
+      "get": {
+        "summary": "List Global Regions",
+        "tags": [
+          "load-balancer"
+        ],
+        "x-codeSamples": [
+          {
+            "lang": "Curl",
+            "source": "curl \"https://api.vultr.com/v2/load-balancers/{load-balancer-id}/global-regions\" \\\n  -X GET \\\n  -H \"Authorization: Bearer ${VULTR_API_KEY}\""
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "global_regions": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/global-region"
+                      }
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/meta"
+                    }
+                  }
+                },
+                "examples": {
+                  "response": {
+                    "value": {
+                      "global_regions": [
+                        {
+                          "region_id": "lax",
+                          "vpc_id": "6c97149f-e340-453a-b3eb-67eaf6fb93b1"
+                        },
+                        {
+                          "region_id": "atl",
+                          "vpc_id": ""
+                        }
+                      ],
+                      "meta": {
+                        "total": 2,
+                        "links": {
+                          "next": "",
+                          "prev": ""
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Unprocessable Entity"
+          }
+        },
+        "operationId": "list-load-balancer-global-regions",
+        "description": "List the Global Regions (child Load Balancers) of a Global Load Balancer.",
+        "security": [
+          {
+            "API Key": []
+          }
+        ]
+      },
+      "post": {
+        "summary": "Create Global Region",
+        "tags": [
+          "load-balancer"
+        ],
+        "x-codeSamples": [
+          {
+            "lang": "Curl",
+            "source": "curl \"https://api.vultr.com/v2/load-balancers/{load-balancer-id}/global-regions\" \\\n  -X POST \\\n  -H \"Authorization: Bearer ${VULTR_API_KEY}\" \\\n  -H \"Content-Type: application/json\" \\\n  --data '{\n    \"region_id\" : \"lax\"\n  }'"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Unprocessable Entity"
+          }
+        },
+        "operationId": "create-load-balancer-global-region",
+        "description": "Add one child region to a Global Load Balancer. A child Load Balancer is created in the region with the parent's configuration. Returns '422' when the region is already present, is the parent's own region, or for child Load Balancers and Load Balancers managed by Kubernetes.",
+        "security": [
+          {
+            "API Key": []
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "region_id": {
+                    "type": "string",
+                    "description": "A [Region id](#operation/list-regions) to deploy a child Load Balancer to."
+                  },
+                  "vpc_id": {
+                    "type": "string",
+                    "description": "ID of the VPC you wish the child Load Balancer to join. The VPC must be in `region_id`. If omitted, the child Load Balancer uses the public network."
+                  }
+                },
+                "required": [
+                  "region_id"
+                ]
+              }
+            }
+          },
+          "required": true,
+          "description": "Include a JSON object in the request body with a content type of **application/json**."
+        }
+      }
+    },
+    "/load-balancers/{load-balancer-id}/global-regions/{region-code}": {
+      "parameters": [
+        {
+          "schema": {
+            "type": "string"
+          },
+          "name": "load-balancer-id",
+          "in": "path",
+          "required": true,
+          "description": "The [Load Balancer id](#operation/list-load-balancers)."
+        },
+        {
+          "schema": {
+            "type": "string"
+          },
+          "name": "region-code",
+          "in": "path",
+          "required": true,
+          "description": "The `region_id` of the child Load Balancer to remove, as returned by [List Global Regions](#operation/list-load-balancer-global-regions)."
+        }
+      ],
+      "delete": {
+        "summary": "Delete Global Region",
+        "tags": [
+          "load-balancer"
+        ],
+        "x-codeSamples": [
+          {
+            "lang": "Curl",
+            "source": "curl \"https://api.vultr.com/v2/load-balancers/{load-balancer-id}/global-regions/{region-code}\" \\\n  -X DELETE \\\n  -H \"Authorization: Bearer ${VULTR_API_KEY}\""
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Unprocessable Entity"
+          }
+        },
+        "operationId": "delete-load-balancer-global-region",
+        "description": "Remove one child region from a Global Load Balancer. The child Load Balancer in the region is destroyed. A region cannot be removed until its child Load Balancer has finished deploying. Returns `422` for child Load Balancer and Load Balancers managed by Kubernetes.",
+        "security": [
+          {
+            "API Key": []
+          }
+        ]
+      }
+    },
     "/logs": {
       "get": {
         "summary": "List Logs",
@@ -15782,6 +17189,7 @@
                           "disk": "2x 240GB SSD",
                           "main_ip": "192.0.2.123",
                           "cpu_count": 4,
+                          "gpu_model_label": "",
                           "region": "ams",
                           "default_password": "example-password",
                           "date_created": "2020-10-10T01:56:20+00:00",
@@ -15814,9 +17222,14 @@
                             "a tag",
                             "another"
                           ],
+                          "preemptible": true,
+                          "preempted": true,
+                          "preemptible_sec_terminate": 14400,
+                          "preemptible_date_terminate": "2026-11-03T19:00:00+00:00",
                           "user_scheme": "root",
                           "hostname": "server01.example.com",
                           "vserial": "442115ef-ec63-4864-a9dd-55a8030aeeeb@par1.vserial.vultr.com",
+                          "rescue_mode": false,
                           "mdisk_mode": "raid1"
                         }
                       ],
@@ -15973,7 +17386,7 @@
           }
         },
         "operationId": "create-baremetal",
-        "description": "Create a new Bare Metal instance in a `region` with the desired `plan`. Choose one of the following to deploy the instance:\n\n* `os_id`\n* `snapshot_id`\n* `app_id`\n* `image_id`\n\nSupply other attributes as desired.",
+        "description": "Create a new Bare Metal instance in a `region` with the desired `plan`. Choose one of the following to deploy the instance:\n\n* `os_id`\n* `snapshot_id`\n* `app_id`\n* `image_id`\n\nSupply other attributes as desired.\n\nAlternatively, supply a `template_id` to deploy from an instance template. The template's values are used as defaults and any attribute supplied in the request overrides them. An image attribute in the request replaces the template's image, and any of `enable_vpc` or `attach_vpc` in the request replaces the template's VPC settings.",
         "security": [
           {
             "API Key": []
@@ -15991,7 +17404,11 @@
                   },
                   "plan": {
                     "type": "string",
-                    "description": "The [Bare Metal plan id](#operation/list-metal-plans) to use for this instance."
+                    "description": "The [Bare Metal plan id](#operation/list-metal-plans) to use for this instance. Required unless `template_id` supplies it."
+                  },
+                  "template_id": {
+                    "type": "string",
+                    "description": "The id of an instance template to deploy from. The template's plan must be a Bare Metal plan, and a template that deploys from an ISO is rejected unless the request supplies another image."
                   },
                   "script_id": {
                     "type": "string",
@@ -16082,8 +17499,7 @@
                   }
                 },
                 "required": [
-                  "region",
-                  "plan"
+                  "region"
                 ]
               },
               "examples": {
@@ -16150,10 +17566,11 @@
                         "disk": "2x 240GB SSD",
                         "main_ip": "192.0.2.123",
                         "cpu_count": 4,
+                        "gpu_model_label": "",
                         "region": "ams",
                         "default_password": "example-password",
                         "date_created": "2020-10-10T01:56:20+00:00",
-                        "status": "pending",
+                        "status": "active",
                         "power_status": "running",
                         "netmask_v4": "255.255.254.0",
                         "gateway_v4": "192.0.2.1",
@@ -16183,9 +17600,14 @@
                           "a tag",
                           "another"
                         ],
+                        "preemptible": true,
+                        "preempted": true,
+                        "preemptible_sec_terminate": 14400,
+                        "preemptible_date_terminate": "2026-11-03T19:00:00+00:00",
                         "user_scheme": "root",
                         "hostname": "server01.example.com",
-                        "vserial": "442115ef-ec63-4864-a9dd-55a8030aeeeb@par1.vserial.vultr.com"
+                        "vserial": "442115ef-ec63-4864-a9dd-55a8030aeeeb@par1.vserial.vultr.com",
+                        "rescue_mode": true
                       }
                     }
                   }
@@ -17568,6 +18990,7 @@
                           "gateway_v4": "192.0.2.1",
                           "power_status": "running",
                           "server_status": "ok",
+                          "lock_reason": "",
                           "v6_network": "2001:0db8:1112:18fb::",
                           "v6_main_ip": "2001:0db8:1112:18fb:0200:00ff:fe00:0000",
                           "v6_network_size": 64,
@@ -17605,6 +19028,10 @@
                           ],
                           "user_scheme": "root",
                           "vke_cluster_id": "97940dc9-1f8f-4404-8556-9fe0a181d5ea",
+                          "preemptible": true,
+                          "preempted": true,
+                          "preemptible_sec_terminate": 14400,
+                          "preemptible_date_terminate": "2026-11-03T19:00:00+00:00",
                           "pending_charges": 5.42
                         }
                       ],
@@ -17886,7 +19313,7 @@
                     "items": {
                       "type": "object"
                     },
-                    "description": "Available for VX1 instances: Define your block devices, create bootable block devices, use local storage (if plan has local storage) as scratch disk.\nLocal Only:\n```\n\"block_devices\": [\n  {\n    \"block_id\": \"local\",\n    \"bootable\": true\n  }\n]\n```\nLocal Boot + New Block:\n```\n\"block_devices\": [\n  {\n    \"block_id\": \"local\",\n    \"bootable\": true\n  },\n  {\n    \"disk_size\": 50,\n    \"label\": \"New Block Label\"\n  }\n]\n```\nBootable Block (new):\n```\n\"block_devices\": [\n  {\n    \"disk_size\": 50,\n    \"label\": \"New Bootable Block\",\n    \"bootable\": true\n  }\n]\n```\nBootable Block (existing):\n```\n\"block_devices\": [\n  {\n    \"block_id\": \"BLOCK_DEVICE_UUID\",\n    \"bootable\": true\n  }\n]\n```\nBootable Block (existing) and Local NVMe:\n```\n\"block_devices\": [\n  {\n    \"block_id\": \"local\"\n  },\n  {\n    \"block_id\": \"BLOCK_DEVICE_UUID\",\n    \"bootable\": true\n  }\n]\n```"
+                    "description": "Available for VX1 instances: Define your block devices, create bootable block devices, use local storage (if plan has local storage) as scratch disk.\nLocal Only:\n```\n\"block_devices\": [\n  {\n    \"block_id\": \"local\",\n    \"bootable\": true\n  }\n]\n```\nLocal Boot + New Block:\n```\n\"block_devices\": [\n  {\n    \"block_id\": \"local\",\n    \"bootable\": true\n  },\n  {\n    \"disk_size\": 50,\n    \"label\": \"New Block Label\"\n  }\n]\n```\nBootable Block (new):\n```\n\"block_devices\": [\n  {\n    \"disk_size\": 50,\n    \"label\": \"New Bootable Block\",\n    \"bootable\": true\n  }\n]\n```\nBootable Block (existing):\n```\n\"block_devices\": [\n  {\n    \"block_id\": \"BLOCK_DEVICE_UUID\",\n    \"bootable\": true\n  }\n]\n```\nBootable Block (existing) and Local NVMe:\n```\n\"block_devices\": [\n  {\n    \"block_id\": \"local\"\n  },\n  {\n    \"block_id\": \"BLOCK_DEVICE_UUID\",\n    \"bootable\": true\n  }\n]\n```\nCopy an existing block:\n```\n\"block_devices\": [\n  {\n    \"block_id\": \"BLOCK_DEVICE_UUID\",\n    \"bootable\": true,\n    \"clone\": true\n  }\n]\n```\nCopy an existing block and keep the snapshot it generates:\n```\n\"block_devices\": [\n  {\n    \"block_id\": \"BLOCK_DEVICE_UUID\",\n    \"bootable\": true,\n    \"clone\": true,\n    \"clone_keep_snapshot\": true\n  }\n]\n```"
                   },
                   "app_id": {
                     "type": "integer",
@@ -18038,6 +19465,7 @@
                         "gateway_v4": "192.0.2.1",
                         "power_status": "running",
                         "server_status": "ok",
+                        "lock_reason": "",
                         "v6_network": "",
                         "v6_main_ip": "",
                         "v6_network_size": 0,
@@ -18074,6 +19502,10 @@
                           "another"
                         ],
                         "vke_cluster_id": "97940dc9-1f8f-4404-8556-9fe0a181d5ea",
+                        "preemptible": true,
+                        "preempted": true,
+                        "preemptible_sec_terminate": 14400,
+                        "preemptible_date_terminate": "2026-11-03T19:00:00+00:00",
                         "user_scheme": "root",
                         "pending_charges": 5.42
                       }
@@ -18192,7 +19624,7 @@
           }
         },
         "operationId": "update-instance",
-        "description": "Update information for an Instance. All attributes are optional. If not set, the attributes will retain their original values.\n\n**Note:** Changing `os_id`, `app_id` or `image_id` may take a few extra seconds to complete.",
+        "description": "Update information for an Instance. All attributes are optional. If not set, the attributes will retain their original values.\n\n**Note:** Changing `os_id`, `app_id`, `image_id` or `script_id` may take a few extra seconds to complete. Changing `script_id` reinstalls the instance; pass an empty string to remove the existing script.",
         "security": [
           {
             "API Key": []
@@ -18211,6 +19643,10 @@
                   "image_id": {
                     "type": "string",
                     "description": "Reinstall the instance with this [Application image_id](#operation/list-applications)."
+                  },
+                  "script_id": {
+                    "type": "string",
+                    "description": "The [Startup Script id](#operation/list-startup-scripts) to use for this instance.\nPass an empty string to clear the existing script."
                   },
                   "backups": {
                     "description": "Enable automatic backups for the instance.\n\n* enabled\n* disabled",
@@ -20840,13 +22276,49 @@
                           "type": "array",
                           "items": {}
                         },
-                        "plans": {
-                          "type": "array",
-                          "items": {}
-                        },
                         "os": {
                           "type": "array",
                           "items": {}
+                        },
+                        "plans": {
+                          "type": "array",
+                          "items": {},
+                          "deprecated": true
+                        },
+                        "plans_available": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "description": "A unique ID for the Plan."
+                              },
+                              "vcpu_count": {
+                                "type": "integer",
+                                "description": "The number of vCPUs."
+                              },
+                              "ram": {
+                                "type": "integer",
+                                "description": "The amount of RAM in MB."
+                              },
+                              "disk": {
+                                "type": "integer",
+                                "description": "The disk size in GB."
+                              },
+                              "bandwidth": {
+                                "type": "integer",
+                                "description": "The monthly bandwidth quota in GB."
+                              },
+                              "pricing_model": {
+                                "description": "Determines how the plan will be billed:\n\n* hourly\n* monthly"
+                              },
+                              "pricing_rate": {
+                                "type": "number",
+                                "description": "Determines the billing rate in US Dollars using the pricing model."
+                              }
+                            }
+                          }
                         }
                       }
                     }
@@ -20901,11 +22373,27 @@
                         ],
                         "plans": [
                           "vc2-2c-4gb",
-                          "vc2-4c-8gb",
-                          "vc2-6c-16gb",
-                          "vc2-8c-64gb",
-                          "vc2-16c-64gb",
-                          "vc2-24c-97gb"
+                          "vc2-4c-8gb"
+                        ],
+                        "plans_available": [
+                          {
+                            "id": "vc2-2c-4gb",
+                            "vcpu_count": 2,
+                            "ram": 4096,
+                            "disk": 80,
+                            "bandwidth": 3072,
+                            "pricing_model": "monthly",
+                            "pricing_rate": 12
+                          },
+                          {
+                            "id": "vc2-4c-8gb",
+                            "vcpu_count": 4,
+                            "ram": 8192,
+                            "disk": 160,
+                            "bandwidth": 4096,
+                            "pricing_model": "monthly",
+                            "pricing_rate": 24
+                          }
                         ]
                       }
                     }
@@ -22312,12 +23800,13 @@
           }
         },
         "operationId": "update-kubernetes-cluster",
-        "description": "Update Kubernetes Cluster",
+        "description": "Update Kubernetes Cluster. At least one of label, oidc, and enable_firewall is required.",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
                 "type": "object",
+                "description": "At least one of label, oidc, and enable_firewall is required.",
                 "properties": {
                   "label": {
                     "type": "string",
@@ -22348,16 +23837,18 @@
                       "issuer_url",
                       "client_id"
                     ]
+                  },
+                  "enable_firewall": {
+                    "type": "boolean",
+                    "description": "Whether a [Firewall Group](#tag/firewall) should be deployed and managed by this cluster.\nOmit this field to leave the managed firewall unchanged.\n* true\n* false"
                   }
-                },
-                "required": [
-                  "label"
-                ]
+                }
               },
               "examples": {
                 "example-1": {
                   "value": {
                     "label": "my new label",
+                    "enable_firewall": true,
                     "oidc": {
                       "issuer_url": "https://example.com",
                       "client_id": "my-client-id",
@@ -22633,6 +24124,177 @@
         ]
       }
     },
+    "/kubernetes/clusters/{vke-id}/nodes": {
+      "parameters": [
+        {
+          "schema": {
+            "type": "string"
+          },
+          "name": "vke-id",
+          "in": "path",
+          "required": true,
+          "description": "The [VKE ID](#operation/list-kubernetes-clusters)."
+        }
+      ],
+      "get": {
+        "summary": "List Kubernetes Cluster Nodes",
+        "tags": [
+          "kubernetes"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "worker_nodes": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/worker-node"
+                      }
+                    }
+                  }
+                },
+                "examples": {
+                  "example response": {
+                    "value": {
+                      "worker_nodes": [
+                        {
+                          "id": "f2e11430-76e5-4dc6-a1c9-ef5682c21ddf",
+                          "date_created": "2021-07-07T23:27:08+00:00",
+                          "label": "my-label-44060e6384c45",
+                          "ip": "192.0.2.50",
+                          "status": "active",
+                          "main_ip": "192.0.2.50",
+                          "ram": 2048,
+                          "disk": 55,
+                          "vcpu_count": 1,
+                          "region": "ewr",
+                          "power_status": "running",
+                          "server_status": "ok",
+                          "allowed_bandwidth": 2000,
+                          "netmask_v4": "255.255.252.0",
+                          "gateway_v4": "192.0.2.1",
+                          "v6_network": "2001:0db8:1112:18fb::",
+                          "v6_main_ip": "2001:0db8:1112:18fb:0200:00ff:fe00:0000",
+                          "v6_network_size": 64,
+                          "hostname": "worker-44060e6384c45",
+                          "internal_ip": "10.1.96.3",
+                          "vpc_only": false,
+                          "vpcs": [
+                            {
+                              "id": "775e26b3-f67d-46b7-87ed-1a0457fb3a5e",
+                              "version": 1,
+                              "subnet": "10.1.96.3"
+                            }
+                          ],
+                          "enable_memorybacking": "none",
+                          "kvm": "https://console.vultr.com/subs/vps/novnc/api.php?data=00example11223344",
+                          "firewall_group_id": "",
+                          "features": [
+                            "ipv6"
+                          ],
+                          "plan": "vc2-1c-2gb",
+                          "tags": [],
+                          "user_scheme": "root",
+                          "node_pool_id": "e97bdee9-2781-4f31-be03-60fc75f399ae"
+                        },
+                        {
+                          "id": "2f863151-d784-4184-804e-31e4e60945bd",
+                          "date_created": "2021-07-07T23:29:18+00:00",
+                          "label": "nodepool-6c360e638ce61",
+                          "ip": "192.0.2.60",
+                          "status": "active",
+                          "main_ip": "192.0.2.60",
+                          "ram": 2048,
+                          "disk": 55,
+                          "vcpu_count": 1,
+                          "region": "ewr",
+                          "power_status": "running",
+                          "server_status": "ok",
+                          "allowed_bandwidth": 2000,
+                          "netmask_v4": "255.255.252.0",
+                          "gateway_v4": "192.0.2.1",
+                          "v6_network": "2001:0db8:1112:18fb::",
+                          "v6_main_ip": "2001:0db8:1112:18fb:0200:00ff:fe00:0001",
+                          "v6_network_size": 64,
+                          "hostname": "worker-6c360e638ce61",
+                          "internal_ip": "10.1.128.3",
+                          "vpc_only": false,
+                          "vpcs": [
+                            {
+                              "id": "090a49c0-a1a2-4aab-a263-5d58f180c905",
+                              "version": 2,
+                              "subnet": "10.1.128.3"
+                            }
+                          ],
+                          "enable_memorybacking": "none",
+                          "kvm": "https://console.vultr.com/subs/vps/novnc/api.php?data=00example11223345",
+                          "firewall_group_id": "",
+                          "features": [
+                            "ipv6"
+                          ],
+                          "plan": "vc2-1c-2gb",
+                          "tags": [],
+                          "user_scheme": "root",
+                          "node_pool_id": "4130764b-5276-4552-546f-32513239732b"
+                        }
+                      ],
+                      "meta": {
+                        "total": 2,
+                        "links": {
+                          "next": "",
+                          "prev": ""
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Bad Request"
+          }
+        },
+        "operationId": "list-kubernetes-nodes",
+        "description": "List all worker nodes on a Kubernetes Cluster, across all of its node pools",
+        "security": [
+          {
+            "API Key": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "per_page",
+            "description": "Number of items requested per page. Default is 100 and Max is 500."
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "cursor",
+            "description": "Cursor for paging. See [Meta and Pagination](#section/Introduction/Meta-and-Pagination)."
+          }
+        ]
+      }
+    },
     "/kubernetes/clusters/{vke-id}/available-upgrades": {
       "parameters": [
         {
@@ -22897,6 +24559,7 @@
                         "app_name": "Bitnami NGINX",
                         "version": "18.1.5",
                         "status": "pending_install",
+                        "status_reason": null,
                         "timeout": "60m",
                         "config": "replicaCount: 2",
                         "date_created": "2026-09-14T16:00:00+00:00",
@@ -23004,6 +24667,7 @@
                           "app_name": "Bitnami NGINX",
                           "version": "18.1.5",
                           "status": "active",
+                          "status_reason": null,
                           "timeout": "60m",
                           "config": "replicaCount: 2",
                           "date_created": "2026-09-10T14:00:00+00:00",
@@ -23015,10 +24679,23 @@
                           "app_name": "Kubernetes Dashboard",
                           "version": "7.5.0",
                           "status": "active",
+                          "status_reason": null,
                           "timeout": "60m",
                           "config": "",
                           "date_created": "2026-09-11T15:00:00+00:00",
                           "date_updated": "2026-09-11T15:00:00+00:00"
+                        },
+                        {
+                          "id": "d4a8b6e2-1c7f-4e39-8a5d-3b9c0f2e6a33",
+                          "app_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                          "app_name": "Cluster Autoscaler",
+                          "version": "9.45.1",
+                          "status": "failed",
+                          "status_reason": "Installation Failed: timed out after 60m waiting for the deployment to become ready",
+                          "timeout": "60m",
+                          "config": "",
+                          "date_created": "2026-09-12T10:00:00+00:00",
+                          "date_updated": "2026-09-12T11:00:00+00:00"
                         }
                       ]
                     }
@@ -23094,6 +24771,7 @@
                         "app_name": "Bitnami NGINX",
                         "version": "18.1.5",
                         "status": "active",
+                        "status_reason": null,
                         "timeout": "60m",
                         "config": "replicaCount: 2",
                         "created_at": "2026-09-10T14:00:00+00:00",
@@ -24172,7 +25850,125 @@
           "required": true,
           "description": "The [NodePool ID](#operation/get-nodepools)."
         }
-      ]
+      ],
+      "get": {
+        "summary": "List NodePool Nodes",
+        "tags": [
+          "kubernetes"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "worker_nodes": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/worker-node"
+                      }
+                    }
+                  }
+                },
+                "examples": {
+                  "example response": {
+                    "value": {
+                      "worker_nodes": [
+                        {
+                          "id": "2f863151-d784-4184-804e-31e4e60945bd",
+                          "date_created": "2021-07-07T23:29:18+00:00",
+                          "label": "nodepool-6c360e638ce61",
+                          "ip": "192.0.2.60",
+                          "status": "active",
+                          "main_ip": "192.0.2.60",
+                          "ram": 2048,
+                          "disk": 55,
+                          "vcpu_count": 1,
+                          "region": "ewr",
+                          "power_status": "running",
+                          "server_status": "ok",
+                          "allowed_bandwidth": 2000,
+                          "netmask_v4": "255.255.252.0",
+                          "gateway_v4": "192.0.2.1",
+                          "v6_network": "2001:0db8:1112:18fb::",
+                          "v6_main_ip": "2001:0db8:1112:18fb:0200:00ff:fe00:0001",
+                          "v6_network_size": 64,
+                          "hostname": "worker-6c360e638ce61",
+                          "internal_ip": "10.1.128.3",
+                          "vpc_only": false,
+                          "vpcs": [
+                            {
+                              "id": "090a49c0-a1a2-4aab-a263-5d58f180c905",
+                              "version": 2,
+                              "subnet": "10.1.128.3"
+                            }
+                          ],
+                          "enable_memorybacking": "none",
+                          "kvm": "https://console.vultr.com/subs/vps/novnc/api.php?data=00example11223345",
+                          "firewall_group_id": "",
+                          "features": [
+                            "ipv6"
+                          ],
+                          "plan": "vc2-1c-2gb",
+                          "tags": [],
+                          "user_scheme": "root",
+                          "node_pool_id": "4130764b-5276-4552-546f-32513239732b"
+                        }
+                      ],
+                      "meta": {
+                        "total": 1,
+                        "links": {
+                          "next": "",
+                          "prev": ""
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Bad Request"
+          }
+        },
+        "operationId": "list-nodepool-nodes",
+        "description": "List all worker nodes on a NodePool",
+        "security": [
+          {
+            "API Key": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "per_page",
+            "description": "Number of items requested per page. Default is 100 and Max is 500."
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "cursor",
+            "description": "Cursor for paging. See [Meta and Pagination](#section/Introduction/Meta-and-Pagination)."
+          }
+        ]
+      }
     },
     "/kubernetes/clusters/{vke-id}/node-pools/{nodepool-id}/nodes/{node-id}": {
       "parameters": [
@@ -27815,6 +29611,12 @@
                         {
                           "name": "some_connector",
                           "class": "com.couchbase.connect.kafka.CouchbaseSinkConnector",
+                          "plugin": {
+                            "title": "Couchbase Sink",
+                            "version": "4.1.11",
+                            "type": "sink",
+                            "doc_url": "https://github.com/couchbase/kafka-connect-couchbase"
+                          },
                           "topics": "some_topic",
                           "config": {
                             "couchbase.seed.nodes": 3,
@@ -28019,6 +29821,12 @@
                       "connector": {
                         "name": "some_connector",
                         "class": "com.couchbase.connect.kafka.CouchbaseSinkConnector",
+                        "plugin": {
+                          "title": "Couchbase Sink",
+                          "version": "4.1.11",
+                          "type": "sink",
+                          "doc_url": "https://github.com/couchbase/kafka-connect-couchbase"
+                        },
                         "topics": "some_topic",
                         "config": {
                           "couchbase.seed.nodes": 3,
@@ -28652,6 +30460,24 @@
             "source": "curl \"https://api.vultr.com/v2/databases/{database-id}/alerts\" \\\n  -X POST \\\n  -H \"Authorization: Bearer ${VULTR_API_KEY}\" \\\n  -H \"Content-Type: application/json\" \\\n  --data '{\n    \"period\" : \"day\"\n  }'"
           }
         ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "per_page",
+            "description": "Number of items requested per page. Default is 100 and Max is 500."
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "cursor",
+            "description": "Cursor for paging. See [Meta and Pagination](#section/Introduction/Meta-and-Pagination)."
+          }
+        ],
         "responses": {
           "200": {
             "description": "OK",
@@ -28662,6 +30488,9 @@
                   "properties": {
                     "alerts": {
                       "$ref": "#/components/schemas/dbaas-alerts"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/meta"
                     }
                   }
                 },
@@ -28670,6 +30499,7 @@
                     "value": {
                       "alerts": [
                         {
+                          "id": "5b4dbf1c-4a6a-4e8a-9f3a-4e2f9e3a4a4f",
                           "timestamp": "2023-02-10 12:40:19",
                           "message_type": "RESOURCE USAGE DISK",
                           "description": "Disk usage is critically high for a database service, service is not performing normally.",
@@ -28677,12 +30507,16 @@
                           "resource_type": "disk"
                         },
                         {
+                          "id": "8b90c1d2-3e4f-4a5b-8c7d-9e0f1a2b3c4d",
                           "timestamp": "2023-02-09 15:41:20",
                           "message_type": "MAINTENANCE SCHEDULED",
                           "description": "Mandatory maintenance has been scheduled for a database service.",
                           "maintenance_scheduled": "2023-02-12 01:00:00 (UTC)"
                         }
-                      ]
+                      ],
+                      "meta": {
+                        "total": 2
+                      }
                     }
                   }
                 }
@@ -28719,7 +30553,20 @@
                 "properties": {
                   "period": {
                     "type": "string",
-                    "description": "The time range to list Managed Database service alerts from."
+                    "enum": [
+                      "day",
+                      "week",
+                      "month",
+                      "year"
+                    ],
+                    "description": "The time range to list Managed Database service alerts from. One of `day`, `week`, `month`, or `year`."
+                  },
+                  "acknowledged": {
+                    "type": "string",
+                    "enum": [
+                      "include"
+                    ],
+                    "description": "Set to `include` to also list alerts that have already been acknowledged. By default acknowledged alerts are excluded."
                   }
                 },
                 "required": [
@@ -28737,7 +30584,68 @@
           },
           "description": "Include a JSON object in the request body with a content type of **application/json**."
         },
-        "description": "List service alert messages for the Managed Database."
+        "description": "List service alert messages for the Managed Database. Acknowledged alerts are excluded by default; set `acknowledged` to `include` in the request body to list them."
+      }
+    },
+    "/databases/{database-id}/alerts/{alert-id}/acknowledge": {
+      "parameters": [
+        {
+          "schema": {
+            "type": "string"
+          },
+          "name": "database-id",
+          "in": "path",
+          "required": true,
+          "description": "The [Managed Database ID](#operation/list-databases)."
+        },
+        {
+          "schema": {
+            "type": "string"
+          },
+          "name": "alert-id",
+          "in": "path",
+          "required": true,
+          "description": "The [Alert ID](#operation/list-service-alerts)."
+        }
+      ],
+      "post": {
+        "summary": "Acknowledge Service Alert",
+        "tags": [
+          "managed-databases"
+        ],
+        "x-codeSamples": [
+          {
+            "lang": "Curl",
+            "source": "curl \"https://api.vultr.com/v2/databases/{database-id}/alerts/{alert-id}/acknowledge\" \\\n  -X POST \\\n  -H \"Authorization: Bearer ***}\""
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error"
+          }
+        },
+        "operationId": "acknowledge-service-alert",
+        "security": [
+          {
+            "API Key": []
+          }
+        ],
+        "description": "Acknowledge a Managed Database service alert. Once acknowledged, the alert no longer appears in the default alert list."
       }
     },
     "/databases/{database-id}/migration": {
@@ -45458,6 +47366,10 @@
                     "type": "integer",
                     "description": "Desired number of instances in the cluster's pool."
                   },
+                  "auto_provision": {
+                    "type": "boolean",
+                    "description": "Whether the cluster automatically provisions its compute pool. Defaults to `false` for `fabric` clusters and `true` otherwise.\n\nCannot be enabled on `fabric` clusters — such requests are rejected with a 406 response."
+                  },
                   "hostname": {
                     "type": "string",
                     "description": "Hostname to apply to cluster instances."
@@ -45533,10 +47445,14 @@
                   },
                   "vpc_ids": {
                     "type": "array",
-                    "description": "Array of [VPC ids](#operation/list-vpcs) to attach to the cluster.",
+                    "description": "Array of [VPC ids](#operation/list-vpcs) to attach to the cluster. Required for a bare metal cluster with VFS attached.",
                     "items": {
                       "type": "string"
                     }
+                  },
+                  "storage_gateway_id": {
+                    "type": "string",
+                    "description": "An existing, active [Storage Gateway id](#operation/list-storage-gateways) to use for the cluster's VFS. Bare metal clusters only; the gateway must belong to your account and be in the same region as the cluster. When omitted, a bare metal cluster with VFS gets a storage gateway provisioned automatically."
                   }
                 },
                 "required": [
@@ -45864,6 +47780,8 @@
                             "label": "cluster-node-1",
                             "date_created": "2026-01-15T10:32:00+00:00",
                             "status": "active",
+                            "server_status": "",
+                            "power_status": "running",
                             "ip_address": "192.0.2.10",
                             "hostname": "my-cluster-1",
                             "block_storage": [
@@ -45881,6 +47799,8 @@
                             "label": "cluster-head-1",
                             "date_created": "2026-01-15T10:32:00+00:00",
                             "status": "active",
+                            "server_status": "",
+                            "power_status": "running",
                             "ip_address": "192.0.2.11",
                             "hostname": "my-cluster-2",
                             "is_head_node": true,
@@ -48828,6 +50748,7 @@
             "app_name": "Bitnami NGINX",
             "version": "18.1.5",
             "status": "active",
+            "status_reason": null,
             "timeout": "60m",
             "config": "toolkit: \n enabled: false\ndriver:\n enabled: false\noperator: \n defaultRuntime: containerd\nplatform:\n openshift: false\nnfd: \n enabled: true\nmigManager: \n enabled: true",
             "date_created": "2026-08-20T15:30:00+00:00",
@@ -48853,7 +50774,12 @@
           },
           "status": {
             "type": "string",
-            "description": "Current lifecycle status of the application deployment.\n\n* pending_install\n* deploying_install\n* active\n* pending_upgrade\n* deploying_upgrade\n* pending_uninstall\n* deploying_uninstall\n* inactive"
+            "description": "Current lifecycle status of the application deployment.\n\n* pending_install\n* deploying_install\n* active\n* pending_upgrade\n* deploying_upgrade\n* pending_uninstall\n* deploying_uninstall\n* inactive\n* failed"
+          },
+          "status_reason": {
+            "type": "string",
+            "nullable": true,
+            "description": "Reason for the current status when `status` is `failed`. `null` when the deployment is healthy or in a pending/deploying state.\n\nWhen `status` is `failed`, this field is prefixed with either `Installation Failed:` or `Upgrade Failed:` to indicate which operation failed, followed by the error detail."
           },
           "timeout": {
             "type": "string",
@@ -49007,7 +50933,7 @@
           },
           "vpcs": {
             "type": "array",
-            "description": "List of VPC Networks to which the instance is attached.",
+            "description": "List of VPC Networks which are attached to the cluster.",
             "items": {
               "$ref": "#/components/schemas/attached-vpcs"
             }
@@ -49163,10 +51089,146 @@
           }
         }
       },
+      "worker-node": {
+        "title": "worker-node",
+        "type": "object",
+        "description": "Worker node in a Kubernetes cluster.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "A unique ID for the worker node."
+          },
+          "date_created": {
+            "type": "string",
+            "description": "The date this node was created."
+          },
+          "label": {
+            "type": "string",
+            "description": "The user-supplied label for this node."
+          },
+          "ip": {
+            "type": "string",
+            "description": "The main IP address for this node."
+          },
+          "status": {
+            "type": "string",
+            "description": "The current status.\n\n* active\n* pending\n* suspended\n* resizing"
+          },
+          "main_ip": {
+            "type": "string",
+            "description": "The main IPv4 address."
+          },
+          "ram": {
+            "type": "integer",
+            "description": "The amount of RAM in MB."
+          },
+          "disk": {
+            "type": "integer",
+            "description": "The size of the disk in GB."
+          },
+          "vcpu_count": {
+            "type": "integer",
+            "description": "Number of vCPUs."
+          },
+          "region": {
+            "type": "string",
+            "description": "The [Region id](#operation/list-regions) where the node is located."
+          },
+          "power_status": {
+            "type": "string",
+            "description": "The power-on status.\n\n* running\n* stopped"
+          },
+          "server_status": {
+            "type": "string",
+            "description": "The server health status.\n\n* none\n* locked\n* installingbooting\n* ok"
+          },
+          "allowed_bandwidth": {
+            "type": "integer",
+            "description": "Monthly bandwidth quota in GB."
+          },
+          "netmask_v4": {
+            "type": "string",
+            "description": "The IPv4 netmask in dot-decimal notation."
+          },
+          "gateway_v4": {
+            "type": "string",
+            "description": "The gateway IP address."
+          },
+          "v6_network": {
+            "type": "string",
+            "description": "The IPv6 subnet."
+          },
+          "v6_main_ip": {
+            "type": "string",
+            "description": "The main IPv6 network address."
+          },
+          "v6_network_size": {
+            "type": "integer",
+            "description": "The IPv6 network size in bits."
+          },
+          "hostname": {
+            "type": "string",
+            "description": "The hostname for this node."
+          },
+          "internal_ip": {
+            "type": "string",
+            "description": "The internal IP used by this node, if set. Only relevant when a VPC is attached."
+          },
+          "vpc_only": {
+            "type": "boolean",
+            "description": "The flag used when this node will not receive a public IP and will get its internet access through a NAT Gateway on the VPC."
+          },
+          "vpcs": {
+            "type": "array",
+            "description": "List of VPC Networks to which the node is attached.",
+            "items": {
+              "$ref": "#/components/schemas/attached-vpcs"
+            }
+          },
+          "enable_memorybacking": {
+            "type": "string",
+            "description": "The memory backing used for the node. Shared memory backing is required to attach Vultr File System (VFS) shares."
+          },
+          "kvm": {
+            "type": "string",
+            "description": "HTTPS link to the Vultr noVNC Web Console."
+          },
+          "firewall_group_id": {
+            "type": "string",
+            "description": "The [Firewall Group id](#operation/list-firewall-groups) linked to this node."
+          },
+          "features": {
+            "type": "array",
+            "description": "\"auto_backups\", \"ipv6\", \"ddos_protection\"",
+            "items": {
+              "type": "string"
+            }
+          },
+          "plan": {
+            "type": "string",
+            "description": "A unique ID for the Plan."
+          },
+          "tags": {
+            "type": "array",
+            "description": "Tags applied to the node",
+            "items": {
+              "type": "string"
+            }
+          },
+          "user_scheme": {
+            "type": "string",
+            "description": "The user scheme.\n\n* root\n* limited"
+          },
+          "node_pool_id": {
+            "type": "string",
+            "description": "The [NodePool ID](#operation/get-nodepools) this node belongs to."
+          }
+        }
+      },
       "attached-vpcs": {
         "title": "attached-vpcs",
         "type": "object",
-        "description": "Information about a specific VPC Network to which the instance is attached.",
+        "description": "Information about a specific attached VPC Network.",
         "properties": {
           "id": {
             "type": "string",
@@ -50984,6 +53046,104 @@
           }
         }
       },
+      "block-clone": {
+        "type": "object",
+        "required": [
+          "block_id",
+          "region"
+        ],
+        "properties": {
+          "block_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "UUID of the source block storage volume."
+          },
+          "region": {
+            "type": "string",
+            "description": "Region code for the new volumes, e.g. `ewr`. May differ from the source volume's region."
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 64,
+            "default": 1,
+            "description": "Number of clone volumes to create."
+          },
+          "size_gb": {
+            "type": "integer",
+            "description": "Size of each new volume in GB. Defaults to the source volume's size. Must be greater than or equal to the source size."
+          },
+          "block_type": {
+            "type": "string",
+            "enum": [
+              "high_perf",
+              "storage_opt"
+            ],
+            "description": "Type of the new volumes. Defaults to the source volume's type."
+          },
+          "label": {
+            "type": "string",
+            "description": "Label applied to each new volume."
+          },
+          "description": {
+            "type": "string",
+            "description": "Description recorded with the clone job."
+          },
+          "keep_snapshot": {
+            "type": "boolean",
+            "default": false,
+            "description": "Keep the intermediate snapshot created from the source volume after the clones are created."
+          }
+        }
+      },
+      "block-clone-status": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "CREATING_SNAPSHOT",
+              "TRANSFERRING_SNAPSHOT",
+              "CREATING_SUBS",
+              "COMPLETE",
+              "FAILED"
+            ],
+            "description": "PENDING - job queued. CREATING_SNAPSHOT - snapshotting the source volume. TRANSFERRING_SNAPSHOT - transferring the snapshot (cross-region or cross-block-type clones only). CREATING_SUBS - creating the new volumes. COMPLETE - all volumes created and active. FAILED - job failed; see blocks for any volumes created before the failure."
+          },
+          "count": {
+            "type": "integer"
+          },
+          "size_gb": {
+            "type": "integer"
+          },
+          "label": {
+            "type": "string"
+          },
+          "keep_snapshot": {
+            "type": "boolean"
+          },
+          "date_created": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "date_updated": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "blocks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/blockstorage"
+            },
+            "description": "Volumes created by the job. Present once state is COMPLETE, and on FAILED if any volumes were created before the failure. For cloned boot volumes: os_id is the snapshot image OS (164), snapshot_id is the snapshot the volume was cloned from, and bootable indicates whether the volume can be used as a boot disk."
+          }
+        }
+      },
       "object-storage-bucket-lifecycle-policy": {
         "title": "object-storage-bucket-lifecycle-policy",
         "type": "object",
@@ -52489,7 +54649,7 @@
           },
           "snapshot_id": {
             "type": "string",
-            "description": "The [Snapshot id](#operation/list-snapshots)."
+            "description": "The [Snapshot id](#operation/list-snapshots), if this bare metal was created or restored from one of your snapshots."
           },
           "v6_network": {
             "type": "string",
@@ -52560,6 +54720,10 @@
             "type": "integer",
             "description": "Number of CPUs."
           },
+          "gpu_model_label": {
+            "type": "string",
+            "description": "The GPU model label of the bare metal plan's GPU hardware, or an empty string if the plan has no GPU."
+          },
           "region": {
             "type": "string",
             "description": "The [Region id](#operation/list-regions) where the instance is located."
@@ -52626,7 +54790,7 @@
           },
           "snapshot_id": {
             "type": "string",
-            "description": "The [Snapshot id](#operation/list-snapshots)."
+            "description": "The [Snapshot id](#operation/list-snapshots), if this bare metal was created or restored from one of your snapshots."
           },
           "v6_network": {
             "type": "string",
@@ -52662,6 +54826,29 @@
           "vserial": {
             "type": "string",
             "description": "The vSerial SSH destination (user@host) for accessing the bare metal server's serial console remotely. Use with `ssh -i {private-key} {vserial}`."
+          },
+          "rescue_mode": {
+            "type": "boolean",
+            "description": "Whether the instance is currently in rescue mode."
+          },
+          "preemptible": {
+            "type": "boolean",
+            "description": "Whether this is a preemptible bare metal instance."
+          },
+          "preempted": {
+            "type": "boolean",
+            "description": "Whether preemption has been triggered for this preemptible bare metal instance."
+          },
+          "preemptible_sec_terminate": {
+            "type": "integer",
+            "nullable": true,
+            "description": "The configured preemption notice period in seconds. Uses the subscription-level notice period if set, otherwise the account-level notice period if set, otherwise the default 14400 (4 hours). The actual termination time once preemption is triggered is in `preemptible_date_terminate`. Null if the bare metal is not preemptible."
+          },
+          "preemptible_date_terminate": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time",
+            "description": "The termination date once preemption has been triggered, null otherwise. ISO-8601 with offset, honoring the request timezone."
           }
         }
       },
@@ -52965,6 +55152,10 @@
             "type": "string",
             "description": "The server health status.\n\n* none\n* locked\n* installingbooting\n* ok"
           },
+          "lock_reason": {
+            "type": "string",
+            "description": "If the `server_status` is `locked` contains the reason for the lock (otherwise empty)."
+          },
           "allowed_bandwidth": {
             "type": "integer",
             "description": "Monthly bandwidth quota in GB."
@@ -53041,6 +55232,10 @@
             "type": "string",
             "description": "The [Application image_id](#operation/list-applications) used by this instance."
           },
+          "script_id": {
+            "type": "string",
+            "description": "The [Startup Script id](#operation/list-startup-scripts) attached to this instance.\nFor custom OS installs, this is the iPXE startup script id.\nAn empty string indicates no startup script is attached."
+          },
           "snapshot_id": {
             "type": "string",
             "description": "The [Snapshot id](#operation/list-snapshots) used by this instance."
@@ -53074,6 +55269,25 @@
           "vke_cluster_id": {
             "type": "string",
             "description": "The [VKE Cluster id](#operation/get-kubernetes-clusters) this instance belongs to. Empty string if the instance is not part of a VKE cluster."
+          },
+          "preemptible": {
+            "type": "boolean",
+            "description": "Whether this is a preemptible instance."
+          },
+          "preempted": {
+            "type": "boolean",
+            "description": "Whether preemption has been triggered for this preemptible instance."
+          },
+          "preemptible_sec_terminate": {
+            "type": "integer",
+            "nullable": true,
+            "description": "The configured preemption notice period in seconds. Uses the subscription-level notice period if set, otherwise the account-level notice period if set, otherwise the default 14400 (4 hours). The actual termination time once preemption is triggered is in `preemptible_date_terminate`. Null if the instance is not preemptible."
+          },
+          "preemptible_date_terminate": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time",
+            "description": "The termination date once preemption has been triggered, null otherwise. ISO-8601 with offset, honoring the request timezone."
           }
         }
       },
@@ -53700,6 +55914,28 @@
             "type": "string",
             "description": "The class for the database connector."
           },
+          "plugin": {
+            "type": "object",
+            "description": "Metadata for the connector plugin, returned by the List and Get Connector endpoints.",
+            "properties": {
+              "title": {
+                "type": "string",
+                "description": "The display name of the connector plugin."
+              },
+              "version": {
+                "type": "string",
+                "description": "The version of the connector plugin."
+              },
+              "type": {
+                "type": "string",
+                "description": "Whether the connector plugin is a source or sink."
+              },
+              "doc_url": {
+                "type": "string",
+                "description": "The documentation URL for the connector plugin."
+              }
+            }
+          },
           "topics": {
             "type": "string",
             "description": "A comma-separated list of topics to use with the database connector."
@@ -53764,6 +56000,14 @@
         "description": "Managed Database alerts information.",
         "x-examples": {},
         "properties": {
+          "id": {
+            "type": "string",
+            "description": "The ID of the alert (its `message_id`). Use this ID to [acknowledge the alert](#operation/acknowledge-service-alert)."
+          },
+          "message_id": {
+            "type": "string",
+            "description": "The unique identifier the Managed Database service assigned to this alert. This is the same value as `id`."
+          },
           "timestamp": {
             "type": "string",
             "description": "The date and time in which the alert was sent."
@@ -55529,6 +57773,30 @@
           }
         }
       },
+      "global-region": {
+        "title": "global-region",
+        "type": "object",
+        "x-tags": [
+          "load-balancer"
+        ],
+        "description": "Global Region (child Load Balancer) information.",
+        "x-examples": {
+          "global region": {
+            "region_id": "lax",
+            "vpc_id": "6c97149f-e340-453a-b3eb-67eaf6fb93b1"
+          }
+        },
+        "properties": {
+          "region_id": {
+            "type": "string",
+            "description": "The [Region id](#operation/list-regions) of the child Load Balancer."
+          },
+          "vpc_id": {
+            "type": "string",
+            "description": "The ID of the VPC the child Load Balancer is attached to. An empty string means the public network."
+          }
+        }
+      },
       "forwarding-rule": {
         "title": "forwarding-rule",
         "type": "object",
@@ -56576,6 +58844,24 @@
             "type": "boolean",
             "description": "Whether the cluster automatically provisions its compute pool. Cannot be enabled on `fabric` clusters."
           },
+          "provisioning_failure": {
+            "type": "object",
+            "description": "Only returned when automatic provisioning has repeatedly failed to fill the compute pool. Provisioning keeps retrying, and this is removed once a node is provisioned or the cluster no longer needs one.",
+            "properties": {
+              "attempts": {
+                "type": "integer",
+                "description": "Number of consecutive failed provisioning attempts."
+              },
+              "last_error": {
+                "type": "string",
+                "description": "The reason the most recent attempt failed."
+              },
+              "last_attempt": {
+                "type": "string",
+                "description": "The date the most recent attempt failed."
+              }
+            }
+          },
           "hostname": {
             "type": "string",
             "description": "Hostname applied to cluster instances."
@@ -56677,6 +58963,14 @@
           "status": {
             "type": "string",
             "description": "Instance status."
+          },
+          "server_status": {
+            "type": "string",
+            "description": "The server health status, as returned by [Get Instance](#operation/get-instance). Empty for bare metal instances.\n\n* none\n* locked\n* installingbooting\n* isomounting\n* ok"
+          },
+          "power_status": {
+            "type": "string",
+            "description": "The power-on status.\n\n* running\n* stopped"
           },
           "ip_address": {
             "type": "string",
@@ -57329,6 +59623,311 @@
           "price_hr": {
             "type": "string",
             "description": "Hourly price (common to VPS and bare metal)."
+          }
+        }
+      },
+      "schemas_nat-gateway": {
+        "title": "nat-gateway",
+        "type": "object",
+        "x-tags": [
+          "VPCs"
+        ],
+        "description": "NAT Gateway information.",
+        "x-examples": {},
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "A unique ID for the NAT Gateway."
+          },
+          "vpc_id": {
+            "type": "string",
+            "description": "The unique ID for the VPC Network."
+          },
+          "date_created": {
+            "type": "string",
+            "description": "The date this NAT Gateway was created."
+          },
+          "status": {
+            "type": "string",
+            "description": "The current status.\n\n* pending\n* active"
+          },
+          "label": {
+            "type": "string",
+            "description": "The user-supplied label for this NAT Gateway."
+          },
+          "tag": {
+            "type": "string",
+            "description": "The user-supplied tag for this NAT Gateway."
+          },
+          "public_ips": {
+            "type": "array",
+            "description": "The public IPv4 addresses of this NAT Gateway.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "public_ips_v6": {
+            "type": "array",
+            "description": "The public IPv6 addresses of this NAT Gateway.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "private_ips": {
+            "type": "array",
+            "description": "The private IP addresses of this NAT Gateway.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "billing": {
+            "$ref": "#/components/schemas/nat-gateway-billing"
+          }
+        }
+      },
+      "schemas_nat-gateway-firewall-rule": {
+        "title": "nat-gateway-firewall-rule",
+        "type": "object",
+        "x-tags": [
+          "VPCs"
+        ],
+        "description": "NAT Gateway Firewall Rule information.",
+        "x-examples": {},
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The ID of the Nat Gateway Firewall Rule"
+          },
+          "action": {
+            "type": "string",
+            "description": "The action associated with this firewall rule. Always `accept` since deny is default."
+          },
+          "protocol": {
+            "type": "string",
+            "description": "The protocol for this firewall rule\n\n* `tcp`\n* `udp`"
+          },
+          "port": {
+            "type": "string",
+            "description": "The port or port range for this firewall rule."
+          },
+          "subnet": {
+            "type": "string",
+            "description": "The IP address representing a subnet for this firewall rule."
+          },
+          "subnet_size": {
+            "type": "integer",
+            "description": "The number of bits for the netmask in CIDR notation. Example: `24`"
+          },
+          "notes": {
+            "type": "string",
+            "description": "The user-supplied notes for this firewall rule."
+          }
+        }
+      },
+      "schemas_nat-gateway-port-forwarding-rule": {
+        "title": "nat-gateway-port-forwarding-rule",
+        "type": "object",
+        "x-tags": [
+          "VPCs"
+        ],
+        "description": "NAT Gateway Port Forwarding Rule information.",
+        "x-examples": {},
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The ID of the Nat Gateway Port Forwarding Rule"
+          },
+          "name": {
+            "type": "string",
+            "description": "The name of this port forwarding rule."
+          },
+          "protocol": {
+            "type": "string",
+            "description": "The protocol for this port forwarding rule\n\n* `tcp`\n* `udp`\n* `both`"
+          },
+          "external_port": {
+            "type": "integer",
+            "description": "The external port associated with this port forwarding rule."
+          },
+          "internal_ip": {
+            "type": "string",
+            "description": "The internal IP address associated with this port forwarding rule."
+          },
+          "internal_port": {
+            "type": "integer",
+            "description": "The internal port associated with this port forwarding rule."
+          },
+          "enabled": {
+            "type": "boolean",
+            "description": "Whether this port forwarding rule is enabled."
+          },
+          "description": {
+            "type": "string",
+            "description": "The user-supplied description for this port forwarding rule."
+          },
+          "created_at": {
+            "type": "string",
+            "description": "The date this port forwarding rule was added."
+          },
+          "updated_at": {
+            "type": "string",
+            "description": "The date at which this port forwarding rule was last updated."
+          }
+        }
+      },
+      "nat-gateway-vip-backend-ip": {
+        "title": "nat-gateway-vip-backend-ip",
+        "type": "object",
+        "x-tags": [
+          "VPCs"
+        ],
+        "description": "NAT Gateway Virtual IP Backend IP information.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The ID of the Backend IP."
+          },
+          "ip": {
+            "type": "string",
+            "description": "The private IP address of this backend."
+          },
+          "ip_type": {
+            "type": "string",
+            "description": "The IP type of this backend\n\n* `v4`\n* `v6`"
+          },
+          "port": {
+            "type": "integer",
+            "description": "The port on this backend that receives traffic."
+          },
+          "health_check_port": {
+            "type": "integer",
+            "description": "The port on this backend used for health checks."
+          },
+          "mac_address": {
+            "type": "string",
+            "description": "The MAC address of this backend."
+          },
+          "notes": {
+            "type": "string",
+            "description": "The user-supplied notes for this backend."
+          }
+        }
+      },
+      "nat-gateway-virtual-ip": {
+        "title": "nat-gateway-virtual-ip",
+        "type": "object",
+        "x-tags": [
+          "VPCs"
+        ],
+        "description": "NAT Gateway Virtual IP information. A Virtual IP is an internal VPC load balancer for traffic within the VPC; it is not an internet-facing ingress product (use Vultr Load Balancers for that).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The ID of the Virtual IP."
+          },
+          "ip": {
+            "type": "string",
+            "description": "The IP address of the Virtual IP."
+          },
+          "ip_type": {
+            "type": "string",
+            "description": "The IP type of the Virtual IP\n\n* `v4`\n* `v6`"
+          },
+          "port": {
+            "type": "integer",
+            "description": "The port this Virtual IP listens on."
+          },
+          "routing_type": {
+            "type": "string",
+            "description": "The routing type for this Virtual IP\n\n* `direct_routing`\n* `full_nat`"
+          },
+          "notes": {
+            "type": "string",
+            "description": "The user-supplied notes for this Virtual IP."
+          },
+          "label": {
+            "type": "string",
+            "description": "Optional RFC 1123 service label. When set, the gateway's DNS emits a `_<label>._tcp` SRV record pointing at this Virtual IP."
+          },
+          "health_check": {
+            "type": "object",
+            "description": "Health check settings for this Virtual IP.",
+            "properties": {
+              "interval": {
+                "type": "integer",
+                "description": "Seconds between health checks."
+              },
+              "timeout": {
+                "type": "integer",
+                "description": "Seconds before a health check times out."
+              },
+              "fall": {
+                "type": "integer",
+                "description": "Number of failed checks before a backend is marked down."
+              },
+              "rise": {
+                "type": "integer",
+                "description": "Number of passed checks before a backend is marked up."
+              }
+            }
+          },
+          "backend_ips": {
+            "type": "array",
+            "description": "The backend IPs attached to this Virtual IP.",
+            "items": {
+              "$ref": "#/components/schemas/nat-gateway-vip-backend-ip"
+            }
+          }
+        }
+      },
+      "nat-gateway-dns-override-record": {
+        "title": "nat-gateway-dns-override-record",
+        "type": "object",
+        "x-tags": [
+          "VPCs"
+        ],
+        "description": "NAT Gateway DNS Override Record information.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The ID of the DNS Override Record."
+          },
+          "type": {
+            "type": "string",
+            "description": "The record type\n\n* `A`\n* `AAAA`\n* `CNAME`"
+          },
+          "data": {
+            "type": "string",
+            "description": "The record data (an IP address for `A`/`AAAA`, or a hostname for `CNAME`)."
+          },
+          "notes": {
+            "type": "string",
+            "description": "The user-supplied notes for this record."
+          }
+        }
+      },
+      "nat-gateway-dns-override": {
+        "title": "nat-gateway-dns-override",
+        "type": "object",
+        "x-tags": [
+          "VPCs"
+        ],
+        "description": "NAT Gateway DNS Override information.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The ID of the DNS Override."
+          },
+          "domain": {
+            "type": "string",
+            "description": "The domain this DNS Override applies to."
+          },
+          "records": {
+            "type": "array",
+            "description": "The DNS records within this DNS Override.",
+            "items": {
+              "$ref": "#/components/schemas/nat-gateway-dns-override-record"
+            }
           }
         }
       }

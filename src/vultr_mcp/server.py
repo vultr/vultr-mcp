@@ -23,6 +23,7 @@ from vultr_mcp.branding import server_icons
 from vultr_mcp.diagnostics import InstrumentedTransport, PathTemplates
 from vultr_mcp.interface.compiler import CompiledInterface, compile_interface
 from vultr_mcp.interface.tools import InterfaceTool
+from vultr_mcp.spec_repair import sanitize_spec
 from vultr_mcp.suspension import SuspendedTransport
 from vultr_mcp.tool_list_refresh import ToolListRefreshMiddleware
 
@@ -122,61 +123,6 @@ def load_spec(path: str | Path | None = None) -> dict:
         return sanitize_spec(json.load(fh))
 
 
-# Language type names the spec uses where JSON Schema types belong.
-TYPE_ALIASES = {
-    "int": "integer",
-    "bool": "boolean",
-    "float": "number",
-    # Enum values live in the description; the author meant a string.
-    "enum": "string",
-}
-
-# Sample payloads, not schemas, so their `type` values are data and left alone.
-EXAMPLE_KEYS = frozenset({"example", "examples", "x-examples", "x-codeSamples"})
-
-
-def sanitize_spec(spec: dict) -> dict:
-    """Fix the spec-validity defects in Vultr's openapi.json that FastMCP's strict parser rejects."""
-    # (1) response objects missing the required `description`
-    for path_item in spec.get("paths", {}).values():
-        for op in path_item.values():
-            if not isinstance(op, dict):
-                continue
-            for response in op.get("responses", {}).values():
-                if isinstance(response, dict) and "$ref" not in response:
-                    response.setdefault("description", "")
-
-    # (2) programming-language type names → JSON Schema types, everywhere but
-    # inside example payloads.
-    def fix_type_aliases(node: object) -> None:
-        if isinstance(node, dict):
-            declared = node.get("type")
-            if isinstance(declared, str) and declared in TYPE_ALIASES:
-                node["type"] = TYPE_ALIASES[declared]
-            for key, value in node.items():
-                if key not in EXAMPLE_KEYS:
-                    fix_type_aliases(value)
-        elif isinstance(node, list):
-            for item in node:
-                fix_type_aliases(item)
-
-    fix_type_aliases(spec)
-
-    # (3) parameters missing `in`; vcr_region is the {region} of /registry/{registry-id}/replication/{region}
-    for pname, param in spec.get("components", {}).get("parameters", {}).items():
-        if isinstance(param, dict) and "$ref" not in param and "in" not in param:
-            if pname == "vcr_region":
-                param["name"] = "region"
-                param["in"] = "path"
-                param.setdefault("schema", {"type": "string"})
-            else:
-                # Unknown: a query param, so the parser accepts the spec rather than dropping it.
-                param["in"] = "query"
-            param.setdefault("required", param.get("in") == "path")
-
-    return spec
-
-
 # Tags someone reviewed, not a filter: a new tag fails the build until it is sorted here or into the exclusions.
 REVIEWED_CATEGORIES = frozenset(
     {
@@ -190,6 +136,7 @@ REVIEWED_CATEGORIES = frozenset(
         "baremetal",
         "billing",
         "block",
+        "blocks",
         "clusters",
         "dns",
         "firewall",
@@ -333,6 +280,7 @@ PRODUCT_NAMES: dict[str, str] = {
     "private Networks": "private networks",
     "CDNs": "CDN pull and push zones",
     "block": "block storage",
+    "blocks": "block storage clones",
     "s3": "object storage",
     "VFS": "file systems (VFS)",
     "storage-gateways": "storage gateways",
