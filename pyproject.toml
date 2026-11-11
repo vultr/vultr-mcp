@@ -4,7 +4,8 @@ version = "2.1.31"
 description = "Python MCP (Model Context Protocol) server for the Vultr cloud platform, built on FastMCP"
 requires-python = ">=3.12"
 dependencies = [
-    "fastmcp>=2.14",
+    # fastmcp 4.x removed fastmcp.tools.tool, which interface/tools.py imports.
+    "fastmcp>=2.14,<4",
     "httpx>=0.28",
     "py-key-value-aio[redis]>=0.4.5",
     # The interface layer: product area files are YAML, validated against a
