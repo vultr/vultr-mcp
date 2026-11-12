@@ -1,12 +1,12 @@
 # The tool surface and the interface layer
 
-How the 195 tools are produced, reviewed and kept in step with Vultr's OpenAPI spec. For using the server, start with the [README](../README.md).
+How the 197 tools are produced, reviewed and kept in step with Vultr's OpenAPI spec. For using the server, start with the [README](../README.md).
 
 ## The tool surface
 
 Tools come from two places. `FastMCP.from_openapi()` generates them from `openapi.json`; `interface/` defines them by hand, and **a hand-authored tool replaces the generated one** for the same operation.
 
-The read-only surface is **195 tools** — 193 hand-authored, plus 2 generated ones belonging to operations that were reviewed and deliberately declined. Every read operation the server exposes is hand-authored. The count does not grow as the layer does, because the replacement is one-for-one.
+The read-only surface is **197 tools** — 195 hand-authored, plus 2 generated ones belonging to operations that were reviewed and deliberately declined. Every read operation the server exposes is hand-authored. The count does not grow as the layer does, because the replacement is one-for-one.
 
 ### Three states an operation can be in
 
@@ -43,7 +43,7 @@ Override with `VULTR_MCP_EXCLUDED_CATEGORIES` (comma-separated tags; empty strin
 
 Generated tool definitions inherit whatever the spec says, which is written for developers reading docs, not for an agent choosing between 180 tools. That ambiguity has a measurable cost: asked to add a node to a Compute Cluster, an agent picked a VKE tool.
 
-`interface/` is a versioned set of reviewed YAML files deciding what the agent sees — name, description, input schema, response shape — while `openapi.json` stays the source of truth for the HTTP call. One tool maps to exactly one `operationId`. It covers **35 product areas across 10 families**.
+`interface/` is a versioned set of reviewed YAML files deciding what the agent sees — name, description, input schema, response shape — while `openapi.json` stays the source of truth for the HTTP call. One tool maps to exactly one `operationId`. It covers **36 product areas across 10 families**.
 
 ```yaml
 - name: vultr_compute_clusters_list     # vultr_<family>_<resource>_<verb>
@@ -121,6 +121,8 @@ Because these tools filter client-side, a filtered search pages through the coll
 ### Keeping up with the spec
 
 `openapi.json` moves because someone else shipped. Each weekday `openapi-sync.yml` reads the spec embedded in [vultr.com/api](https://www.vultr.com/api/) and, when it differs, keeps one `openapi-sync` pull request open whose description lists the changed operations and schemas, the reviewed tools they touch, and the validation and drift results; it starts CI on that branch itself. The same script runs locally with `uv run python scripts/sync_openapi.py`.
+
+An endpoint api.vultr.com already serves but vultr.com/api does not document yet goes in `openapi.supplement.json` instead, which the sync never touches. The server and the interface layer merge it into the spec at load time, never over an operation the spec already has, and a test fails as soon as the published spec documents one of its entries, so each entry is deleted rather than left to drift. Today it holds reserved capacity: `GET /capacity` and `GET /capacity/server/{server-id}`.
 
 CI answers "what changed, and does it still work" on every push:
 

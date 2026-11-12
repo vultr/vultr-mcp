@@ -23,7 +23,7 @@ from vultr_mcp.branding import server_icons
 from vultr_mcp.diagnostics import InstrumentedTransport, PathTemplates
 from vultr_mcp.interface.compiler import CompiledInterface, compile_interface
 from vultr_mcp.interface.tools import InterfaceTool
-from vultr_mcp.spec_repair import sanitize_spec
+from vultr_mcp.spec_repair import add_undocumented_operations, sanitize_spec
 from vultr_mcp.suspension import SuspendedTransport
 from vultr_mcp.tool_list_refresh import ToolListRefreshMiddleware
 
@@ -120,7 +120,7 @@ def load_spec(path: str | Path | None = None) -> dict:
     if path is None:
         path = Path(__file__).resolve().parent.parent.parent / "openapi.json"
     with open(path, encoding="utf-8") as fh:
-        return sanitize_spec(json.load(fh))
+        return sanitize_spec(add_undocumented_operations(json.load(fh)))
 
 
 # Tags someone reviewed, not a filter: a new tag fails the build until it is sorted here or into the exclusions.
@@ -137,6 +137,7 @@ REVIEWED_CATEGORIES = frozenset(
         "billing",
         "block",
         "blocks",
+        "capacity",
         "clusters",
         "dns",
         "firewall",
@@ -271,6 +272,7 @@ PRODUCT_NAMES: dict[str, str] = {
     "startup": "startup scripts",
     "instance-templates": "instance templates",
     "clusters": "compute clusters",
+    "capacity": "reserved capacity (dedicated physical servers)",
     "kubernetes": "Kubernetes (VKE) clusters",
     "firewall": "firewall groups",
     "dns": "DNS domains and records",

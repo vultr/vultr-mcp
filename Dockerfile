@@ -19,7 +19,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-install-project --no-dev
 
 COPY src ./src
-COPY openapi.json ./
+COPY openapi.json openapi.supplement.json ./
 # The reviewed tool definitions; without them every operation falls back to the generated tool.
 COPY interface ./interface
 RUN --mount=type=cache,target=/root/.cache/uv \

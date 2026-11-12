@@ -1,0 +1,162 @@
+product_area: capacity
+family: compute
+
+# Physical servers reserved for one account; what runs on each is reduced to IDs, since the embedded instances carry their console links.
+
+tools:
+  - name: vultr_compute_capacity_list
+    access: read
+    enabled: true
+
+    description: |
+      Lists the physical servers reserved exclusively for the active Vultr
+      account (deploy-assigned capacity), each with its server_id, whether it
+      is a bare metal server or a VM host, the plans it can be deployed as,
+      its region and location, hardware (CPU, memory, GPU, network and
+      disks), rack, whether it is available or active, and the IDs of what is
+      deployed on it.
+
+      Use this tool to find reserved hardware that is still free, to see which
+      instances or bare metal server run on a reserved server, or to get the
+      server_id a new instance or bare metal server must be deployed onto.
+
+      Do not use this tool for Vultr's general plan availability by region,
+      which vultr_catalog_region_availability_list returns, for the instances
+      themselves, which vultr_compute_instances_list returns, or for Compute
+      Clusters, which are a different product.
+
+    operation: list-capacity
+
+    input:
+      type: object
+      properties:
+        region:
+          type: string
+          description: Vultr region ID the server is in, such as ewr.
+          filter:
+            field: region
+            match: equals
+
+        server_type:
+          type: string
+          description: What the server is reserved as.
+          enum: [bare_metal, vm_host]
+          filter:
+            field: server_type
+            match: equals
+
+        status:
+          type: string
+          description: >-
+            available for a server with nothing deployed on it, active for one
+            running an instance or bare metal server.
+          enum: [available, active]
+          filter:
+            field: status
+            match: equals
+
+        page_size:
+          type: integer
+          description: >-
+            Maximum number of results to return: 25, 50 or 100. When a filter
+            is supplied the server scans the account and returns up to this
+            many matches, reporting in meta.filtered how much it scanned.
+          enum: [25, 50, 100]
+          default: 25
+          maps_to: per_page
+
+        cursor:
+          type: string
+          description: Cursor returned by a previous request for the next page.
+
+    output:
+      from_openapi: true
+      include:
+        - server_id
+        - server_type
+        - plans
+        - region
+        - location
+        - hardware_specs
+        - status
+        - rack
+        - meta
+
+    computed:
+      allocation_type:
+        type: string
+        description: What is deployed on the server, unallocated, instances or bare_metal.
+        from: allocation.type
+      instance_count:
+        type: integer
+        description: Number of instances on a VM host.
+        from: allocation.instance_count
+      instance_ids:
+        type: array
+        description: IDs of the instances on a VM host, for vultr_compute_instances_get.
+        from: allocation.instances.id
+      bare_metal_id:
+        type: string
+        description: ID of the bare metal server deployed on it, for vultr_compute_baremetal_get.
+        from: allocation.bare_metal.id
+
+  - name: vultr_compute_capacity_get
+    access: read
+    enabled: true
+
+    description: |
+      Gets one physical server reserved for the active Vultr account by its
+      server_id, with its server type (bare metal or VM host), the plans it
+      can be deployed as, its region and location, hardware (CPU, memory, GPU,
+      network and disks), rack, whether it is available or active, and the
+      IDs of what is deployed on it.
+
+      Use this tool when a server_id is already known. To find one, use
+      vultr_compute_capacity_list first.
+
+      Do not use this tool for an instance or bare metal server ID, which
+      vultr_compute_instances_get and vultr_compute_baremetal_get take.
+
+    operation: get-capacity
+
+    input:
+      type: object
+      required:
+        - server_id
+      properties:
+        server_id:
+          type: string
+          description: >-
+            ID of the reserved server, as returned in the server_id field by
+            vultr_compute_capacity_list.
+          maps_to: server-id
+
+    output:
+      from_openapi: true
+      include:
+        - server_id
+        - server_type
+        - plans
+        - region
+        - location
+        - hardware_specs
+        - status
+        - rack
+
+    computed:
+      allocation_type:
+        type: string
+        description: What is deployed on the server, unallocated, instances or bare_metal.
+        from: allocation.type
+      instance_count:
+        type: integer
+        description: Number of instances on a VM host.
+        from: allocation.instance_count
+      instance_ids:
+        type: array
+        description: IDs of the instances on a VM host, for vultr_compute_instances_get.
+        from: allocation.instances.id
+      bare_metal_id:
+        type: string
+        description: ID of the bare metal server deployed on it, for vultr_compute_baremetal_get.
+        from: allocation.bare_metal.id

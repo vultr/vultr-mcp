@@ -1,0 +1,153 @@
+{
+  "x-note": "Operations api.vultr.com serves that its published spec does not document yet; each entry is deleted once vultr.com/api documents it, which a test enforces.",
+  "paths": {
+    "/capacity": {
+      "get": {
+        "summary": "List Reserved Capacity",
+        "description": "List the physical servers reserved exclusively for this account (deploy-assigned capacity), each a bare metal server or a VM host, ordered by when it was assigned.",
+        "operationId": "list-capacity",
+        "tags": ["capacity"],
+        "security": [{"API Key": []}],
+        "parameters": [
+          {
+            "name": "per_page",
+            "in": "query",
+            "schema": {"type": "integer", "enum": [25, 50, 100, 500, 1000], "default": 25},
+            "description": "Number of items requested per page: 25, 50 or 100. Default is 25."
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {"type": "string"},
+            "description": "Cursor for paging. See [Meta and Pagination](#section/Introduction/Meta-and-Pagination)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "capacity": {"type": "array", "items": {"$ref": "#/components/schemas/capacity"}},
+                    "meta": {"$ref": "#/components/schemas/meta"}
+                  }
+                }
+              }
+            }
+          },
+          "400": {"description": "Bad Request"},
+          "401": {"description": "Unauthorized"},
+          "403": {"description": "Forbidden"}
+        }
+      }
+    },
+    "/capacity/server/{server-id}": {
+      "get": {
+        "summary": "Get Reserved Capacity Server",
+        "description": "Get one physical server reserved exclusively for this account.",
+        "operationId": "get-capacity",
+        "tags": ["capacity"],
+        "security": [{"API Key": []}],
+        "parameters": [
+          {
+            "name": "server-id",
+            "in": "path",
+            "required": true,
+            "schema": {"type": "string"},
+            "description": "The reserved server's `server_id`, from [List Reserved Capacity](#operation/list-capacity)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "capacity": {"$ref": "#/components/schemas/capacity"}
+                  }
+                }
+              }
+            }
+          },
+          "401": {"description": "Unauthorized"},
+          "403": {"description": "Forbidden"},
+          "404": {"description": "Not Found"}
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "capacity": {
+        "type": "object",
+        "description": "One physical server reserved for this account.",
+        "properties": {
+          "server_id": {"type": "string", "description": "The reserved server's ID, accepted as `server_id` when creating an instance or bare metal server on it."},
+          "server_type": {"type": "string", "description": "What the server is reserved as.\n\n* `bare_metal`\n* `vm_host`"},
+          "plans": {"type": "array", "items": {"type": "string"}, "description": "Plans it can be deployed as: the one metal plan for a bare metal server, every assignable instance plan for a VM host."},
+          "region": {"type": "string", "description": "The [Region id](#operation/list-regions) the server is in."},
+          "location": {
+            "type": "object",
+            "properties": {
+              "id": {"type": "string"},
+              "city": {"type": "string"},
+              "country": {"type": "string"},
+              "description": {"type": "string"}
+            }
+          },
+          "hardware_specs": {
+            "type": "object",
+            "properties": {
+              "gpu": {
+                "type": "object",
+                "properties": {
+                  "name": {"type": "string"},
+                  "vram_gb": {"type": "integer", "description": "VRAM per card in GB."},
+                  "count": {"type": "integer"}
+                }
+              },
+              "cpu": {"type": "string"},
+              "memory": {"type": "string"},
+              "network": {"type": "string"},
+              "storage": {"type": "string"},
+              "storage_disks": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "type": {"type": "string"},
+                    "count": {"type": "integer"},
+                    "capacity_gb": {"type": "integer"},
+                    "total_gb": {"type": "integer"}
+                  }
+                }
+              },
+              "total_storage_gb": {"type": "integer"}
+            }
+          },
+          "status": {"type": "string", "description": "* `available` - nothing is deployed on it\n* `active` - an instance or bare metal server is deployed on it"},
+          "allocation": {
+            "type": "object",
+            "description": "What is deployed on the server.",
+            "properties": {
+              "type": {"type": "string", "description": "* `unallocated`\n* `instances`\n* `bare_metal`"},
+              "instance_count": {"type": "integer", "description": "Present when type is `instances`."},
+              "instances": {"type": "array", "items": {"$ref": "#/components/schemas/instance"}, "description": "Present when type is `instances`."},
+              "bare_metal": {"$ref": "#/components/schemas/baremetal"}
+            }
+          },
+          "rack": {
+            "type": "object",
+            "properties": {
+              "id": {"type": "string"}
+            }
+          }
+        }
+      }
+    }
+  }
+}

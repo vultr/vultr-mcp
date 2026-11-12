@@ -2,7 +2,7 @@
 # One directory per endpoint group (app.py ENDPOINT_GROUPS); a large area lists several files but stays one entry,
 # since drift matches each area's name to an OpenAPI tag.
 
-version: 2026.11.1
+version: 2026.11.2
 
 schema: schema/interface.schema.json
 
@@ -28,6 +28,7 @@ product_areas:
 
   # -- compute -----------------------------------------------------------------
   backup: compute/backup.yaml
+  capacity: compute/capacity.yaml
   baremetal:
     - compute/baremetal/baremetal.yaml
     - compute/baremetal/networking.yaml

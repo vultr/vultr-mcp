@@ -279,7 +279,8 @@
             "string",
             "integer",
             "number",
-            "boolean"
+            "boolean",
+            "array"
           ]
         },
         "description": {

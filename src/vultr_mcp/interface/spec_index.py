@@ -9,7 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from vultr_mcp.spec_repair import sanitize_spec
+from vultr_mcp.spec_repair import add_undocumented_operations, sanitize_spec
 
 # Methods that change state: everything but GET, the same rule server.py applies (OPTIONS mints registry credentials).
 WRITE_METHODS = frozenset({"post", "put", "patch", "delete", "options", "head", "trace"})
@@ -205,8 +205,8 @@ class SpecIndex:
 
     @classmethod
     def load(cls, spec: dict[str, Any]) -> "SpecIndex":
-        # The same repairs the server applies, so a reference resolves here exactly as it will at runtime.
-        sanitize_spec(spec)
+        # The same additions and repairs the server applies, so a reference resolves here exactly as it will at runtime.
+        sanitize_spec(add_undocumented_operations(spec))
         index = cls()
         for path, path_item in spec.get("paths", {}).items():
             if not isinstance(path_item, dict):

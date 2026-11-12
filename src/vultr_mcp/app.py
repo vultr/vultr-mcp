@@ -41,7 +41,7 @@ def slugify(tag: str) -> str:
 # Product-family endpoints, as category slugs; every category appears exactly once (test_http_app checks).
 # Kubernetes stays apart from compute because agents confuse VKE clusters with compute clusters.
 ENDPOINT_GROUPS: dict[str, tuple[str, ...]] = {
-    "compute": ("instances", "baremetal", "snapshot", "backup", "startup", "instance-templates", "clusters"),
+    "compute": ("instances", "baremetal", "snapshot", "backup", "startup", "instance-templates", "clusters", "capacity"),
     "network": ("dns", "firewall", "load-balancer", "reserved-ip", "vpcs", "cdns", "private-networks"),
     "databases": ("managed-databases",),
     "account": ("account", "billing", "logs", "ssh", "subaccount", "tickets", "software-licenses"),

@@ -7,7 +7,8 @@ import json
 from pathlib import Path
 
 from vultr_mcp.interface.spec_index import SpecIndex
-from vultr_mcp.spec_repair import sanitize_spec
+from vultr_mcp.server import load_spec
+from vultr_mcp.spec_repair import add_undocumented_operations, load_supplement, sanitize_spec
 
 SPEC_PATH = Path(__file__).resolve().parent.parent / "openapi.json"
 
@@ -91,3 +92,45 @@ def test_the_interface_layer_sees_the_repaired_spec():
     index = SpecIndex.load(json.loads(SPEC_PATH.read_text(encoding="utf-8")))
     params = index.get("list-nat-gateways").raw["parameters"]
     assert all("$ref" not in param for param in params)
+
+
+# -- operations api.vultr.com serves before its spec documents them -------------
+
+
+def test_the_supplement_only_carries_what_the_published_spec_lacks():
+    """Once vultr.com/api documents an operation, its supplement entry is stale and must be deleted."""
+    published = json.loads(SPEC_PATH.read_text(encoding="utf-8"))
+    supplement = load_supplement()
+    documented = [
+        f"{method.upper()} {path}"
+        for path, item in supplement["paths"].items()
+        for method in item
+        if method in published["paths"].get(path, {})
+    ]
+    assert documented == [], f"published now, delete from openapi.supplement.json: {documented}"
+    stale = sorted(set(supplement["components"]["schemas"]) & set(published["components"]["schemas"]))
+    assert stale == [], f"published now, delete from openapi.supplement.json: {stale}"
+
+
+def test_the_server_serves_the_supplemented_operations():
+    spec = load_spec()
+    assert spec["paths"]["/capacity"]["get"]["operationId"] == "list-capacity"
+    assert "capacity" in spec["components"]["schemas"]
+
+
+def test_the_interface_layer_sees_the_supplemented_operations():
+    index = SpecIndex.load(json.loads(SPEC_PATH.read_text(encoding="utf-8")))
+    assert index.get("get-capacity") is not None
+
+
+def test_a_documented_operation_is_never_replaced_by_its_supplement_entry():
+    published = json.loads(SPEC_PATH.read_text(encoding="utf-8"))
+    published["paths"]["/capacity"] = {"get": {"operationId": "from-vultr"}}
+    add_undocumented_operations(published)
+    assert published["paths"]["/capacity"]["get"]["operationId"] == "from-vultr"
+
+
+def test_a_spec_without_the_schemas_it_builds_on_is_left_alone():
+    fixture = _spec("/a", {"operationId": "get-a"})
+    add_undocumented_operations(fixture)
+    assert list(fixture["paths"]) == ["/a"]

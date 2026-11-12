@@ -5,7 +5,14 @@ Every repair is idempotent, so the server and the interface layer can each apply
 
 from __future__ import annotations
 
+import copy
+import json
 import re
+from functools import lru_cache
+from pathlib import Path
+
+# Operations api.vultr.com serves before its published spec documents them, kept beside openapi.json.
+SUPPLEMENT_PATH = Path(__file__).resolve().parent.parent.parent / "openapi.supplement.json"
 
 # Language type names the spec uses where JSON Schema types belong.
 TYPE_ALIASES = {
@@ -77,6 +84,47 @@ def sanitize_spec(spec: dict) -> dict:
                 param["in"] = "query"
             param.setdefault("required", param.get("in") == "path")
 
+    return spec
+
+
+@lru_cache(maxsize=None)
+def load_supplement(path: Path = SUPPLEMENT_PATH) -> dict:
+    """The supplement document, or an empty one when the file is absent."""
+    if not path.exists():
+        return {"paths": {}, "components": {"schemas": {}}}
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _schema_refs(node: object) -> set[str]:
+    refs: set[str] = set()
+    if isinstance(node, dict):
+        ref = node.get("$ref")
+        if isinstance(ref, str) and ref.startswith("#/components/schemas/"):
+            refs.add(ref.rsplit("/", 1)[1])
+        for value in node.values():
+            refs |= _schema_refs(value)
+    elif isinstance(node, list):
+        for value in node:
+            refs |= _schema_refs(value)
+    return refs
+
+
+def add_undocumented_operations(spec: dict, supplement: dict | None = None) -> dict:
+    """Merge the supplement's paths and schemas into the spec, in place, never replacing what the spec already has."""
+    supplement = load_supplement() if supplement is None else supplement
+    own = set(supplement.get("components", {}).get("schemas", {}))
+    schemas = spec.setdefault("components", {}).setdefault("schemas", {})
+    # A spec without the schemas the supplement builds on is not Vultr's, such as a test fixture.
+    if not (_schema_refs(supplement) - own) <= set(schemas):
+        return spec
+
+    paths = spec.setdefault("paths", {})
+    for path, item in supplement.get("paths", {}).items():
+        target = paths.setdefault(path, {})
+        for method, op in item.items():
+            target.setdefault(method, copy.deepcopy(op))
+    for name, schema in supplement.get("components", {}).get("schemas", {}).items():
+        schemas.setdefault(name, copy.deepcopy(schema))
     return spec
 
 
